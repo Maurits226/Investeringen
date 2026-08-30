@@ -1,4 +1,14 @@
 {
-  "updated": "2026-08-30T17:58:16.984436+00:00",
-  "quotes": {}
+  "updated": "2026-08-30T20:10:30.958569+00:00",
+  "quotes": {
+    "1YD.DE": {
+      "ticker": "1YD.DE",
+      "price": 321.6,
+      "prevClose": 264.2,
+      "currency": "EUR",
+      "name": "Broadcom Inc.",
+      "high52": 429.55,
+      "low52": 247.0
+    }
+  }
 }

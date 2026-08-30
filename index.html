@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #0b1220;
+    --panel: #111a2e;
+    --panel-2: #16213b;
+    --line: #24314f;
+    --muted: #8695b3;
+    --text: #e8edf7;
+    --up: #37d39a;
+    --down: #ff5d6c;
+    --warn: #ffb020;
+    --accent: #6ea8fe;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #1a2544 0%, transparent 60%),
+      var(--ink);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 28px 18px 60px;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  header.top {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    flex-wrap: wrap; gap: 16px; margin-bottom: 26px;
+  }
+  .title-block h1 {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .pulse {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--up);
+    box-shadow: 0 0 0 0 rgba(55,211,154,.55);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(55,211,154,.5); }
+    70% { box-shadow: 0 0 0 10px rgba(55,211,154,0); }
+    100% { box-shadow: 0 0 0 0 rgba(55,211,154,0); }
+  }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 9px 15px;
+    border-radius: 10px; font-size: 13px; font-weight: 500; transition: .15s;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #06122b; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+  .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  #interval {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 9px 12px;
+    border-radius: 10px; font-size: 13px;
+  }
+  #interval:hover { border-color: var(--accent); }
+  .countdown { color: var(--accent); }
+
+  .summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px;
+  }
+  .stat {
+    background: linear-gradient(180deg, var(--panel), var(--ink));
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+  }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
+  .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+
+  .position {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1.6fr auto; gap: 18px; align-items: center;
+    position: relative; overflow: hidden; transition: .2s;
+  }
+  .position::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line);
+  }
+  .position.alert::before { background: var(--down); }
+  .position.alert {
+    border-color: rgba(255,93,108,.5);
+    box-shadow: 0 0 0 1px rgba(255,93,108,.25), 0 8px 30px -12px rgba(255,93,108,.4);
+  }
+
+  .p-name { display: flex; flex-direction: column; gap: 4px; }
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
+  .p-company { font-size: 12px; color: var(--muted); max-width: 160px; }
+  .src { font-size: 10px; font-weight: 600; margin-left: 4px; }
+  .src-live { color: var(--up); }
+  .src-proxy { color: var(--warn); }
+
+  .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
+  .v.up { color: var(--up); } .v.down { color: var(--down); }
+
+  .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
+  .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
+  .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, var(--down), var(--warn), var(--up)); }
+  .bar-marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+
+  .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
+  .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
+  .remove { background: none; border: none; color: var(--muted); font-size: 12px; padding: 2px; }
+  .remove:hover { color: var(--down); }
+
+  .state { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .err { color: var(--warn); }
+
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 16px; padding: 24px; width: min(420px, 92vw);
+  }
+  dialog::backdrop { background: rgba(4,8,18,.7); }
+  dialog h3 { margin-bottom: 16px; font-size: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--text);
+    padding: 10px 12px; border-radius: 9px; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
+  .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  @media (max-width: 860px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .position { grid-template-columns: 1fr 1fr; }
+    .p-actions { grid-column: span 2; flex-direction: row; justify-content: space-between; align-items: center; }
+    .bar-wrap { grid-column: span 2; }
+  }
+  @media (max-width: 520px) {
+    body { padding: 18px 12px 40px; }
+    header.top { flex-direction: column; align-items: stretch; }
+    .controls { justify-content: space-between; }
+    .summary { gap: 10px; }
+    .stat { padding: 12px 14px; }
+    .stat .value { font-size: 20px; }
+    .position { grid-template-columns: 1fr 1fr; padding: 16px; gap: 14px; }
+    .p-name { grid-column: span 2; }
+    .p-ticker { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="pulse"></span>Portfolio Monitor</h1>
+      <p>Live koersen via Yahoo Finance · rood = koers 20%+ onder de 52-weeks top</p>
+    </div>
+    <div class="controls">
+      <span class="updated" id="updated">nog niet ververst</span>
+      <select id="interval" title="Automatisch verversen">
+        <option value="0">handmatig</option>
+        <option value="30">elke 30s</option>
+        <option value="60" selected>elke 60s</option>
+        <option value="300">elke 5 min</option>
+      </select>
+      <button id="refresh">Ververs</button>
+      <button class="primary" id="add">+ Positie</button>
+    </div>
+  </header>
+
+  <div class="summary" id="summary"></div>
+  <div class="cards" id="cards"></div>
+
+  <p class="hint">
+    <strong>Zo werkt de waarschuwing:</strong> een positie kleurt rood zodra de huidige koers minstens
+    <strong>20% onder de 52-weeks top</strong> ligt — het signaal dat de drempel voor jou bereikt is.
+    De koersdrempel per positie staat instelbaar (standaard 20%). Data komt live van
+    <code>query1.finance.yahoo.com</code>. Zoekt de browser dit blokkeren door CORS, dan valt het
+    dashboard automatisch terug op een publieke proxy.
+  </p>
+</div>
+
+<dialog id="dlg">
+  <h3>Positie toevoegen</h3>
+  <div class="field">
+    <label>Ticker (Yahoo-symbool — beurs bepaalt de valuta)</label>
+    <input id="f-ticker" placeholder="AVGO.DE" autocomplete="off">
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">
+      Xetra = <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px">.DE</code> (EUR) ·
+      Amsterdam = <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px">.AS</code> ·
+      NASDAQ = geen achtervoegsel (USD)
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Aankoopprijs</label>
+      <input id="f-cost" type="number" step="0.01" placeholder="281.19">
+    </div>
+    <div class="field">
+      <label>Aantal</label>
+      <input id="f-qty" type="number" step="0.0001" placeholder="1">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Waarschuwing bij daling t.o.v. top</label>
+      <select id="f-thresh">
+        <option value="10">10%</option>
+        <option value="15">15%</option>
+        <option value="20" selected>20%</option>
+        <option value="25">25%</option>
+        <option value="30">30%</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Aankoopvaluta (weergave)</label>
+      <select id="f-cur">
+        <option value="native" selected>zoals genoteerd</option>
+        <option value="EUR">EUR</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+  </div>
+  <div class="dialog-actions">
+    <button id="f-cancel">Annuleren</button>
+    <button class="primary" id="f-save">Opslaan</button>
+  </div>
+</dialog>
+
+<script>
+const DEFAULT = [
+  { ticker: 'AVGO.DE', cost: 281.19, qty: 1, thresh: 20, cur: 'native' }
+];
+
+function loadPositions() {
+  try {
+    const saved = localStorage.getItem('portfolio_positions');
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return DEFAULT.slice();
+}
+function savePositions() {
+  try { localStorage.setItem('portfolio_positions', JSON.stringify(positions)); } catch (e) {}
+}
+
+let positions = loadPositions();
+
+const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
+  style: 'currency', currency: cur || 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
+}).format(n);
+const pct = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+
+// De data komt uit data.json, dat GitHub Actions elke 15 min bijwerkt.
+// Geen CORS, geen proxy — het dashboard leest gewoon zijn eigen bestand.
+let dataCache = null;
+let dataUpdated = null;
+
+async function loadData() {
+  // cache-buster zodat de browser niet een oude versie vasthoudt
+  const r = await fetch('data.json?t=' + Date.now());
+  if (!r.ok) throw new Error('data.json niet gevonden');
+  const j = await r.json();
+  dataCache = j.quotes || {};
+  dataUpdated = j.updated || null;
+}
+
+function getQuote(ticker) {
+  const q = dataCache && dataCache[ticker.toUpperCase()];
+  if (!q || q.price == null) return null;
+  return {
+    price: q.price,
+    prevClose: q.prevClose,
+    currency: q.currency || 'USD',
+    name: q.name || ticker,
+    high52: q.high52,
+    low52: q.low52,
+    source: 'github'
+  };
+}
+
+function positionCard(p, q, err) {
+  const el = document.createElement('div');
+  el.className = 'position';
+  if (err || !q) {
+    el.innerHTML = `
+      <div class="p-name"><span class="p-ticker">${p.ticker}</span>
+        <span class="p-company err">Koers niet geladen — bronnen geblokkeerd</span></div>
+      <div style="grid-column: span 3; font-size:12px; color:var(--muted); line-height:1.5">
+        Nog geen data voor deze ticker. Staat hij in <code>tickers.txt</code>? Draai anders
+        de GitHub Action één keer handmatig (tab <strong>Actions</strong> → <strong>Run workflow</strong>)
+        en ververs daarna.
+      </div>
+      <div class="p-actions"><button class="remove" data-t="${p.ticker}">verwijder</button></div>`;
+    el.querySelector('.remove').onclick = () => removePosition(p.ticker);
+    return el;
+  }
+
+  const cur = p.cur === 'native' ? q.currency : p.cur;
+  const dayChg = q.prevClose ? ((q.price - q.prevClose) / q.prevClose) * 100 : 0;
+  const fromHigh = ((q.price - q.high52) / q.high52) * 100; // negatief = onder top
+  const dropFromHigh = -fromHigh;
+  const plPct = ((q.price - p.cost) / p.cost) * 100;
+  const plAbs = (q.price - p.cost) * (p.qty || 1);
+  const alert = dropFromHigh >= p.thresh;
+  const rangePos = Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100));
+
+  if (alert) el.classList.add('alert');
+
+  el.innerHTML = `
+    <div class="p-name">
+      <span class="p-ticker">${p.ticker}</span>
+      <span class="p-company">${q.name} <span class="src src-live">● data</span></span>
+    </div>
+    <div class="p-block">
+      <div class="k">Huidige koers</div>
+      <div class="v ${dayChg >= 0 ? 'up' : 'down'}">${fmt(q.price, cur)}</div>
+      <div class="drop-tag ${dayChg >= 0 ? 'up' : 'down'}" style="color:${dayChg>=0?'var(--up)':'var(--down)'}">${pct(dayChg)} vandaag</div>
+    </div>
+    <div class="p-block">
+      <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
+      <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
+      <div class="drop-tag" style="color:${plPct>=0?'var(--up)':'var(--down)'}">${plAbs>=0?'+':''}${fmt(plAbs, cur)}</div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-labels"><span>${fmt(q.low52, cur)}</span><span>52-wk range</span><span>${fmt(q.high52, cur)}</span></div>
+      <div class="bar">
+        <div class="bar-fill" style="width:100%"></div>
+        <div class="bar-marker" style="left:${rangePos}%"></div>
+      </div>
+      <div class="drop-tag" style="color:${alert?'var(--down)':'var(--muted)'}">
+        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${p.thresh}%
+      </div>
+    </div>
+    <div class="p-actions">
+      <span class="badge ${alert ? 'buy' : 'hold'}">${alert ? 'KOOPSIGNAAL' : 'geen actie'}</span>
+      <button class="remove" data-t="${p.ticker}">verwijder</button>
+    </div>`;
+  el.querySelector('.remove').onclick = () => removePosition(p.ticker);
+  return el;
+}
+
+async function render() {
+  const cards = document.getElementById('cards');
+  const summary = document.getElementById('summary');
+  cards.innerHTML = '<div class="state">Koersen laden…</div>';
+
+  let loadError = false;
+  try {
+    await loadData();
+  } catch (e) {
+    loadError = true;
+  }
+
+  const results = positions.map(p => {
+    const q = getQuote(p.ticker);
+    return { p, q, err: !q };
+  });
+
+  cards.innerHTML = '';
+  let totalValue = 0, totalCost = 0, alerts = 0, loaded = 0;
+
+  results.forEach(({ p, q, err }) => {
+    cards.appendChild(positionCard(p, q, err));
+    if (q) {
+      loaded++;
+      const cur = p.cur === 'native' ? q.currency : p.cur;
+      totalValue += q.price * (p.qty || 1);
+      totalCost += p.cost * (p.qty || 1);
+      const drop = ((q.high52 - q.price) / q.high52) * 100;
+      if (drop >= p.thresh) alerts++;
+    }
+  });
+
+  const totalPl = totalValue - totalCost;
+  const totalPlPct = totalCost ? (totalPl / totalCost) * 100 : 0;
+
+  summary.innerHTML = `
+    <div class="stat"><div class="label">Posities</div><div class="value">${positions.length}</div><div class="sub" style="color:var(--muted)">${loaded} geladen</div></div>
+    <div class="stat"><div class="label">Portefeuillewaarde</div><div class="value">${fmt(totalValue,'USD')}</div><div class="sub" style="color:var(--muted)">som (native waarden)</div></div>
+    <div class="stat"><div class="label">Ongerealiseerd resultaat</div><div class="value" style="color:${totalPl>=0?'var(--up)':'var(--down)'}">${pct(totalPlPct)}</div><div class="sub" style="color:${totalPl>=0?'var(--up)':'var(--down)'}">${totalPl>=0?'+':''}${fmt(totalPl,'USD')}</div></div>
+    <div class="stat"><div class="label">Koopsignalen</div><div class="value" style="color:${alerts?'var(--down)':'var(--up)'}">${alerts}</div><div class="sub" style="color:var(--muted)">onder drempel</div></div>`;
+
+  let base;
+  if (dataUpdated) {
+    const d = new Date(dataUpdated);
+    base = 'data van ' + d.toLocaleString('nl-NL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  } else {
+    base = 'bijgewerkt ' + new Date().toLocaleTimeString('nl-NL');
+  }
+  const upd = document.getElementById('updated');
+  upd.dataset.base = base;
+  upd.textContent = base;
+}
+
+function removePosition(t) {
+  positions = positions.filter(p => p.ticker !== t);
+  savePositions();
+  render();
+}
+
+// Dialog
+const dlg = document.getElementById('dlg');
+document.getElementById('add').onclick = () => dlg.showModal();
+document.getElementById('f-cancel').onclick = () => dlg.close();
+document.getElementById('f-save').onclick = () => {
+  const t = document.getElementById('f-ticker').value.trim().toUpperCase();
+  if (!t) return;
+  positions.push({
+    ticker: t,
+    cost: parseFloat(document.getElementById('f-cost').value) || 0,
+    qty: parseFloat(document.getElementById('f-qty').value) || 1,
+    thresh: parseInt(document.getElementById('f-thresh').value),
+    cur: document.getElementById('f-cur').value
+  });
+  ['f-ticker','f-cost','f-qty'].forEach(id => document.getElementById(id).value = '');
+  dlg.close();
+  savePositions();
+  render();
+};
+
+document.getElementById('refresh').onclick = () => { render(); resetTimer(); };
+
+// Auto-refresh
+let timer = null, countdownTimer = null, secsLeft = 0;
+const intervalSel = document.getElementById('interval');
+const updatedEl = document.getElementById('updated');
+
+function resetTimer() {
+  clearInterval(timer); clearInterval(countdownTimer);
+  const secs = parseInt(intervalSel.value);
+  if (!secs) return;
+  secsLeft = secs;
+  timer = setInterval(() => { render(); secsLeft = secs; }, secs * 1000);
+  countdownTimer = setInterval(() => {
+    secsLeft--;
+    const base = updatedEl.dataset.base || '';
+    updatedEl.innerHTML = base + ` <span class="countdown">· volgende over ${secsLeft}s</span>`;
+  }, 1000);
+}
+
+intervalSel.onchange = resetTimer;
+
+render().then(resetTimer);
+</script>
+</body>
+</html>

@@ -1,3 +1,32 @@
 # Eén ticker per regel. Regels met # worden genegeerd.
-# Xetra (euro) = .DE  |  Amsterdam = .AS  |  NASDAQ (dollar) = geen achtervoegsel
+# Xetra/Gettex (euro) = .DE  |  Amsterdam = .AS  |  NYSE/NASDAQ (dollar) = geen achtervoegsel
+AMD.DE
+SPX.DE
 1YD.DE
+MTE.DE
+1ZB.DE
+TLO.DE
+49V.DE
+E7S.DE
+AMZ.DE
+ENR.DE
+LARO.DE
+ZETA
+ABEA.DE
+AP2.DE
+ANET
+45C.DE
+GOS.DE
+CMC.DE
+DWD.DE
+NVD.DE
+PTX.DE
+TFSA.DE
+ASML.AS
+UU2.DE
+MSF.DE
+QDVE.DE
+VHYL.MI
+VUAA.MI
+WSLV.MI
+PHAU.AS

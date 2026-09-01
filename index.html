@@ -79,11 +79,24 @@
     background: linear-gradient(180deg, var(--panel), var(--ink));
     border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
   }
+  .stat.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
+  .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat.clickable:active { transform: translateY(0); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
   .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
 
   .cards { display: flex; flex-direction: column; gap: 14px; }
+  .section-header {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
+    margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px;
+    scroll-margin-top: 16px;
+  }
+  .section-header:first-child { margin-top: 0; }
+  .section-header::before {
+    content: ''; width: 4px; height: 18px; border-radius: 2px; background: var(--accent);
+  }
 
   .position {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
@@ -210,15 +223,24 @@
   </div>
   <div class="row2">
     <div class="field">
+      <label>Categorie</label>
+      <select id="f-section">
+        <option value="Stocks" selected>Stocks</option>
+        <option value="ETF's">ETF's</option>
+        <option value="Gold &amp; Silver">Gold &amp; Silver</option>
+        <option value="Watchlist">Watchlist (alleen volgen)</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Aankoopprijs</label>
       <input id="f-cost" type="number" step="0.01" placeholder="281.19">
     </div>
+  </div>
+  <div class="row2">
     <div class="field">
       <label>Aantal</label>
       <input id="f-qty" type="number" step="0.0001" placeholder="1">
     </div>
-  </div>
-  <div class="row2">
     <div class="field">
       <label>Waarschuwing bij daling t.o.v. top</label>
       <select id="f-thresh">
@@ -229,6 +251,8 @@
         <option value="30">30%</option>
       </select>
     </div>
+  </div>
+  <div class="row2">
     <div class="field">
       <label>Aankoopvaluta (weergave)</label>
       <select id="f-cur">
@@ -237,6 +261,7 @@
         <option value="USD">USD</option>
       </select>
     </div>
+    <div class="field"></div>
   </div>
   <div class="dialog-actions">
     <button id="f-cancel">Annuleren</button>
@@ -246,18 +271,70 @@
 
 <script>
 const DEFAULT = [
-  { ticker: '1YD.DE', cost: 281.19, qty: 1, thresh: 20, cur: 'native' }
+  // Watchlist: geen aankoopprijs, alleen volgen
+  { ticker: 'AMD.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
+  { ticker: 'SPX.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
+
+  // Stocks
+  { ticker: '1YD.DE',  section: 'Stocks', cost: 281.19, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'MTE.DE',  section: 'Stocks', cost: 593.70, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '1ZB.DE',  section: 'Stocks', cost: 105.06, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'TLO.DE',  section: 'Stocks', cost: 302.67, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '49V.DE',  section: 'Stocks', cost: 166.72, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'E7S.DE',  section: 'Stocks', cost: 229.79, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'AMZ.DE',  section: 'Stocks', cost: 173.11, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ENR.DE',  section: 'Stocks', cost: 147.74, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'LARO.DE', section: 'Stocks', cost: 268.90, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ZETA',    section: 'Stocks', cost: 21.43,  qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ABEA.DE', section: 'Stocks', cost: 156.05, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'AP2.DE',  section: 'Stocks', cost: 170.29, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ANET',    section: 'Stocks', cost: 126.74, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '45C.DE',  section: 'Stocks', cost: 89.44,  qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'GOS.DE',  section: 'Stocks', cost: 739.00, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'CMC.DE',  section: 'Stocks', cost: 255.59, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'DWD.DE',  section: 'Stocks', cost: 147.57, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'NVD.DE',  section: 'Stocks', cost: 87.76,  qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'PTX.DE',  section: 'Stocks', cost: 123.29, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'TFSA.DE', section: 'Stocks', cost: 313.50, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ASML.AS', section: 'Stocks', cost: 704.60, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'UU2.DE',  section: 'Stocks', cost: 853.60, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'MSF.DE',  section: 'Stocks', cost: 353.15, qty: 1, thresh: 20, cur: 'native' },
+
+  // ETF's
+  { ticker: 'QDVE.DE', section: "ETF's", cost: 29.983, qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'VHYL.MI', section: "ETF's", cost: 81.669, qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'VUAA.MI', section: "ETF's", cost: 93.02,  qty: 1, thresh: 10, cur: 'native' },
+
+  // Gold and Silver
+  { ticker: 'WSLV.MI', section: 'Gold & Silver', cost: 64.32,  qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'PHAU.AS', section: 'Gold & Silver', cost: 364.33, qty: 1, thresh: 10, cur: 'native' }
 ];
+
+// Volgorde waarin de secties getoond worden
+const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
+
+// Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt hij
+// eenmalig opnieuw ingeladen, ook als er al iets in de browser bewaard was.
+const DEFAULT_VERSION = 6;
 
 function loadPositions() {
   try {
+    const savedVer = parseInt(localStorage.getItem('portfolio_version') || '0');
     const saved = localStorage.getItem('portfolio_positions');
-    if (saved) return JSON.parse(saved);
+    if (saved && savedVer >= DEFAULT_VERSION) return JSON.parse(saved);
+  } catch (e) {}
+  // Eerste keer, of nieuwe standaardlijst: gebruik DEFAULT en sla direct op
+  try {
+    localStorage.setItem('portfolio_positions', JSON.stringify(DEFAULT));
+    localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
   } catch (e) {}
   return DEFAULT.slice();
 }
 function savePositions() {
-  try { localStorage.setItem('portfolio_positions', JSON.stringify(positions)); } catch (e) {}
+  try {
+    localStorage.setItem('portfolio_positions', JSON.stringify(positions));
+    localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
+  } catch (e) {}
 }
 
 let positions = loadPositions();
@@ -316,12 +393,25 @@ function positionCard(p, q, err) {
   const dayChg = q.prevClose ? ((q.price - q.prevClose) / q.prevClose) * 100 : 0;
   const fromHigh = ((q.price - q.high52) / q.high52) * 100; // negatief = onder top
   const dropFromHigh = -fromHigh;
-  const plPct = ((q.price - p.cost) / p.cost) * 100;
-  const plAbs = (q.price - p.cost) * (p.qty || 1);
+  const isWatch = p.watch || p.cost == null;
+  const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
+  const plAbs = isWatch ? 0 : (q.price - p.cost) * (p.qty || 1);
   const alert = dropFromHigh >= p.thresh;
   const rangePos = Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100));
 
   if (alert) el.classList.add('alert');
+
+  const resultBlock = isWatch
+    ? `<div class="p-block">
+         <div class="k">Op watchlist</div>
+         <div class="v" style="color:var(--muted)">volgen</div>
+         <div class="drop-tag" style="color:var(--muted)">geen positie</div>
+       </div>`
+    : `<div class="p-block">
+         <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
+         <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
+         <div class="drop-tag" style="color:${plPct>=0?'var(--up)':'var(--down)'}">${plAbs>=0?'+':''}${fmt(plAbs, cur)}</div>
+       </div>`;
 
   el.innerHTML = `
     <div class="p-name">
@@ -333,11 +423,7 @@ function positionCard(p, q, err) {
       <div class="v ${dayChg >= 0 ? 'up' : 'down'}">${fmt(q.price, cur)}</div>
       <div class="drop-tag ${dayChg >= 0 ? 'up' : 'down'}" style="color:${dayChg>=0?'var(--up)':'var(--down)'}">${pct(dayChg)} vandaag</div>
     </div>
-    <div class="p-block">
-      <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
-      <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
-      <div class="drop-tag" style="color:${plPct>=0?'var(--up)':'var(--down)'}">${plAbs>=0?'+':''}${fmt(plAbs, cur)}</div>
-    </div>
+    ${resultBlock}
     <div class="bar-wrap">
       <div class="bar-labels"><span>${fmt(q.low52, cur)}</span><span>52-wk range</span><span>${fmt(q.high52, cur)}</span></div>
       <div class="bar">
@@ -376,26 +462,55 @@ async function render() {
   cards.innerHTML = '';
   let totalValue = 0, totalCost = 0, alerts = 0, loaded = 0;
 
-  results.forEach(({ p, q, err }) => {
-    cards.appendChild(positionCard(p, q, err));
-    if (q) {
-      loaded++;
-      const cur = p.cur === 'native' ? q.currency : p.cur;
-      totalValue += q.price * (p.qty || 1);
-      totalCost += p.cost * (p.qty || 1);
-      const drop = ((q.high52 - q.price) / q.high52) * 100;
-      if (drop >= p.thresh) alerts++;
-    }
+  // Groepeer per sectie
+  const bySection = {};
+  results.forEach(r => {
+    const sec = r.p.section || 'Overig';
+    (bySection[sec] = bySection[sec] || []).push(r);
+  });
+
+  // Bepaal de volgorde: bekende secties eerst, daarna eventuele nieuwe
+  const sections = [...SECTION_ORDER.filter(s => bySection[s]),
+                    ...Object.keys(bySection).filter(s => !SECTION_ORDER.includes(s))];
+
+  sections.forEach(sec => {
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.id = 'sec-' + sec.replace(/[^a-zA-Z]/g, '');
+    header.textContent = sec;
+    cards.appendChild(header);
+
+    bySection[sec].forEach(({ p, q, err }) => {
+      cards.appendChild(positionCard(p, q, err));
+      if (q && !p.watch) {
+        loaded++;
+        totalValue += q.price * (p.qty || 1);
+        totalCost += p.cost * (p.qty || 1);
+        const drop = ((q.high52 - q.price) / q.high52) * 100;
+        if (drop >= p.thresh) alerts++;
+      } else if (q && p.watch) {
+        loaded++;
+      }
+    });
   });
 
   const totalPl = totalValue - totalCost;
   const totalPlPct = totalCost ? (totalPl / totalCost) * 100 : 0;
 
+  const cnt = s => (bySection[s] ? bySection[s].length : 0);
+  const anchor = s => 'sec-' + s.replace(/[^a-zA-Z]/g, '');
   summary.innerHTML = `
-    <div class="stat"><div class="label">Posities</div><div class="value">${positions.length}</div><div class="sub" style="color:var(--muted)">${loaded} geladen</div></div>
-    <div class="stat"><div class="label">Portefeuillewaarde</div><div class="value">${fmt(totalValue,'USD')}</div><div class="sub" style="color:var(--muted)">som (native waarden)</div></div>
-    <div class="stat"><div class="label">Ongerealiseerd resultaat</div><div class="value" style="color:${totalPl>=0?'var(--up)':'var(--down)'}">${pct(totalPlPct)}</div><div class="sub" style="color:${totalPl>=0?'var(--up)':'var(--down)'}">${totalPl>=0?'+':''}${fmt(totalPl,'USD')}</div></div>
-    <div class="stat"><div class="label">Koopsignalen</div><div class="value" style="color:${alerts?'var(--down)':'var(--up)'}">${alerts}</div><div class="sub" style="color:var(--muted)">onder drempel</div></div>`;
+    <div class="stat clickable" data-sec="${anchor('Stocks')}"><div class="label">Stocks</div><div class="value">${cnt('Stocks')}</div><div class="sub" style="color:var(--muted)">aandelen</div></div>
+    <div class="stat clickable" data-sec="${anchor("ETF's")}"><div class="label">ETF's</div><div class="value">${cnt("ETF's")}</div><div class="sub" style="color:var(--muted)">fondsen</div></div>
+    <div class="stat clickable" data-sec="${anchor('Watchlist')}"><div class="label">Watchlist</div><div class="value">${cnt('Watchlist')}</div><div class="sub" style="color:var(--muted)">gevolgd</div></div>
+    <div class="stat clickable" data-sec="${anchor('Gold & Silver')}"><div class="label">Edelmetalen</div><div class="value">${cnt('Gold & Silver')}</div><div class="sub" style="color:var(--muted)">goud &amp; zilver</div></div>`;
+
+  summary.querySelectorAll('.stat.clickable').forEach(el => {
+    el.onclick = () => {
+      const target = document.getElementById(el.dataset.sec);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  });
 
   let base;
   if (dataUpdated) {
@@ -422,9 +537,14 @@ document.getElementById('f-cancel').onclick = () => dlg.close();
 document.getElementById('f-save').onclick = () => {
   const t = document.getElementById('f-ticker').value.trim().toUpperCase();
   if (!t) return;
+  const section = document.getElementById('f-section').value;
+  const isWatch = section === 'Watchlist';
+  const costVal = parseFloat(document.getElementById('f-cost').value);
   positions.push({
     ticker: t,
-    cost: parseFloat(document.getElementById('f-cost').value) || 0,
+    section: section,
+    watch: isWatch,
+    cost: isWatch ? null : (costVal || 0),
     qty: parseFloat(document.getElementById('f-qty').value) || 1,
     thresh: parseInt(document.getElementById('f-thresh').value),
     cur: document.getElementById('f-cur').value

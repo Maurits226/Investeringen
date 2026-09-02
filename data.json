@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-02T01:12:33.333437+00:00",
+  "updated": "2026-09-02T05:50:28.556578+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -13,7 +13,7 @@
     "SPX.DE": {
       "ticker": "SPX.DE",
       "price": 124.24,
-      "prevClose": 123.04,
+      "prevClose": 114.66,
       "currency": "EUR",
       "name": "Space Exploration Technologies Corp.",
       "high52": 124.66,

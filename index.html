@@ -101,7 +101,7 @@
   .position {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 20px; display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr 1.6fr auto; gap: 18px; align-items: center;
+    grid-template-columns: 1.4fr 1fr 1fr 1.6fr 1.3fr auto; gap: 18px; align-items: center;
     position: relative; overflow: hidden; transition: .2s;
   }
   .position::before {
@@ -135,8 +135,23 @@
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
   .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
-  .remove { background: none; border: none; color: var(--muted); font-size: 12px; padding: 2px; }
+  .remove { background: none; border: none; color: var(--muted); font-size: 12px; padding: 2px; cursor: pointer; }
   .remove:hover { color: var(--down); }
+  .edit-cost { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .edit-cost:hover { border-color: var(--accent); color: var(--text); }
+
+  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+  .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .sells { display: flex; flex-direction: column; gap: 3px; }
+  .sell-row { font-size: 11px; color: var(--up); font-family: 'IBM Plex Mono', monospace; }
+  .sell-date { color: var(--muted); margin-left: 4px; }
+  .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .realise {
+    background: rgba(55,211,154,.15); border: 1px solid rgba(55,211,154,.45); color: var(--up);
+    font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    text-align: left; line-height: 1.3;
+  }
+  .realise:hover { background: rgba(55,211,154,.28); }
 
   .state { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
   .err { color: var(--warn); }
@@ -162,8 +177,9 @@
   @media (max-width: 860px) {
     .summary { grid-template-columns: repeat(2, 1fr); }
     .position { grid-template-columns: 1fr 1fr; }
-    .p-actions { grid-column: span 2; flex-direction: row; justify-content: space-between; align-items: center; }
+    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
     .bar-wrap { grid-column: span 2; }
+    .profit-block { grid-column: span 2; }
   }
   @media (max-width: 520px) {
     body { padding: 18px 12px 40px; }
@@ -194,13 +210,6 @@
   <div class="summary" id="summary"></div>
   <div class="cards" id="cards"></div>
 
-  <p class="hint">
-    <strong>Zo werkt de waarschuwing:</strong> een positie kleurt rood zodra de huidige koers minstens
-    <strong>20% onder de 52-weeks top</strong> ligt — het signaal dat de drempel voor jou bereikt is.
-    De koersdrempel per positie staat instelbaar (standaard 20%). Data komt live van
-    <code>query1.finance.yahoo.com</code>. Zoekt de browser dit blokkeren door CORS, dan valt het
-    dashboard automatisch terug op een publieke proxy.
-  </p>
 </div>
 
 <dialog id="dlg">
@@ -269,6 +278,7 @@ const DEFAULT = [
   { ticker: 'SPX.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
 
   // Stocks
+  { ticker: 'AMD.DE',  section: 'Stocks', cost: 397.10, qty: 1, thresh: 20, cur: 'native' },
   { ticker: '1YD.DE',  section: 'Stocks', cost: 281.19, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'MTE.DE',  section: 'Stocks', cost: 593.70, qty: 1, thresh: 20, cur: 'native' },
   { ticker: '1ZB.DE',  section: 'Stocks', cost: 105.06, qty: 1, thresh: 20, cur: 'native' },
@@ -306,22 +316,50 @@ const DEFAULT = [
 // Volgorde waarin de secties getoond worden
 const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 
-// Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt hij
-// eenmalig opnieuw ingeladen, ook als er al iets in de browser bewaard was.
-const DEFAULT_VERSION = 12;
+// Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
+// opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
+// (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
+const DEFAULT_VERSION = 13;
+
+// Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
+// positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
+function posId(p) { return (p.section || 'X') + '|' + p.ticker; }
+
+// Gebruikersstate per positie-id: { cost, sells: [{level, pct, date}] }
+function loadState() {
+  try {
+    const s = localStorage.getItem('portfolio_state');
+    if (s) return JSON.parse(s);
+  } catch (e) {}
+  return {};
+}
+function saveState() {
+  try { localStorage.setItem('portfolio_state', JSON.stringify(userState)); } catch (e) {}
+}
+let userState = loadState();
 
 function loadPositions() {
+  let base;
   try {
     const savedVer = parseInt(localStorage.getItem('portfolio_version') || '0');
     const saved = localStorage.getItem('portfolio_positions');
-    if (saved && savedVer >= DEFAULT_VERSION) return JSON.parse(saved);
+    if (saved && savedVer >= DEFAULT_VERSION) {
+      base = JSON.parse(saved);
+    }
   } catch (e) {}
-  // Eerste keer, of nieuwe standaardlijst: gebruik DEFAULT en sla direct op
-  try {
-    localStorage.setItem('portfolio_positions', JSON.stringify(DEFAULT));
-    localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
-  } catch (e) {}
-  return DEFAULT.slice();
+  if (!base) {
+    base = DEFAULT.map(p => ({ ...p }));
+    try {
+      localStorage.setItem('portfolio_positions', JSON.stringify(base));
+      localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
+    } catch (e) {}
+  }
+  // Pas opgeslagen aangepaste aankoopprijzen toe
+  base.forEach(p => {
+    const st = userState[posId(p)];
+    if (st && st.cost != null) p.cost = st.cost;
+  });
+  return base;
 }
 function savePositions() {
   try {
@@ -331,6 +369,18 @@ function savePositions() {
 }
 
 let positions = loadPositions();
+
+// Winst-cyclus: elke +50% een trede. Trede 1,4,7.. = 10%, trede 2,5,8.. = 20%,
+// trede 3,6,9.. = 30% van de winst verkopen.
+function sellPctForStep(step) {
+  const mod = ((step - 1) % 3);
+  return mod === 0 ? 10 : (mod === 1 ? 20 : 30);
+}
+// Hoeveel treden zijn bereikt bij een bepaald winstpercentage (elke 50%)
+function stepsReached(plPct) {
+  if (plPct < 50) return 0;
+  return Math.floor(plPct / 50);
+}
 
 const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
   style: 'currency', currency: cur || 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
@@ -394,6 +444,10 @@ function positionCard(p, q, err) {
 
   if (alert) el.classList.add('alert');
 
+  const id = posId(p);
+  const st = userState[id] || {};
+  const sells = st.sells || [];
+
   const resultBlock = isWatch
     ? `<div class="p-block">
          <div class="k">Op watchlist</div>
@@ -404,6 +458,41 @@ function positionCard(p, q, err) {
          <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
          <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
        </div>`;
+
+  // Winstniveau-blok (niet voor watchlist)
+  let profitBlock = '';
+  if (!isWatch) {
+    const reached = stepsReached(plPct);              // hoogste bereikte trede nu
+    const doneSteps = sells.map(s => s.level);         // al gerealiseerde treden
+    const nextStep = doneSteps.length
+      ? Math.max(...doneSteps) + 1
+      : 1;
+    const nextTargetPct = nextStep * 50;
+    const nextSellPct = sellPctForStep(nextStep);
+    const canRealise = reached >= nextStep;            // is de eerstvolgende trede bereikt?
+
+    // Lijst van gerealiseerde verkopen
+    let sellsHtml = '';
+    if (sells.length) {
+      sellsHtml = '<div class="sells">' + sells
+        .sort((a,b)=>a.level-b.level)
+        .map(s => `<div class="sell-row">✓ +${s.level*50}% → ${s.pct}% verkocht <span class="sell-date">${s.date}</span></div>`)
+        .join('') + '</div>';
+    }
+
+    const btnHtml = canRealise
+      ? `<button class="realise" data-id="${id}" data-step="${nextStep}" data-pct="${nextSellPct}">
+           Realiseer +${nextTargetPct}% (verkoop ${nextSellPct}%)
+         </button>`
+      : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
+
+    profitBlock = `
+      <div class="profit-block">
+        <div class="k">Winst nemen</div>
+        ${sellsHtml}
+        ${btnHtml}
+      </div>`;
+  }
 
   el.innerHTML = `
     <div class="p-name">
@@ -425,11 +514,44 @@ function positionCard(p, q, err) {
         ${dropFromHigh.toFixed(1)}% onder de top · drempel ${p.thresh}%
       </div>
     </div>
+    ${profitBlock}
     <div class="p-actions">
       <span class="badge ${alert ? 'buy' : 'hold'}">${alert ? 'KOOPSIGNAAL' : 'geen actie'}</span>
-      <button class="remove" data-t="${p.ticker}">verwijder</button>
+      ${isWatch ? '' : `<button class="edit-cost" data-id="${id}">Aankoop aanpassen</button>`}
+      <button class="remove" data-id="${id}">verwijder</button>
     </div>`;
-  el.querySelector('.remove').onclick = () => removePosition(p.ticker);
+
+  // Knop: verwijderen
+  el.querySelector('.remove').onclick = () => removePosition(id);
+
+  // Knop: aankoopprijs aanpassen
+  const editBtn = el.querySelector('.edit-cost');
+  if (editBtn) editBtn.onclick = () => {
+    const huidige = p.cost;
+    const invoer = prompt(
+      `Nieuwe gemiddelde aankoopprijs voor ${p.label || p.ticker} (in ${cur}):\n` +
+      `Huidig: ${huidige}`, huidige);
+    if (invoer == null) return;
+    const nieuw = parseFloat(invoer.replace(',', '.'));
+    if (!isFinite(nieuw) || nieuw <= 0) { alert('Ongeldig bedrag'); return; }
+    userState[id] = userState[id] || {};
+    userState[id].cost = nieuw;
+    p.cost = nieuw;
+    saveState(); savePositions(); render();
+  };
+
+  // Knop: verkoop realiseren
+  const realBtn = el.querySelector('.realise');
+  if (realBtn) realBtn.onclick = () => {
+    const step = parseInt(realBtn.dataset.step);
+    const sellPct = parseInt(realBtn.dataset.pct);
+    const today = new Date().toLocaleDateString('nl-NL');
+    userState[id] = userState[id] || {};
+    userState[id].sells = userState[id].sells || [];
+    userState[id].sells.push({ level: step, pct: sellPct, date: today });
+    saveState(); render();
+  };
+
   return el;
 }
 
@@ -522,8 +644,8 @@ async function render() {
   upd.textContent = base;
 }
 
-function removePosition(t) {
-  positions = positions.filter(p => p.ticker !== t);
+function removePosition(id) {
+  positions = positions.filter(p => posId(p) !== id);
   savePositions();
   render();
 }

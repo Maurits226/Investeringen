@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfolio Monitor</title>
+<title>Investments Monitor</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -114,8 +114,8 @@
   }
 
   .p-name { display: flex; flex-direction: column; gap: 4px; }
-  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
-  .p-company { font-size: 12px; color: var(--muted); max-width: 160px; }
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
+  .p-company { font-size: 12px; color: var(--muted); max-width: 200px; }
   .src { font-size: 10px; font-weight: 600; margin-left: 4px; }
   .src-live { color: var(--up); }
   .src-proxy { color: var(--warn); }
@@ -182,18 +182,11 @@
 <div class="wrap">
   <header class="top">
     <div class="title-block">
-      <h1><span class="pulse"></span>Portfolio Monitor</h1>
-      <p>Live koersen via Yahoo Finance · rood = koers 20%+ onder de 52-weeks top</p>
+      <h1><span class="pulse"></span>Investments Monitor</h1>
+      <p>Live koersen via Yahoo Finance</p>
     </div>
     <div class="controls">
-      <span class="updated" id="updated">nog niet ververst</span>
-      <select id="interval" title="Automatisch verversen">
-        <option value="0">handmatig</option>
-        <option value="30">elke 30s</option>
-        <option value="60" selected>elke 60s</option>
-        <option value="300">elke 5 min</option>
-      </select>
-      <button id="refresh">Ververs</button>
+      <span class="updated" id="updated">laden…</span>
       <button class="primary" id="add">+ Positie</button>
     </div>
   </header>
@@ -279,12 +272,12 @@ const DEFAULT = [
   { ticker: '1YD.DE',  section: 'Stocks', cost: 281.19, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'MTE.DE',  section: 'Stocks', cost: 593.70, qty: 1, thresh: 20, cur: 'native' },
   { ticker: '1ZB.DE',  section: 'Stocks', cost: 105.06, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'TLO.DE',  section: 'Stocks', cost: 302.67, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'TL0.DE',  section: 'Stocks', cost: 302.67, qty: 1, thresh: 20, cur: 'native' },
   { ticker: '49V.DE',  section: 'Stocks', cost: 166.72, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'E7S.DE',  section: 'Stocks', cost: 229.79, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'AMZ.DE',  section: 'Stocks', cost: 173.11, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'ENR.DE',  section: 'Stocks', cost: 147.74, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'LARO.DE', section: 'Stocks', cost: 268.90, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'LAR0.DE', section: 'Stocks', cost: 268.90, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'ZETA',    section: 'Stocks', cost: 21.43,  qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'ABEA.DE', section: 'Stocks', cost: 156.05, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'AP2.DE',  section: 'Stocks', cost: 170.29, qty: 1, thresh: 20, cur: 'native' },
@@ -315,7 +308,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt hij
 // eenmalig opnieuw ingeladen, ook als er al iets in de browser bewaard was.
-const DEFAULT_VERSION = 6;
+const DEFAULT_VERSION = 8;
 
 function loadPositions() {
   try {
@@ -410,18 +403,16 @@ function positionCard(p, q, err) {
     : `<div class="p-block">
          <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
          <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
-         <div class="drop-tag" style="color:${plPct>=0?'var(--up)':'var(--down)'}">${plAbs>=0?'+':''}${fmt(plAbs, cur)}</div>
        </div>`;
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker">${p.ticker}</span>
-      <span class="p-company">${q.name} <span class="src src-live">● data</span></span>
+      <span class="p-ticker">${q.name}</span>
+      <span class="p-company">(${p.ticker}) <span class="src src-live">● data</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
-      <div class="v ${dayChg >= 0 ? 'up' : 'down'}">${fmt(q.price, cur)}</div>
-      <div class="drop-tag ${dayChg >= 0 ? 'up' : 'down'}" style="color:${dayChg>=0?'var(--up)':'var(--down)'}">${pct(dayChg)} vandaag</div>
+      <div class="v">${fmt(q.price, cur)}</div>
     </div>
     ${resultBlock}
     <div class="bar-wrap">
@@ -555,29 +546,16 @@ document.getElementById('f-save').onclick = () => {
   render();
 };
 
-document.getElementById('refresh').onclick = () => { render(); resetTimer(); };
+// Automatisch verversen: de pagina haalt elke 5 minuten data.json opnieuw op.
+// GitHub werkt data.json elke 15 min bij, dus nieuwe koersen komen vanzelf binnen.
+setInterval(render, 5 * 60 * 1000);
 
-// Auto-refresh
-let timer = null, countdownTimer = null, secsLeft = 0;
-const intervalSel = document.getElementById('interval');
-const updatedEl = document.getElementById('updated');
+// Ook verversen zodra je terugkeert naar het tabblad
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) render();
+});
 
-function resetTimer() {
-  clearInterval(timer); clearInterval(countdownTimer);
-  const secs = parseInt(intervalSel.value);
-  if (!secs) return;
-  secsLeft = secs;
-  timer = setInterval(() => { render(); secsLeft = secs; }, secs * 1000);
-  countdownTimer = setInterval(() => {
-    secsLeft--;
-    const base = updatedEl.dataset.base || '';
-    updatedEl.innerHTML = base + ` <span class="countdown">· volgende over ${secsLeft}s</span>`;
-  }, 1000);
-}
-
-intervalSel.onchange = resetTimer;
-
-render().then(resetTimer);
+render();
 </script>
 </body>
 </html>

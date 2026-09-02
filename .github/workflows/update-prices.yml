@@ -2,8 +2,10 @@ name: Update stock prices
 
 on:
   schedule:
-    # Elke 15 minuten (GitHub kan iets vertragen bij drukte; dat is normaal)
-    - cron: "*/15 * * * *"
+    # Elke 10 min gevraagd. Let op: GitHub vertraagt gratis scheduled runs vaak,
+    # dus in de praktijk draait dit doorgaans elke 15-30 min. Dat is normaal en
+    # ruim voldoende voor koopsignalen op basis van de 52-weeks top.
+    - cron: "*/10 * * * *"
   workflow_dispatch:      # laat je het ook handmatig starten via de Actions-tab
   push:
     branches: [ main ]    # werk ook bij na elke wijziging

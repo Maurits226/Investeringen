@@ -288,7 +288,7 @@ const DEFAULT = [
   { ticker: 'DWD.DE',  section: 'Stocks', cost: 147.57, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'NVD.DE',  section: 'Stocks', cost: 87.76,  qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'PTX.DE',  section: 'Stocks', cost: 123.29, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'TFSA.DE', section: 'Stocks', cost: 313.50, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'TFSA.DU', section: 'Stocks', cost: 313.50, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'ASML.AS', section: 'Stocks', cost: 704.60, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'UU2.DE',  section: 'Stocks', cost: 853.60, qty: 1, thresh: 20, cur: 'native' },
   { ticker: 'MSF.DE',  section: 'Stocks', cost: 353.15, qty: 1, thresh: 20, cur: 'native' },
@@ -308,7 +308,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt hij
 // eenmalig opnieuw ingeladen, ook als er al iets in de browser bewaard was.
-const DEFAULT_VERSION = 8;
+const DEFAULT_VERSION = 9;
 
 function loadPositions() {
   try {

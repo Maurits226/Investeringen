@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Investments Monitor</title>
+<title>Investments</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -182,7 +182,7 @@
 <div class="wrap">
   <header class="top">
     <div class="title-block">
-      <h1><span class="pulse"></span>Investments Monitor</h1>
+      <h1><span class="pulse"></span>Investments</h1>
       <p>Live koersen via Yahoo Finance</p>
     </div>
     <div class="controls">
@@ -294,13 +294,13 @@ const DEFAULT = [
   { ticker: 'MSF.DE',  section: 'Stocks', cost: 353.15, qty: 1, thresh: 20, cur: 'native' },
 
   // ETF's
-  { ticker: 'QDVE.DE', section: "ETF's", cost: 29.983, qty: 1, thresh: 10, cur: 'native' },
-  { ticker: 'VHYL.MI', section: "ETF's", cost: 81.669, qty: 1, thresh: 10, cur: 'native' },
-  { ticker: 'VUAA.MI', section: "ETF's", cost: 93.02,  qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'QDVE.DE', section: "ETF's", label: 'S&P 500 Information Technology', cost: 29.983, qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'VHYL.MI', section: "ETF's", label: 'Vanguard High Dividend', cost: 81.669, qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'VUAA.MI', section: "ETF's", label: 'S&P 500', cost: 93.02,  qty: 1, thresh: 10, cur: 'native' },
 
-  // Gold and Silver
-  { ticker: 'WSLV.MI', section: 'Gold & Silver', cost: 64.32,  qty: 1, thresh: 10, cur: 'native' },
-  { ticker: 'PHAU.AS', section: 'Gold & Silver', cost: 364.33, qty: 1, thresh: 10, cur: 'native' }
+  // Gold & Silver
+  { ticker: 'WSLV.MI', section: 'Gold & Silver', label: 'Silver', cost: 64.32,  qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'PHAU.AS', section: 'Gold & Silver', label: 'Gold', cost: 364.33, qty: 1, thresh: 10, cur: 'native' }
 ];
 
 // Volgorde waarin de secties getoond worden
@@ -308,7 +308,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt hij
 // eenmalig opnieuw ingeladen, ook als er al iets in de browser bewaard was.
-const DEFAULT_VERSION = 10;
+const DEFAULT_VERSION = 12;
 
 function loadPositions() {
   try {
@@ -407,12 +407,12 @@ function positionCard(p, q, err) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker">${q.name}</span>
+      <span class="p-ticker">${p.label || q.name}</span>
       <span class="p-company">(${p.ticker}) <span class="src src-live">● data</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
-      <div class="v">${fmt(q.price, cur)}</div>
+      <div class="v ${isWatch ? '' : (plPct >= 0 ? 'up' : 'down')}">${fmt(q.price, cur)}</div>
     </div>
     ${resultBlock}
     <div class="bar-wrap">
@@ -471,7 +471,14 @@ async function render() {
     header.textContent = sec;
     cards.appendChild(header);
 
-    bySection[sec].forEach(({ p, q, err }) => {
+    // Sorteer alfabetisch op weergavenaam (label, anders opgehaalde naam, anders ticker)
+    const sorted = bySection[sec].slice().sort((a, b) => {
+      const na = (a.p.label || (a.q && a.q.name) || a.p.ticker).toLowerCase();
+      const nb = (b.p.label || (b.q && b.q.name) || b.p.ticker).toLowerCase();
+      return na.localeCompare(nb, 'nl');
+    });
+
+    sorted.forEach(({ p, q, err }) => {
       cards.appendChild(positionCard(p, q, err));
       if (q && !p.watch) {
         loaded++;

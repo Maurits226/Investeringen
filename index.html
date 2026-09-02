@@ -319,7 +319,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 13;
+const DEFAULT_VERSION = 15;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -517,7 +517,7 @@ function positionCard(p, q, err) {
     ${profitBlock}
     <div class="p-actions">
       <span class="badge ${alert ? 'buy' : 'hold'}">${alert ? 'KOOPSIGNAAL' : 'geen actie'}</span>
-      ${isWatch ? '' : `<button class="edit-cost" data-id="${id}">Aankoop aanpassen</button>`}
+      ${isWatch ? '' : `<button class="edit-cost" data-id="${id}">Aankoopprijs aanpassen</button>`}
       <button class="remove" data-id="${id}">verwijder</button>
     </div>`;
 
@@ -555,10 +555,13 @@ function positionCard(p, q, err) {
   return el;
 }
 
+let firstRender = true;
 async function render() {
   const cards = document.getElementById('cards');
   const summary = document.getElementById('summary');
-  cards.innerHTML = '<div class="state">Koersen laden…</div>';
+  // Bewaar scrollpositie zodat de pagina niet terugspringt bij verversen
+  const scrollY = window.scrollY;
+  if (firstRender) cards.innerHTML = '<div class="state">Koersen laden…</div>';
 
   let loadError = false;
   try {
@@ -642,6 +645,10 @@ async function render() {
   const upd = document.getElementById('updated');
   upd.dataset.base = base;
   upd.textContent = base;
+
+  // Herstel de scrollpositie (behalve bij de allereerste render)
+  if (!firstRender) window.scrollTo(0, scrollY);
+  firstRender = false;
 }
 
 function removePosition(id) {

@@ -87,6 +87,20 @@
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
 
   .cards { display: flex; flex-direction: column; gap: 14px; }
+  .toolbar {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    margin-bottom: 20px; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .toolbar select {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 7px 11px;
+    border-radius: 9px; font-size: 13px;
+  }
+  .toolbar select:hover { border-color: var(--accent); }
+  .tb-count { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; }
   .section-header {
     font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
     margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
@@ -211,6 +225,32 @@
   </header>
 
   <div class="summary" id="summary"></div>
+
+  <div class="toolbar">
+    <div class="tb-group">
+      <span class="tb-label">Sorteer</span>
+      <select id="sortSel">
+        <option value="section">Categorie (standaard)</option>
+        <option value="name">Naam (A-Z)</option>
+        <option value="result">Resultaat (hoog-laag)</option>
+        <option value="signal">Dichtst bij koopsignaal</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Toon</span>
+      <select id="filterSel">
+        <option value="all">Alles</option>
+        <option value="signals">Alleen koopsignalen</option>
+        <option value="open">Openstaande verkoop</option>
+        <option value="Stocks">Alleen Stocks</option>
+        <option value="ETF's">Alleen ETF's</option>
+        <option value="Gold & Silver">Alleen Edelmetalen</option>
+        <option value="Watchlist">Alleen Watchlist</option>
+      </select>
+    </div>
+    <span class="tb-count" id="tbCount"></span>
+  </div>
+
   <div class="cards" id="cards"></div>
 
 </div>
@@ -277,7 +317,6 @@
 <script>
 const DEFAULT = [
   // Watchlist: geen aankoopprijs, alleen volgen
-  { ticker: 'AMD.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
   { ticker: 'SPX.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
 
   // Stocks
@@ -322,7 +361,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 17;
+const DEFAULT_VERSION = 18;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -383,6 +422,32 @@ function sellPctForStep(step) {
 function stepsReached(plPct) {
   if (plPct < 50) return 0;
   return Math.floor(plPct / 50);
+}
+
+// Kerngetallen per positie, gebruikt voor sorteren en filteren
+function metrics(p, q) {
+  if (!q) return { plPct: -Infinity, drop: -Infinity, alert: false, openSell: false };
+  const isWatch = p.watch || p.cost == null;
+  const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
+  const drop = q.high52 ? ((q.high52 - q.price) / q.high52) * 100 : 0;
+  const alert = drop >= p.thresh;
+  // Openstaande verkoop? (winsttrede bereikt en nog niet/again te realiseren)
+  let openSell = false;
+  if (!isWatch) {
+    const st = userState[posId(p)] || {};
+    const sells = st.sells || [];
+    const reached = stepsReached(plPct);
+    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+    // heropend?
+    let heropend = false;
+    for (let step = 1; step <= maxDone; step++) {
+      const opStap = sells.filter(s => s.level === step);
+      const v = opStap.length ? opStap[opStap.length - 1] : null;
+      if (v && v.price != null && step <= reached && q.price <= v.price * 0.75) { heropend = true; break; }
+    }
+    openSell = heropend || (reached >= maxDone + 1);
+  }
+  return { plPct, drop, alert, openSell };
 }
 
 const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
@@ -626,44 +691,83 @@ async function render() {
   cards.innerHTML = '';
   let totalValue = 0, totalCost = 0, alerts = 0, loaded = 0;
 
-  // Groepeer per sectie
+  // Tel eerst alle totalen/signalen over ALLE posities (los van filter)
+  results.forEach(({ p, q }) => {
+    if (q && !p.watch) {
+      loaded++;
+      totalValue += q.price * (p.qty || 1);
+      totalCost += p.cost * (p.qty || 1);
+      const m = metrics(p, q);
+      if (m.alert) alerts++;
+    } else if (q && p.watch) {
+      loaded++;
+    }
+  });
+
+  // Groepeer per sectie (voor tellers)
   const bySection = {};
   results.forEach(r => {
     const sec = r.p.section || 'Overig';
     (bySection[sec] = bySection[sec] || []).push(r);
   });
 
-  // Bepaal de volgorde: bekende secties eerst, daarna eventuele nieuwe
-  const sections = [...SECTION_ORDER.filter(s => bySection[s]),
-                    ...Object.keys(bySection).filter(s => !SECTION_ORDER.includes(s))];
+  // Huidige sorteer- en filterkeuze
+  const sortBy = document.getElementById('sortSel').value;
+  const filterBy = document.getElementById('filterSel').value;
 
-  sections.forEach(sec => {
-    const header = document.createElement('div');
-    header.className = 'section-header';
-    header.id = 'sec-' + sec.replace(/[^a-zA-Z]/g, '');
-    header.textContent = sec;
-    cards.appendChild(header);
+  // Filter toepassen
+  function passesFilter(r) {
+    if (filterBy === 'all') return true;
+    const m = metrics(r.p, r.q);
+    if (filterBy === 'signals') return m.alert;
+    if (filterBy === 'open') return m.openSell;
+    // anders: categorie-filter
+    return (r.p.section || 'Overig') === filterBy;
+  }
+  const filtered = results.filter(passesFilter);
 
-    // Sorteer alfabetisch op weergavenaam (label, anders opgehaalde naam, anders ticker)
-    const sorted = bySection[sec].slice().sort((a, b) => {
-      const na = (a.p.label || (a.q && a.q.name) || a.p.ticker).toLowerCase();
-      const nb = (b.p.label || (b.q && b.q.name) || b.p.ticker).toLowerCase();
-      return na.localeCompare(nb, 'nl');
+  // Naam-helper
+  const naam = r => (r.p.label || (r.q && r.q.name) || r.p.ticker).toLowerCase();
+
+  // Toon in secties (bij sorteren op categorie) of als platte lijst (anders)
+  const useSections = (sortBy === 'section') &&
+    (filterBy === 'all' || ['Stocks',"ETF's",'Gold & Silver','Watchlist'].includes(filterBy));
+
+  function renderCard(r) {
+    cards.appendChild(positionCard(r.p, r.q, r.err));
+  }
+
+  if (useSections) {
+    const sections = [...SECTION_ORDER.filter(s => bySection[s]),
+                      ...Object.keys(bySection).filter(s => !SECTION_ORDER.includes(s))];
+    sections.forEach(sec => {
+      const inSec = filtered.filter(r => (r.p.section || 'Overig') === sec);
+      if (!inSec.length) return;
+      const header = document.createElement('div');
+      header.className = 'section-header';
+      header.id = 'sec-' + sec.replace(/[^a-zA-Z]/g, '');
+      header.textContent = sec;
+      cards.appendChild(header);
+      inSec.slice().sort((a, b) => naam(a).localeCompare(naam(b), 'nl')).forEach(renderCard);
     });
-
-    sorted.forEach(({ p, q, err }) => {
-      cards.appendChild(positionCard(p, q, err));
-      if (q && !p.watch) {
-        loaded++;
-        totalValue += q.price * (p.qty || 1);
-        totalCost += p.cost * (p.qty || 1);
-        const drop = ((q.high52 - q.price) / q.high52) * 100;
-        if (drop >= p.thresh) alerts++;
-      } else if (q && p.watch) {
-        loaded++;
-      }
+  } else {
+    // Platte, gesorteerde lijst
+    const sorted = filtered.slice().sort((a, b) => {
+      if (sortBy === 'name') return naam(a).localeCompare(naam(b), 'nl');
+      if (sortBy === 'result') return metrics(b.p, b.q).plPct - metrics(a.p, a.q).plPct;
+      if (sortBy === 'signal') return metrics(b.p, b.q).drop - metrics(a.p, a.q).drop;
+      return naam(a).localeCompare(naam(b), 'nl');
     });
-  });
+    sorted.forEach(renderCard);
+  }
+
+  // Teller: hoeveel getoond
+  const tbCount = document.getElementById('tbCount');
+  if (tbCount) {
+    tbCount.textContent = filtered.length === results.length
+      ? `${results.length} posities`
+      : `${filtered.length} van ${results.length} getoond`;
+  }
 
   const totalPl = totalValue - totalCost;
   const totalPlPct = totalCost ? (totalPl / totalCost) * 100 : 0;
@@ -738,6 +842,10 @@ setInterval(render, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) render();
 });
+
+// Sorteren en filteren: opnieuw renderen bij wijziging
+document.getElementById('sortSel').onchange = render;
+document.getElementById('filterSel').onchange = render;
 
 render();
 </script>

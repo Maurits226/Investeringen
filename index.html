@@ -82,6 +82,7 @@
   .stat.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
   .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
   .stat.clickable:active { transform: translateY(0); }
+  .stat.clickable.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
   .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
@@ -237,15 +238,21 @@
       </select>
     </div>
     <div class="tb-group">
-      <span class="tb-label">Toon</span>
-      <select id="filterSel">
+      <span class="tb-label">Categorie</span>
+      <select id="catSel">
+        <option value="all">Alle</option>
+        <option value="Watchlist">Watchlist</option>
+        <option value="Stocks">Stocks</option>
+        <option value="ETF's">ETF's</option>
+        <option value="Gold & Silver">Edelmetalen</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Status</span>
+      <select id="statusSel">
         <option value="all">Alles</option>
-        <option value="signals">Alleen koopsignalen</option>
+        <option value="signals">Koopsignalen</option>
         <option value="open">Openstaande verkoop</option>
-        <option value="Stocks">Alleen Stocks</option>
-        <option value="ETF's">Alleen ETF's</option>
-        <option value="Gold & Silver">Alleen Edelmetalen</option>
-        <option value="Watchlist">Alleen Watchlist</option>
       </select>
     </div>
     <span class="tb-count" id="tbCount"></span>
@@ -361,7 +368,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 18;
+const DEFAULT_VERSION = 20;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -711,27 +718,28 @@ async function render() {
     (bySection[sec] = bySection[sec] || []).push(r);
   });
 
-  // Huidige sorteer- en filterkeuze
+  // Huidige sorteer- en filterkeuzes
   const sortBy = document.getElementById('sortSel').value;
-  const filterBy = document.getElementById('filterSel').value;
+  const catBy = document.getElementById('catSel').value;
+  const statusBy = document.getElementById('statusSel').value;
 
-  // Filter toepassen
+  // Filter toepassen: categorie EN status samen
   function passesFilter(r) {
-    if (filterBy === 'all') return true;
-    const m = metrics(r.p, r.q);
-    if (filterBy === 'signals') return m.alert;
-    if (filterBy === 'open') return m.openSell;
-    // anders: categorie-filter
-    return (r.p.section || 'Overig') === filterBy;
+    if (catBy !== 'all' && (r.p.section || 'Overig') !== catBy) return false;
+    if (statusBy !== 'all') {
+      const m = metrics(r.p, r.q);
+      if (statusBy === 'signals' && !m.alert) return false;
+      if (statusBy === 'open' && !m.openSell) return false;
+    }
+    return true;
   }
   const filtered = results.filter(passesFilter);
 
   // Naam-helper
   const naam = r => (r.p.label || (r.q && r.q.name) || r.p.ticker).toLowerCase();
 
-  // Toon in secties (bij sorteren op categorie) of als platte lijst (anders)
-  const useSections = (sortBy === 'section') &&
-    (filterBy === 'all' || ['Stocks',"ETF's",'Gold & Silver','Watchlist'].includes(filterBy));
+  // Toon in secties (sorteren op categorie én geen status-filter) of platte lijst
+  const useSections = (sortBy === 'section') && (statusBy === 'all');
 
   function renderCard(r) {
     cards.appendChild(positionCard(r.p, r.q, r.err));
@@ -773,17 +781,20 @@ async function render() {
   const totalPlPct = totalCost ? (totalPl / totalCost) * 100 : 0;
 
   const cnt = s => (bySection[s] ? bySection[s].length : 0);
-  const anchor = s => 'sec-' + s.replace(/[^a-zA-Z]/g, '');
   summary.innerHTML = `
-    <div class="stat clickable" data-sec="${anchor('Stocks')}"><div class="label">Stocks</div><div class="value">${cnt('Stocks')}</div><div class="sub" style="color:var(--muted)">aandelen</div></div>
-    <div class="stat clickable" data-sec="${anchor("ETF's")}"><div class="label">ETF's</div><div class="value">${cnt("ETF's")}</div><div class="sub" style="color:var(--muted)">fondsen</div></div>
-    <div class="stat clickable" data-sec="${anchor('Watchlist')}"><div class="label">Watchlist</div><div class="value">${cnt('Watchlist')}</div><div class="sub" style="color:var(--muted)">gevolgd</div></div>
-    <div class="stat clickable" data-sec="${anchor('Gold & Silver')}"><div class="label">Edelmetalen</div><div class="value">${cnt('Gold & Silver')}</div><div class="sub" style="color:var(--muted)">goud &amp; zilver</div></div>`;
+    <div class="stat clickable" data-cat="Stocks"><div class="label">Stocks</div><div class="value">${cnt('Stocks')}</div><div class="sub" style="color:var(--muted)">aandelen</div></div>
+    <div class="stat clickable" data-cat="ETF's"><div class="label">ETF's</div><div class="value">${cnt("ETF's")}</div><div class="sub" style="color:var(--muted)">fondsen</div></div>
+    <div class="stat clickable" data-cat="Watchlist"><div class="label">Watchlist</div><div class="value">${cnt('Watchlist')}</div><div class="sub" style="color:var(--muted)">gevolgd</div></div>
+    <div class="stat clickable" data-cat="Gold & Silver"><div class="label">Edelmetalen</div><div class="value">${cnt('Gold & Silver')}</div><div class="sub" style="color:var(--muted)">goud &amp; zilver</div></div>`;
 
+  const catSel = document.getElementById('catSel');
   summary.querySelectorAll('.stat.clickable').forEach(el => {
+    const cat = el.dataset.cat;
+    if (catSel.value === cat) el.classList.add('active');
     el.onclick = () => {
-      const target = document.getElementById(el.dataset.sec);
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Klik op actieve categorie = terug naar alle; anders filter op die categorie
+      catSel.value = (catSel.value === cat) ? 'all' : cat;
+      render();
     };
   });
 
@@ -845,7 +856,8 @@ document.addEventListener('visibilitychange', () => {
 
 // Sorteren en filteren: opnieuw renderen bij wijziging
 document.getElementById('sortSel').onchange = render;
-document.getElementById('filterSel').onchange = render;
+document.getElementById('catSel').onchange = render;
+document.getElementById('statusSel').onchange = render;
 
 render();
 </script>

@@ -8,23 +8,23 @@
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
   :root {
-    --ink: #0b1220;
-    --panel: #111a2e;
-    --panel-2: #16213b;
-    --line: #24314f;
-    --muted: #8695b3;
-    --text: #e8edf7;
-    --up: #37d39a;
-    --down: #ff5d6c;
-    --warn: #ffb020;
-    --accent: #6ea8fe;
+    --ink: #141517;
+    --panel: #1a1c1e;
+    --panel-2: #202224;
+    --line: #2a2c2f;
+    --muted: #83888d;
+    --text: #eceef0;
+    --up: #3ecf8e;
+    --down: #f0595f;
+    --warn: #f5b544;
+    --accent: #4f8ff0;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     background:
-      radial-gradient(1200px 600px at 80% -10%, #1a2544 0%, transparent 60%),
+      radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%),
       var(--ink);
     color: var(--text);
     font-family: 'Space Grotesk', system-ui, sans-serif;
@@ -61,7 +61,7 @@
     border-radius: 10px; font-size: 13px; font-weight: 500; transition: .15s;
   }
   button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); color: #06122b; border-color: var(--accent); font-weight: 600; }
+  button.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
   button.primary:hover { filter: brightness(1.08); }
   .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   #interval {
@@ -143,8 +143,11 @@
   .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
   .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .sells { display: flex; flex-direction: column; gap: 3px; }
-  .sell-row { font-size: 11px; color: var(--up); font-family: 'IBM Plex Mono', monospace; }
-  .sell-date { color: var(--muted); margin-left: 4px; }
+  .sell-row { font-size: 11px; color: var(--up); font-family: 'IBM Plex Mono', monospace; display: flex; align-items: center; gap: 4px; }
+  .sell-row.reopened { color: var(--warn); }
+  .sell-date { color: var(--muted); margin-left: 2px; }
+  .undo-sell { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0 2px; margin-left: auto; opacity: .5; }
+  .undo-sell:hover { color: var(--down); opacity: 1; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .realise {
     background: rgba(55,211,154,.15); border: 1px solid rgba(55,211,154,.45); color: var(--up);
@@ -319,7 +322,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 15;
+const DEFAULT_VERSION = 17;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -462,27 +465,58 @@ function positionCard(p, q, err) {
   // Winstniveau-blok (niet voor watchlist)
   let profitBlock = '';
   if (!isWatch) {
-    const reached = stepsReached(plPct);              // hoogste bereikte trede nu
-    const doneSteps = sells.map(s => s.level);         // al gerealiseerde treden
-    const nextStep = doneSteps.length
-      ? Math.max(...doneSteps) + 1
-      : 1;
+    const reached = stepsReached(plPct);   // hoogste bereikte trede op basis van huidige winst
+
+    // Voor elke trede: is hij al gerealiseerd en nog "geldig"?
+    // Een verkoop op een trede vervalt (trede weer beschikbaar) zodra de koers
+    // 25% of meer onder de verkoopkoers van die verkoop is gezakt (optie B),
+    // MAAR alleen zolang je nog boven dat winstniveau zit.
+    const REOPEN_DROP = 0.25;
+    function laatsteVerkoop(step) {
+      const opStap = sells.filter(s => s.level === step);
+      return opStap.length ? opStap[opStap.length - 1] : null;
+    }
+    // Is een reeds afgevinkte trede vervallen (dus opnieuw te realiseren)?
+    function tredeVervallen(step) {
+      const v = laatsteVerkoop(step);
+      if (!v || v.price == null) return false;
+      if (step > reached) return false;           // je zit niet meer op dit winstniveau
+      return q.price <= v.price * (1 - REOPEN_DROP);
+    }
+
+    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+
+    // Zoek de laagste AFGEVINKTE trede die is vervallen (heropend)
+    let openStep = null;
+    for (let step = 1; step <= maxDone; step++) {
+      if (laatsteVerkoop(step) && tredeVervallen(step)) { openStep = step; break; }
+    }
+    // Geen heropende trede? Dan is de eerstvolgende trede maxDone+1,
+    // en die is realiseerbaar zodra hij bereikt is.
+    const isHeropend = openStep != null;
+    const nextStep = isHeropend ? openStep : (maxDone + 1);
     const nextTargetPct = nextStep * 50;
     const nextSellPct = sellPctForStep(nextStep);
-    const canRealise = reached >= nextStep;            // is de eerstvolgende trede bereikt?
+    const canRealise = isHeropend || (reached >= nextStep);
 
     // Lijst van gerealiseerde verkopen
     let sellsHtml = '';
     if (sells.length) {
       sellsHtml = '<div class="sells">' + sells
-        .sort((a,b)=>a.level-b.level)
-        .map(s => `<div class="sell-row">✓ +${s.level*50}% → ${s.pct}% verkocht <span class="sell-date">${s.date}</span></div>`)
+        .map((s, i) => ({ s, i }))
+        .sort((a,b)=>a.s.level-b.s.level)
+        .map(({ s, i }) => {
+          const heropend = laatsteVerkoop(s.level) === s && tredeVervallen(s.level);
+          const cls = heropend ? 'sell-row reopened' : 'sell-row';
+          const mark = heropend ? '↻' : '✓';
+          return `<div class="${cls}">${mark} +${s.level*50}% → ${s.pct}% verkocht <span class="sell-date">${s.date}</span> <button class="undo-sell" data-id="${id}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
+        })
         .join('') + '</div>';
     }
 
     const btnHtml = canRealise
       ? `<button class="realise" data-id="${id}" data-step="${nextStep}" data-pct="${nextSellPct}">
-           Realiseer +${nextTargetPct}% (verkoop ${nextSellPct}%)
+           ${isHeropend ? 'Opnieuw realiseren' : 'Realiseer'} +${nextTargetPct}% (verkoop ${nextSellPct}%)
          </button>`
       : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
 
@@ -548,9 +582,23 @@ function positionCard(p, q, err) {
     const today = new Date().toLocaleDateString('nl-NL');
     userState[id] = userState[id] || {};
     userState[id].sells = userState[id].sells || [];
-    userState[id].sells.push({ level: step, pct: sellPct, date: today });
+    // Sla de koers op het verkoopmoment op, zodat we een 25% koersdaling
+    // kunnen detecteren die dit niveau opnieuw vrijgeeft (optie B).
+    userState[id].sells.push({ level: step, pct: sellPct, date: today, price: q.price });
     saveState(); render();
   };
+
+  // Knoppen: verkoopregistratie verwijderen
+  el.querySelectorAll('.undo-sell').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      if (userState[id] && userState[id].sells) {
+        userState[id].sells.splice(idx, 1);
+        saveState(); render();
+      }
+    };
+  });
 
   return el;
 }

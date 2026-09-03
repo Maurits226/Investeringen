@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-03T00:04:18.556013+00:00",
+  "updated": "2026-09-03T04:13:11.069632+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -26,7 +26,7 @@
       "currency": "EUR",
       "name": "Broadcom Inc.",
       "high52": 429.55,
-      "low52": 254.05
+      "low52": 255.45
     },
     "MTE.DE": {
       "ticker": "MTE.DE",
@@ -116,7 +116,7 @@
       "currency": "EUR",
       "name": "Alphabet Inc.",
       "high52": 350.8,
-      "low52": 191.02
+      "low52": 194.26
     },
     "AP2.DE": {
       "ticker": "AP2.DE",

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-05T12:51:39.007187+00:00",
+  "updated": "2026-09-05T15:40:57.980409+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -255,7 +255,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 56.68,
+      "price": 56.76,
       "prevClose": 34.89,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
@@ -264,7 +264,7 @@
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 354.4,
+      "price": 353.7,
       "prevClose": 324.17,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-05T09:24:29.783046+00:00",
+  "updated": "2026-09-05T12:51:39.007187+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -35,7 +35,7 @@
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
       "high52": 1102.6,
-      "low52": 106.62
+      "low52": 109.64
     },
     "1ZB.DE": {
       "ticker": "1ZB.DE",
@@ -125,7 +125,7 @@
       "currency": "EUR",
       "name": "Applied Materials, Inc.",
       "high52": 645.4,
-      "low52": 135.1
+      "low52": 137.82
     },
     "ANET": {
       "ticker": "ANET",
@@ -152,7 +152,7 @@
       "currency": "EUR",
       "name": "The Goldman Sachs Group, Inc.",
       "high52": 1006.0,
-      "low52": 624.9
+      "low52": 627.2
     },
     "CMC.DE": {
       "ticker": "CMC.DE",
@@ -206,7 +206,7 @@
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
-      "low52": 653.1
+      "low52": 664.1
     },
     "UU2.DE": {
       "ticker": "UU2.DE",

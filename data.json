@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-05T01:13:16.747515+00:00",
+  "updated": "2026-09-05T05:46:16.862145+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -89,7 +89,7 @@
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
-      "low52": 86.04
+      "low52": 87.4
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
@@ -116,7 +116,7 @@
       "currency": "EUR",
       "name": "Alphabet Inc.",
       "high52": 350.8,
-      "low52": 196.62
+      "low52": 198.38
     },
     "AP2.DE": {
       "ticker": "AP2.DE",
@@ -170,7 +170,7 @@
       "currency": "EUR",
       "name": "Morgan Stanley",
       "high52": 203.8,
-      "low52": 124.64
+      "low52": 125.72
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
@@ -179,7 +179,7 @@
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 202.0,
-      "low52": 139.76
+      "low52": 142.16
     },
     "PTX.DE": {
       "ticker": "PTX.DE",
@@ -197,7 +197,7 @@
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 414.0,
-      "low52": 202.5
+      "low52": 208.5
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
@@ -241,8 +241,8 @@
       "prevClose": 66.2,
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
-      "high52": 82.16,
-      "low52": 65.57
+      "high52": 82.29,
+      "low52": 65.62
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",
@@ -251,7 +251,7 @@
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
       "high52": 130.88,
-      "low52": 105.2
+      "low52": 105.78
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
@@ -260,7 +260,7 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
-      "low52": 34.65
+      "low52": 34.67
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",

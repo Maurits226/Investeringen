@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-07T16:01:33.232169+00:00",
+  "updated": "2026-09-07T19:52:04.150819+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -237,7 +237,7 @@
     },
     "VHYL.MI": {
       "ticker": "VHYL.MI",
-      "price": 81.87,
+      "price": 81.82,
       "prevClose": 65.7,
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
@@ -255,7 +255,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 56.81,
+      "price": 56.8,
       "prevClose": 34.815,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
@@ -264,7 +264,7 @@
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 352.02,
+      "price": 351.73,
       "prevClose": 324.17,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

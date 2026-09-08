@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-08T00:28:53.518006+00:00",
+  "updated": "2026-09-08T04:58:40.752070+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -89,7 +89,7 @@
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
-      "low52": 87.4
+      "low52": 88.48
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
@@ -152,7 +152,7 @@
       "currency": "EUR",
       "name": "The Goldman Sachs Group, Inc.",
       "high52": 1006.0,
-      "low52": 627.2
+      "low52": 628.6
     },
     "CMC.DE": {
       "ticker": "CMC.DE",
@@ -170,7 +170,7 @@
       "currency": "EUR",
       "name": "Morgan Stanley",
       "high52": 203.8,
-      "low52": 125.72
+      "low52": 126.82
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
@@ -179,7 +179,7 @@
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 202.0,
-      "low52": 142.16
+      "low52": 142.2
     },
     "PTX.DE": {
       "ticker": "PTX.DE",
@@ -206,7 +206,7 @@
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
-      "low52": 664.1
+      "low52": 674.0
     },
     "UU2.DE": {
       "ticker": "UU2.DE",
@@ -242,7 +242,7 @@
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
-      "low52": 65.62
+      "low52": 65.78
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",
@@ -251,7 +251,7 @@
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
       "high52": 130.88,
-      "low52": 105.78
+      "low52": 105.86
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",

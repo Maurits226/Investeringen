@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-09T00:39:20.254937+00:00",
+  "updated": "2026-09-09T05:12:01.690652+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -116,7 +116,7 @@
       "currency": "EUR",
       "name": "Alphabet Inc.",
       "high52": 350.8,
-      "low52": 198.38
+      "low52": 201.7
     },
     "AP2.DE": {
       "ticker": "AP2.DE",
@@ -170,7 +170,7 @@
       "currency": "EUR",
       "name": "Morgan Stanley",
       "high52": 203.8,
-      "low52": 126.82
+      "low52": 129.64
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
@@ -179,7 +179,7 @@
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 202.0,
-      "low52": 142.2
+      "low52": 143.24
     },
     "PTX.DE": {
       "ticker": "PTX.DE",
@@ -242,7 +242,7 @@
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
-      "low52": 65.78
+      "low52": 65.9
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",

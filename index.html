@@ -133,6 +133,11 @@
     border-color: rgba(255,93,108,.5);
     box-shadow: 0 0 0 1px rgba(255,93,108,.25), 0 8px 30px -12px rgba(255,93,108,.4);
   }
+  .position.sell-alert::before { background: var(--up); }
+  .position.sell-alert {
+    border-color: rgba(62,207,142,.5);
+    box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4);
+  }
 
   .p-name { display: flex; flex-direction: column; gap: 4px; }
   .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
@@ -155,6 +160,7 @@
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
+  .badge.sell { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
   .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
   .remove { background: none; border: none; color: var(--muted); font-size: 12px; padding: 2px; cursor: pointer; }
   .remove:hover { color: var(--down); }
@@ -241,6 +247,7 @@
         <option value="name">Naam (A-Z)</option>
         <option value="result">Resultaat (hoog-laag)</option>
         <option value="signal">Dichtst bij koopsignaal</option>
+        <option value="sellsignal">Dichtst bij verkoopsignaal</option>
       </select>
     </div>
     <div class="tb-group">
@@ -375,7 +382,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 21;
+const DEFAULT_VERSION = 22;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -461,7 +468,22 @@ function metrics(p, q) {
     }
     openSell = heropend || (reached >= maxDone + 1);
   }
-  return { plPct, drop, alert, openSell };
+  // Afstand tot volgende winsttrede (voor 'dichtst bij verkoopsignaal').
+  // 0 = precies op een trede of eroverheen (verkoopsignaal actief).
+  let toSell = Infinity;
+  if (!isWatch && q) {
+    if (openSell) {
+      toSell = 0;
+    } else {
+      // volgende trede die nog niet is afgevinkt
+      const st = userState[posId(p)] || {};
+      const sells = st.sells || [];
+      const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+      const nextTargetPct = (maxDone + 1) * 50;
+      toSell = nextTargetPct - plPct;   // hoeveel % winst nog te gaan
+    }
+  }
+  return { plPct, drop, alert, openSell, toSell };
 }
 
 const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
@@ -524,7 +546,12 @@ function positionCard(p, q, err) {
   const alert = dropFromHigh >= p.thresh;
   const rangePos = Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100));
 
-  if (alert) el.classList.add('alert');
+  if (alert) {
+    el.classList.add('alert');
+  } else if (!isWatch) {
+    const m = metrics(p, q);
+    if (m.openSell) el.classList.add('sell-alert');
+  }
 
   const id = posId(p);
   const st = userState[id] || {};
@@ -629,7 +656,12 @@ function positionCard(p, q, err) {
     </div>
     ${profitBlock}
     <div class="p-actions">
-      <span class="badge ${alert ? 'buy' : 'hold'}">${alert ? 'KOOPSIGNAAL' : 'geen actie'}</span>
+      ${(() => {
+        const m = metrics(p, q);
+        if (m.alert) return '<span class="badge buy">KOOPSIGNAAL</span>';
+        if (!isWatch && m.openSell) return '<span class="badge sell">VERKOOPSIGNAAL</span>';
+        return '<span class="badge hold">geen actie</span>';
+      })()}
       ${isWatch ? '' : `<button class="edit-cost" data-id="${id}">Aankoopprijs aanpassen</button>`}
       <button class="remove" data-id="${id}">verwijder</button>
     </div>`;
@@ -771,6 +803,7 @@ async function render() {
       if (sortBy === 'name') return naam(a).localeCompare(naam(b), 'nl');
       if (sortBy === 'result') return metrics(b.p, b.q).plPct - metrics(a.p, a.q).plPct;
       if (sortBy === 'signal') return metrics(b.p, b.q).drop - metrics(a.p, a.q).drop;
+      if (sortBy === 'sellsignal') return metrics(a.p, a.q).toSell - metrics(b.p, b.q).toSell;
       return naam(a).localeCompare(naam(b), 'nl');
     });
     sorted.forEach(renderCard);

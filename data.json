@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-09T21:08:19.940689+00:00",
+  "updated": "2026-09-09T22:02:19.288003+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -197,7 +197,7 @@
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 414.0,
-      "low52": 218.0
+      "low52": 215.5
     },
     "ASML.AS": {
       "ticker": "ASML.AS",

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-09T19:53:23.241122+00:00",
+  "updated": "2026-09-09T21:08:19.940689+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -102,7 +102,7 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 30.37,
+      "price": 30.42,
       "prevClose": 18.7,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
@@ -129,7 +129,7 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 192.705,
+      "price": 192.93,
       "prevClose": 141.91,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
@@ -192,7 +192,7 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 375.0,
+      "price": 373.0,
       "prevClose": 215.5,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",

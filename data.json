@@ -1,9 +1,9 @@
 {
-  "updated": "2026-09-11T10:44:22.051213+00:00",
+  "updated": "2026-09-11T14:38:31.007673+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
-      "price": 439.55,
+      "price": 445.85,
       "prevClose": 132.66,
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
@@ -12,16 +12,16 @@
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
-      "price": 129.04,
+      "price": 127.3,
       "prevClose": 114.66,
       "currency": "EUR",
       "name": "Space Exploration Technologies Corp.",
-      "high52": 132.36,
+      "high52": 132.7,
       "low52": 112.58
     },
     "1YD.DE": {
       "ticker": "1YD.DE",
-      "price": 312.9,
+      "price": 312.45,
       "prevClose": 311.1,
       "currency": "EUR",
       "name": "Broadcom Inc.",
@@ -30,16 +30,16 @@
     },
     "MTE.DE": {
       "ticker": "MTE.DE",
-      "price": 852.4,
+      "price": 845.6,
       "prevClose": 130.9,
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
       "high52": 1102.6,
-      "low52": 118.54
+      "low52": 128.6
     },
     "1ZB.DE": {
       "ticker": "1ZB.DE",
-      "price": 230.0,
+      "price": 238.0,
       "prevClose": 229.5,
       "currency": "EUR",
       "name": "Bloom Energy Corporation",
@@ -48,7 +48,7 @@
     },
     "TL0.DE": {
       "ticker": "TL0.DE",
-      "price": 314.7,
+      "price": 313.95,
       "prevClose": 308.05,
       "currency": "EUR",
       "name": "Tesla, Inc.",
@@ -57,16 +57,16 @@
     },
     "49V.DE": {
       "ticker": "49V.DE",
-      "price": 218.9,
+      "price": 223.0,
       "prevClose": 227.8,
       "currency": "EUR",
       "name": "Vertiv Holdings Co",
       "high52": 251.7,
-      "low52": 215.0
+      "low52": 212.9
     },
     "E7S.DE": {
       "ticker": "E7S.DE",
-      "price": 248.15,
+      "price": 249.35,
       "prevClose": 234.65,
       "currency": "EUR",
       "name": "Constellation Energy Corporation",
@@ -75,7 +75,7 @@
     },
     "AMZ.DE": {
       "ticker": "AMZ.DE",
-      "price": 218.7,
+      "price": 221.0,
       "prevClose": 197.1,
       "currency": "EUR",
       "name": "Amazon.com, Inc.",
@@ -84,7 +84,7 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 144.04,
+      "price": 143.42,
       "prevClose": 94.06,
       "currency": "EUR",
       "name": "Siemens Energy AG",
@@ -93,7 +93,7 @@
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
-      "price": 260.85,
+      "price": 260.6,
       "prevClose": 261.6,
       "currency": "EUR",
       "name": "Lam Research Corporation",
@@ -102,8 +102,8 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 30.56,
-      "prevClose": 18.86,
+      "price": 30.375,
+      "prevClose": 20.76,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 32.81,
@@ -111,7 +111,7 @@
     },
     "ABEA.DE": {
       "ticker": "ABEA.DE",
-      "price": 288.05,
+      "price": 293.2,
       "prevClose": 204.05,
       "currency": "EUR",
       "name": "Alphabet Inc.",
@@ -120,17 +120,17 @@
     },
     "AP2.DE": {
       "ticker": "AP2.DE",
-      "price": 397.3,
+      "price": 394.0,
       "prevClose": 145.1,
       "currency": "EUR",
       "name": "Applied Materials, Inc.",
       "high52": 645.4,
-      "low52": 139.58
+      "low52": 142.62
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 188.99,
-      "prevClose": 150.72,
+      "price": 199.486,
+      "prevClose": 153.04,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 214.89,
@@ -138,7 +138,7 @@
     },
     "45C.DE": {
       "ticker": "45C.DE",
-      "price": 182.64,
+      "price": 178.38,
       "prevClose": 163.74,
       "currency": "EUR",
       "name": "CrowdStrike Holdings Inc",
@@ -147,7 +147,7 @@
     },
     "GOS.DE": {
       "ticker": "GOS.DE",
-      "price": 884.4,
+      "price": 889.8,
       "prevClose": 671.5,
       "currency": "EUR",
       "name": "The Goldman Sachs Group, Inc.",
@@ -156,7 +156,7 @@
     },
     "CMC.DE": {
       "ticker": "CMC.DE",
-      "price": 307.0,
+      "price": 308.6,
       "prevClose": 259.1,
       "currency": "EUR",
       "name": "JPMorgan Chase & Co.",
@@ -165,7 +165,7 @@
     },
     "DWD.DE": {
       "ticker": "DWD.DE",
-      "price": 184.5,
+      "price": 183.05,
       "prevClose": 133.56,
       "currency": "EUR",
       "name": "Morgan Stanley",
@@ -174,7 +174,7 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 190.02,
+      "price": 190.62,
       "prevClose": 151.86,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
@@ -183,7 +183,7 @@
     },
     "PTX.DE": {
       "ticker": "PTX.DE",
-      "price": 144.58,
+      "price": 143.9,
       "prevClose": 141.36,
       "currency": "EUR",
       "name": "Palantir Technologies Inc.",
@@ -192,7 +192,7 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 367.0,
+      "price": 370.0,
       "prevClose": 222.0,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
@@ -201,16 +201,16 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1486.4,
+      "price": 1476.6,
       "prevClose": 686.0,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
-      "low52": 674.1
+      "low52": 681.5
     },
     "UU2.DE": {
       "ticker": "UU2.DE",
-      "price": 924.6,
+      "price": 929.6,
       "prevClose": 962.6,
       "currency": "EUR",
       "name": "BlackRock, Inc.",
@@ -219,7 +219,7 @@
     },
     "MSF.DE": {
       "ticker": "MSF.DE",
-      "price": 425.5,
+      "price": 426.6,
       "prevClose": 428.55,
       "currency": "EUR",
       "name": "Microsoft Corporation",
@@ -228,7 +228,7 @@
     },
     "QDVE.DE": {
       "ticker": "QDVE.DE",
-      "price": 44.365,
+      "price": 44.68,
       "prevClose": 33.76,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
@@ -237,7 +237,7 @@
     },
     "VHYL.MI": {
       "ticker": "VHYL.MI",
-      "price": 81.17,
+      "price": 81.33,
       "prevClose": 66.76,
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
@@ -246,7 +246,7 @@
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",
-      "price": 127.4,
+      "price": 127.76,
       "prevClose": 107.51,
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
@@ -255,7 +255,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 55.0,
+      "price": 55.7,
       "prevClose": 35.23,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
@@ -264,7 +264,7 @@
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 347.74,
+      "price": 349.43,
       "prevClose": 324.17,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

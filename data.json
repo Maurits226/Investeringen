@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-17T00:41:17.540902+00:00",
+  "updated": "2026-09-17T05:26:52.291879+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -89,7 +89,7 @@
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
-      "low52": 90.3
+      "low52": 92.96
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
@@ -170,7 +170,7 @@
       "currency": "EUR",
       "name": "Morgan Stanley",
       "high52": 203.8,
-      "low52": 131.12
+      "low52": 131.54
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
@@ -179,7 +179,7 @@
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 202.0,
-      "low52": 143.24
+      "low52": 144.54
     },
     "PTX.DE": {
       "ticker": "PTX.DE",
@@ -206,7 +206,7 @@
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
-      "low52": 729.5
+      "low52": 747.1
     },
     "UU2.DE": {
       "ticker": "UU2.DE",
@@ -251,7 +251,7 @@
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
       "high52": 130.88,
-      "low52": 106.67
+      "low52": 106.78
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
@@ -260,7 +260,7 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
-      "low52": 34.67
+      "low52": 35.065
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-18T01:32:43.444906+00:00",
+  "updated": "2026-09-18T06:33:52.972991+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -8,7 +8,7 @@
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
       "high52": 505.9,
-      "low52": 126.5
+      "low52": 131.74
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
@@ -192,12 +192,12 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 372.5,
-      "prevClose": 220.5,
+      "price": 374.5,
+      "prevClose": 228.0,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 414.0,
-      "low52": 220.5
+      "low52": 225.5
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
@@ -242,7 +242,7 @@
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
-      "low52": 65.9
+      "low52": 65.92
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",

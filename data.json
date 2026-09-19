@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19T09:45:16.825870+00:00",
+  "updated": "2026-09-19T13:26:02.441295+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -89,7 +89,7 @@
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
-      "low52": 92.96
+      "low52": 93.08
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
@@ -206,7 +206,7 @@
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
-      "low52": 783.4
+      "low52": 796.0
     },
     "UU2.DE": {
       "ticker": "UU2.DE",
@@ -260,7 +260,7 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
-      "low52": 35.525
+      "low52": 36.81
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",

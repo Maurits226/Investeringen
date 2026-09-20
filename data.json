@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-20T16:59:54.616618+00:00",
+  "updated": "2026-09-20T19:16:20.834201+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -255,7 +255,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 57.67,
+      "price": 57.5,
       "prevClose": 35.28,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",

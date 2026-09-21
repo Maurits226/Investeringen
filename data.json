@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-21T01:19:13.047995+00:00",
+  "updated": "2026-09-21T06:27:33.639912+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -193,11 +193,11 @@
     "TSFA.DU": {
       "ticker": "TSFA.DU",
       "price": 374.0,
-      "prevClose": 228.0,
+      "prevClose": 225.5,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 414.0,
-      "low52": 225.5
+      "low52": 227.0
     },
     "ASML.AS": {
       "ticker": "ASML.AS",

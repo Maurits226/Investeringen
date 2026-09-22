@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22T00:47:47.821797+00:00",
+  "updated": "2026-09-22T05:26:27.289391+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -8,7 +8,7 @@
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
       "high52": 536.7,
-      "low52": 131.74
+      "low52": 132.4
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
@@ -125,7 +125,7 @@
       "currency": "EUR",
       "name": "Applied Materials, Inc.",
       "high52": 645.4,
-      "low52": 160.52
+      "low52": 168.34
     },
     "ANET": {
       "ticker": "ANET",
@@ -242,7 +242,7 @@
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
-      "low52": 65.92
+      "low52": 65.97
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",
@@ -260,7 +260,7 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
-      "low52": 36.81
+      "low52": 37.015
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",

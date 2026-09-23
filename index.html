@@ -108,6 +108,11 @@
     border-radius: 9px; font-size: 13px;
   }
   .tb-reset:hover { border-color: var(--accent); color: var(--text); }
+  .sync-badge { font-size: 11px; font-family: 'IBM Plex Mono', monospace; padding: 3px 8px; border-radius: 999px; }
+  .sync-badge.synced { color: var(--up); background: rgba(62,207,142,.12); }
+  .sync-badge.local  { color: var(--muted); background: rgba(134,149,179,.10); }
+  .sync-badge.error  { color: var(--down); background: rgba(255,93,108,.12); }
+  .sync-badge.syncing{ color: var(--warn); background: rgba(245,181,68,.12); }
   .section-header {
     font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
     margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
@@ -269,6 +274,8 @@
       </select>
     </div>
     <button id="resetFilters" class="tb-reset">Reset</button>
+    <button id="syncBtn" class="tb-reset" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
+    <span class="sync-badge" id="syncBadge"></span>
     <span class="tb-count" id="tbCount"></span>
   </div>
 
@@ -382,24 +389,113 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 22;
+const DEFAULT_VERSION = 23;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
 function posId(p) { return (p.section || 'X') + '|' + p.ticker; }
 
 // Gebruikersstate per positie-id: { cost, sells: [{level, pct, date}] }
-function loadState() {
+// Wordt lokaal bewaard (localStorage) EN, als een token is ingevoerd,
+// gesynchroniseerd met state.json in de GitHub-repository zodat het op
+// elk apparaat gelijk is.
+const GH_OWNER = 'Maurits226';
+const GH_REPO = 'Investeringen';
+const GH_BRANCH = 'main';
+const GH_STATE_FILE = 'state.json';
+
+function getToken() {
+  try { return localStorage.getItem('gh_token') || ''; } catch (e) { return ''; }
+}
+function setToken(t) {
+  try {
+    if (t) localStorage.setItem('gh_token', t);
+    else localStorage.removeItem('gh_token');
+  } catch (e) {}
+}
+
+function loadStateLocal() {
   try {
     const s = localStorage.getItem('portfolio_state');
     if (s) return JSON.parse(s);
   } catch (e) {}
   return {};
 }
-function saveState() {
+function saveStateLocal() {
   try { localStorage.setItem('portfolio_state', JSON.stringify(userState)); } catch (e) {}
 }
-let userState = loadState();
+
+let userState = loadStateLocal();
+let stateSha = null;          // sha van state.json op GitHub (nodig om te schrijven)
+let syncStatus = 'local';     // 'local' | 'synced' | 'error' | 'syncing'
+
+// Lees state.json van GitHub (werkt ook zonder token, want repo is public)
+async function loadStateFromGitHub() {
+  try {
+    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`;
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    const token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const r = await fetch(url, { headers });
+    if (r.status === 404) { stateSha = null; return null; } // bestaat nog niet
+    if (!r.ok) throw new Error('kon state niet laden');
+    const j = await r.json();
+    stateSha = j.sha;
+    // base64 -> UTF-8 tekst (robuust met €, accenten)
+    const bin = atob(j.content.replace(/\n/g, ''));
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    const text = new TextDecoder('utf-8').decode(bytes);
+    return JSON.parse(text);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Schrijf userState naar GitHub (vereist token)
+async function saveStateToGitHub() {
+  const token = getToken();
+  if (!token) return false;
+  try {
+    syncStatus = 'syncing'; updateSyncBadge();
+    // Haal eerst de laatste sha op (kan gewijzigd zijn op ander apparaat)
+    await loadStateFromGitHub();
+    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}`;
+    // UTF-8 tekst -> base64 (robuust met €, accenten)
+    const text = JSON.stringify(userState, null, 2);
+    const bytes = new TextEncoder().encode(text);
+    let bin = '';
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    const body = {
+      message: 'Update portfolio state ' + new Date().toISOString(),
+      content: btoa(bin),
+      branch: GH_BRANCH
+    };
+    if (stateSha) body.sha = stateSha;
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('schrijven mislukt (' + r.status + ')');
+    const j = await r.json();
+    stateSha = j.content.sha;
+    syncStatus = 'synced'; updateSyncBadge();
+    return true;
+  } catch (e) {
+    syncStatus = 'error'; updateSyncBadge();
+    return false;
+  }
+}
+
+// Sla op: altijd lokaal, en naar GitHub als er een token is
+function saveState() {
+  saveStateLocal();
+  if (getToken()) saveStateToGitHub();
+}
 
 function loadPositions() {
   let base;
@@ -899,6 +995,52 @@ document.getElementById('sortSel').onchange = render;
 document.getElementById('catSel').onchange = render;
 document.getElementById('statusSel').onchange = render;
 
+// Toon de synchronisatiestatus
+function updateSyncBadge() {
+  const b = document.getElementById('syncBadge');
+  if (!b) return;
+  const map = {
+    synced:  { cls: 'synced',  txt: '● gesynct' },
+    local:   { cls: 'local',   txt: '● alleen dit apparaat' },
+    error:   { cls: 'error',   txt: '● sync-fout' },
+    syncing: { cls: 'syncing', txt: '● bezig…' }
+  };
+  const s = map[syncStatus] || map.local;
+  b.className = 'sync-badge ' + s.cls;
+  b.textContent = s.txt;
+}
+
+// Token instellen / wijzigen / verwijderen
+document.getElementById('syncBtn').onclick = async () => {
+  const huidige = getToken();
+  if (huidige) {
+    const keuze = confirm('Synchronisatie is actief op dit apparaat.\n\nOK = token vervangen\nAnnuleren = token verwijderen (terug naar alleen dit apparaat)');
+    if (keuze) {
+      const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...):', '');
+      if (nieuw) { setToken(nieuw.trim()); await saveStateToGitHub(); alert('Token opgeslagen en gesynchroniseerd.'); }
+    } else {
+      setToken('');
+      syncStatus = 'local'; updateSyncBadge();
+      alert('Token verwijderd van dit apparaat. Je gegevens blijven lokaal bewaard.');
+    }
+    return;
+  }
+  const t = prompt('Plak je GitHub-token (github_pat_...) om je gegevens tussen apparaten te synchroniseren.\n\nDe token wordt alleen op dit apparaat bewaard, niet in de code.', '');
+  if (t) {
+    setToken(t.trim());
+    syncStatus = 'syncing'; updateSyncBadge();
+    // Bij het aanzetten: haal eerst remote op, en als die er niet is, push de lokale
+    const remote = await loadStateFromGitHub();
+    if (remote && typeof remote === 'object') {
+      userState = remote; saveStateLocal();
+      positions.forEach(p => { const st = userState[posId(p)]; if (st && st.cost != null) p.cost = st.cost; });
+      render();
+    }
+    const ok = await saveStateToGitHub();
+    alert(ok ? 'Synchronisatie ingesteld. Je gegevens staan nu ook op GitHub.' : 'Kon niet naar GitHub schrijven — controleer de token.');
+  }
+};
+
 // Reset alle filters naar standaard
 document.getElementById('resetFilters').onclick = () => {
   document.getElementById('sortSel').value = 'section';
@@ -907,7 +1049,24 @@ document.getElementById('resetFilters').onclick = () => {
   render();
 };
 
-render();
+// Bij opstart: probeer de state van GitHub te halen (bron van waarheid bij
+// meerdere apparaten). Lukt dat, gebruik die; anders val terug op lokaal.
+async function initSync() {
+  const remote = await loadStateFromGitHub();
+  if (remote && typeof remote === 'object') {
+    userState = remote;
+    saveStateLocal();
+    positions.forEach(p => {
+      const st = userState[posId(p)];
+      if (st && st.cost != null) p.cost = st.cost;
+    });
+    syncStatus = getToken() ? 'synced' : 'local';
+  }
+  updateSyncBadge();
+  render();
+}
+
+initSync();
 </script>
 </body>
 </html>

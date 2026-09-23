@@ -108,11 +108,17 @@
     border-radius: 9px; font-size: 13px;
   }
   .tb-reset:hover { border-color: var(--accent); color: var(--text); }
-  .sync-badge { font-size: 11px; font-family: 'IBM Plex Mono', monospace; padding: 3px 8px; border-radius: 999px; }
-  .sync-badge.synced { color: var(--up); background: rgba(62,207,142,.12); }
-  .sync-badge.local  { color: var(--muted); background: rgba(134,149,179,.10); }
-  .sync-badge.error  { color: var(--down); background: rgba(255,93,108,.12); }
-  .sync-badge.syncing{ color: var(--warn); background: rgba(245,181,68,.12); }
+  .sync-btn {
+    font-family: inherit; cursor: pointer; font-weight: 500; font-size: 13px;
+    padding: 9px 15px; border-radius: 10px; transition: .15s;
+    color: var(--down); background: rgba(255,93,108,.12); border: 1px solid rgba(255,93,108,.45);
+  }
+  .sync-btn:hover { filter: brightness(1.15); }
+  .sync-btn.synced {
+    color: var(--up); background: rgba(62,207,142,.12); border-color: rgba(62,207,142,.45);
+  }
+  .sync-btn.error { color: var(--down); background: rgba(255,93,108,.18); border-color: rgba(255,93,108,.6); }
+  .sync-btn.syncing { color: var(--warn); background: rgba(245,181,68,.12); border-color: rgba(245,181,68,.45); }
   .section-header {
     font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
     margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
@@ -238,6 +244,7 @@
     </div>
     <div class="controls">
       <span class="updated" id="updated">laden…</span>
+      <button id="syncBtn" class="sync-btn" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
       <button class="primary" id="add">+ Positie</button>
     </div>
   </header>
@@ -274,8 +281,6 @@
       </select>
     </div>
     <button id="resetFilters" class="tb-reset">Reset</button>
-    <button id="syncBtn" class="tb-reset" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
-    <span class="sync-badge" id="syncBadge"></span>
     <span class="tb-count" id="tbCount"></span>
   </div>
 
@@ -389,7 +394,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 23;
+const DEFAULT_VERSION = 25;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -997,17 +1002,18 @@ document.getElementById('statusSel').onchange = render;
 
 // Toon de synchronisatiestatus
 function updateSyncBadge() {
-  const b = document.getElementById('syncBadge');
-  if (!b) return;
+  const btn = document.getElementById('syncBtn');
+  if (!btn) return;
   const map = {
-    synced:  { cls: 'synced',  txt: '● gesynct' },
-    local:   { cls: 'local',   txt: '● alleen dit apparaat' },
-    error:   { cls: 'error',   txt: '● sync-fout' },
-    syncing: { cls: 'syncing', txt: '● bezig…' }
+    synced:  { cls: 'sync-btn synced',  txt: '✓ Gesynct',  title: 'Gesynchroniseerd met GitHub — klik om te wijzigen' },
+    local:   { cls: 'sync-btn',         txt: '⟳ Sync uit',  title: 'Synchronisatie met GitHub instellen' },
+    error:   { cls: 'sync-btn error',   txt: '⚠ Sync-fout', title: 'Synchronisatie mislukt — klik om opnieuw te proberen' },
+    syncing: { cls: 'sync-btn syncing', txt: '⟳ Bezig…',   title: 'Bezig met synchroniseren' }
   };
   const s = map[syncStatus] || map.local;
-  b.className = 'sync-badge ' + s.cls;
-  b.textContent = s.txt;
+  btn.className = s.cls;
+  btn.textContent = s.txt;
+  btn.title = s.title;
 }
 
 // Token instellen / wijzigen / verwijderen

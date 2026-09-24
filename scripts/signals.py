@@ -9,8 +9,9 @@ binnen HORIZON handelsdagen en test het model terug op de eigen historie.
 Alleen standaardbibliotheek: geen pip install nodig in GitHub Actions.
 
 Tickerbron (eerste die iets oplevert):
-  1. tickers.json  — handmatige lijst, bv. [{"symbol":"1YD.DE","name":"Broadcom","category":"Stocks"}]
-  2. data.json     — de bestaande dashboard-feed; tickers worden er automatisch uit gehaald
+  1. tickers.json  — optionele eigen lijst, bv. [{"symbol":"1YD.DE","name":"Broadcom"}]
+  2. tickers.txt   — dezelfde lijst die het portfolio-dashboard gebruikt
+  3. data.json     — de bestaande dashboard-feed; tickers worden er automatisch uit gehaald
 """
 import json
 import math
@@ -56,6 +57,12 @@ def load_tickers():
         if out:
             return out, "tickers.json"
 
+    txt = os.path.join(ROOT, "tickers.txt")
+    if os.path.exists(txt):
+        out = parse_tickers_txt(txt)
+        if out:
+            return out, "tickers.txt"
+
     feed = os.path.join(ROOT, "data.json")
     if not os.path.exists(feed):
         sys.exit("Geen tickers.json en geen data.json gevonden.")
@@ -81,7 +88,7 @@ def load_tickers():
                 if isinstance(v, dict) and TICKER_RE.match(k) and k not in found and (
                         "price" in v or "regularMarketPrice" in v or "close" in v or "prijs" in v):
                     found[k] = {"symbol": k, "name": v.get("name"), "category": category}
-                walk(v, k if isinstance(v, (list, dict)) and not TICKER_RE.match(k) else category)
+                walk(v, category)
         elif isinstance(node, list):
             for v in node:
                 walk(v, category)
@@ -90,6 +97,81 @@ def load_tickers():
     if not found:
         sys.exit("Geen tickers herkend in data.json — maak een tickers.json aan.")
     return list(found.values()), "data.json"
+
+
+def portfolio_info():
+    """Categorie en label per ticker uit de DEFAULT-lijst in index.html."""
+    info = {}
+    path = os.path.join(ROOT, "index.html")
+    if not os.path.exists(path):
+        return info
+    with open(path, encoding="utf-8") as f:
+        html = f.read()
+    for m in re.finditer(r"\{[^{}]*?ticker:\s*['\"]([^'\"]+)['\"][^{}]*?\}", html):
+        obj = m.group(0)
+        sec = re.search(r"section:\s*(['\"])(.*?)\1", obj)
+        lab = re.search(r"label:\s*(['\"])(.*?)\1", obj)
+        info[m.group(1).upper()] = {"section": sec.group(2) if sec else None,
+                                    "label": lab.group(2) if lab else None,
+                                    "watch": "watch: true" in obj}
+    return info
+
+
+def enrich(tickers):
+    info = portfolio_info()
+    names = {}
+    feed = os.path.join(ROOT, "data.json")
+    if os.path.exists(feed):
+        try:
+            with open(feed, encoding="utf-8") as f:
+                q = json.load(f).get("quotes", {})
+            names = {k.upper(): v.get("name") for k, v in q.items() if isinstance(v, dict)}
+        except Exception:  # noqa: BLE001
+            pass
+    for t in tickers:
+        sym = t["symbol"].upper()
+        p = info.get(sym, {})
+        t["category"] = p.get("section") or t.get("category")
+        t["label"] = p.get("label")
+        t["watch"] = bool(p.get("watch")) or (t.get("category") or "").lower() == "watchlist"
+        t["name"] = t.get("name") or names.get(sym)
+    return tickers
+
+
+def parse_tickers_txt(path):
+    """Leest tickers.txt van het portfolio-dashboard.
+
+    Werkt met o.a.:  1YD.DE            1YD.DE, Broadcom, Stocks
+                     1YD.DE Broadcom   1YD.DE;Broadcom      [Stocks] / Stocks: / # Stocks als kopje
+    """
+    out, seen, category = [], set(), None
+    with open(path, encoding="utf-8-sig") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line:
+                continue
+            head = re.match(r"^\[(.+)\]$|^#+\s*(.+)$|^([^,;|\t]+):$", line)
+            if head:
+                label = next(g for g in head.groups() if g).strip()
+                first = label.split()[0].upper() if label.split() else ""
+                if len(label) <= 25 and len(label.split()) <= 3 and not ("." in first and TICKER_RE.match(first)):
+                    category = label
+                continue
+            line = re.split(r"\s+#", line)[0].strip()          # inline commentaar
+            if any(sep in line for sep in (",", ";", "|", "\t")):
+                parts = [x.strip().strip('"\'') for x in re.split(r"[,;|\t]", line)]
+            else:
+                parts = line.split(None, 1)
+                if len(parts) > 1:
+                    parts[1] = parts[1].strip(" =-:").strip('"\'')
+            sym = parts[0].upper()
+            if not TICKER_RE.match(sym) or sym in seen:
+                continue
+            seen.add(sym)
+            out.append({"symbol": sym,
+                        "name": parts[1] if len(parts) > 1 and parts[1] else None,
+                        "category": parts[2] if len(parts) > 2 and parts[2] else category})
+    return out
 
 
 # ── Data ─────────────────────────────────────────────────────────────────
@@ -464,7 +546,9 @@ def analyse(tk, bars, meta):
     return {
         "symbol": tk["symbol"],
         "name": tk.get("name") or meta.get("longName") or meta.get("shortName") or tk["symbol"],
+        "label": tk.get("label"),
         "category": tk.get("category"),
+        "watch": tk.get("watch", False),
         "currency": meta.get("currency", ""),
         "price": r2(price),
         "day_pct": round((price / prev - 1) * 100, 2) if prev else None,
@@ -487,6 +571,7 @@ def analyse(tk, bars, meta):
 
 def main():
     tickers, source = load_tickers()
+    tickers = enrich(tickers)
     print(f"{len(tickers)} tickers uit {source}")
     items, errors = [], []
     for tk in tickers:
@@ -497,7 +582,8 @@ def main():
             print(f"  {tk['symbol']:<10} score {item['score']:>4}  {item['direction']:<5} "
                   f"{'' if item['projected_pct'] is None else item['projected_pct']:>6}")
         except Exception as e:  # noqa: BLE001
-            errors.append({"symbol": tk["symbol"], "error": str(e)[:200]})
+            errors.append({"symbol": tk["symbol"], "name": tk.get("name"), "label": tk.get("label"),
+                           "category": tk.get("category"), "error": str(e)[:200]})
             print(f"  {tk['symbol']:<10} FOUT: {e}")
         time.sleep(0.4)
 

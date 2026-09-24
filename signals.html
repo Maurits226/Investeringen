@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Patroonradar</title>
+<meta name="theme-color" content="#141517">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+<style>
+:root{
+  --page:#EEF0F3;--surface:#FFFFFF;--line:#D5D9E0;--text:#16181C;--muted:#5A6170;
+  --accent:#2B67CC;--accent-weak:rgba(43,103,204,.12);
+  --up:#1B8454;--up-weak:rgba(27,132,84,.14);--down:#C2372E;--down-weak:rgba(194,55,46,.13);
+  --font:"Archivo","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --page:#141517;--surface:#1C1E22;--line:#2B2E34;--text:#E8EAEE;--muted:#9AA1AC;
+  --accent:#4F8FF0;--accent-weak:rgba(79,143,240,.15);
+  --up:#3FBF86;--up-weak:rgba(63,191,134,.15);--down:#EF5A50;--down-weak:rgba(239,90,80,.15);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#141517;--surface:#1C1E22;--line:#2B2E34;--text:#E8EAEE;--muted:#9AA1AC;
+  --accent:#4F8FF0;--accent-weak:rgba(79,143,240,.15);
+  --up:#3FBF86;--up-weak:rgba(63,191,134,.15);--down:#EF5A50;--down-weak:rgba(239,90,80,.15);
+  color-scheme:dark}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--page);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--text);font:400 16px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.up{color:var(--up)}.down{color:var(--down)}
+
+.app{max-width:760px;margin:0 auto;padding:22px 14px 56px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+h1{margin:0;font-size:32px;line-height:1;font-weight:800;font-stretch:68%;letter-spacing:.01em}
+.stand{margin:6px 0 0;font-size:14px;color:var(--muted)}
+.terug{flex:none;padding:8px 13px;border:1px solid var(--line);border-radius:999px;font-size:14px;font-weight:600;color:var(--text);text-decoration:none}
+.terug:hover{border-color:var(--muted)}
+.demo{margin:16px 0 0;padding:11px 13px;border-radius:10px;background:var(--accent-weak);font-size:14px}
+
+/* Tellers = filters */
+.tellers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:22px 0 10px}
+.teller{display:block;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
+.teller b{display:block;font-size:34px;line-height:1;font-weight:800;font-stretch:66%}
+.teller span{font-size:14px;color:var(--muted)}
+.teller.down b{color:var(--down)}.teller.up b{color:var(--up)}
+.teller[aria-pressed="true"].down{border-color:var(--down);background:var(--down-weak)}
+.teller[aria-pressed="true"].up{border-color:var(--up);background:var(--up-weak)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
+.chip{padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:none;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-weak);font-weight:600}
+.terugblik{margin:8px 0 18px;font-size:13px;color:var(--muted)}
+
+/* Kaart */
+.lijst{display:grid;gap:8px}
+.kaart{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.kaart.flag-down{border-left:4px solid var(--down)}
+.kaart.flag-up{border-left:4px solid var(--up)}
+.kop{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;width:100%;padding:12px 14px 13px;border:0;background:none;text-align:left;cursor:pointer}
+.naam{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sym{font-size:13px;color:var(--muted)}
+.prijs{text-align:right;font-weight:700;font-stretch:80%;font-size:18px;line-height:1.2}
+.dag{text-align:right;font-size:13px}
+.verw{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:6px}
+.balk{position:relative;height:8px;border-radius:4px;background:var(--line)}
+.balk::after{content:"";position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--muted)}
+.balk i{position:absolute;top:0;bottom:0;border-radius:4px}
+.balk i.down{right:50%;background:var(--down)}
+.balk i.up{left:50%;background:var(--up)}
+.verw-tekst{font-size:14px;font-weight:600;white-space:nowrap}
+.verw-tekst.flat{color:var(--muted);font-weight:400}
+.plan{cursor:pointer;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 14px;padding:10px 0 13px;border-top:1px solid var(--line)}
+.stap{min-width:0}
+.stap dt{font-size:12px;font-weight:700}
+.stap dd{margin:0;font-weight:700;font-stretch:80%;font-size:16px;line-height:1.25;white-space:nowrap}
+.stap small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.stap.koop dt{color:var(--up)}.stap.verkoop dt{color:var(--down)}.stap.wacht dt{color:var(--muted)}
+.stop{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+
+.detail{padding:0 14px 16px;border-top:1px solid var(--line)}
+.spark{display:block;width:100%;height:110px;margin:12px 0 4px}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:10px}
+.legenda i{display:inline-block;width:14px;height:0;border-top:2px dashed currentColor;vertical-align:middle;margin-right:5px}
+.pat{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.pat li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px;font-size:14px}
+.pat small{display:block;color:var(--muted);font-size:13px}
+.feiten{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.feiten dt{font-size:12px;color:var(--muted)}
+.feiten dd{margin:0;font-weight:600;font-size:15px}
+.bt{margin:0;font-size:13px;color:var(--muted)}
+.bt b{color:var(--text)}
+
+.leeg{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+.fouten{margin:18px 0 0;font-size:13px;color:var(--muted)}
+.voet{margin:28px 0 0;font-size:13px;color:var(--muted);max-width:62ch}
+@media (prefers-reduced-motion:no-preference){.detail{animation:open .18s ease-out}@keyframes open{from{opacity:0;transform:translateY(-4px)}}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Patroonradar</h1>
+      <p class="stand" id="stand">Laden…</p>
+    </div>
+    <a class="terug" href="./">Portfolio</a>
+  </header>
+  <p class="demo" id="demo" hidden>Voorbeelddata met verzonnen koersen. Op GitHub Pages leest deze pagina je echte signals.json.</p>
+
+  <div class="tellers">
+    <button class="teller down" data-f="down" aria-pressed="false"><b id="n-down">–</b><span id="l-down">mogelijke dalingen</span></button>
+    <button class="teller up" data-f="up" aria-pressed="false"><b id="n-up">–</b><span>mogelijke stijgingen</span></button>
+  </div>
+  <div class="filters" role="group" aria-label="Filter">
+    <button class="chip" data-f="flag" aria-pressed="true">Interessant</button>
+    <button class="chip" data-f="all" aria-pressed="false">Alle posities</button>
+  </div>
+  <p class="terugblik" id="terugblik"></p>
+
+  <main class="lijst" id="lijst"></main>
+  <p class="fouten" id="fouten" hidden></p>
+  <p class="voet">Signalen komen uit bekende technische patronen (trend, RSI, MACD, Bollinger, uitbraken, double top/bottom, kop-schouders, candlesticks). Ze beschrijven kansen, geen zekerheden. De terugblik per positie laat zien hoe vaak het model op die koers in de afgelopen twee jaar gelijk had, vergeleken met toeval.</p>
+</div>
+
+<script>
+const DEMO = null; /*__DEMO__*/
+const UI_KEY = 'signals_ui';
+const $ = (s) => document.querySelector(s);
+const nf = (d) => new Intl.NumberFormat('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (x, d = 1) => (x > 0 ? '+' : x < 0 ? '−' : '') + nf(d).format(Math.abs(x)) + '%';
+const cur = (c) => ({ EUR: '€', USD: '$', GBP: '£', GBp: 'p ', CHF: 'CHF ' }[c] ?? '');
+const money = (x, c) => x == null ? '–' : cur(c) + nf(x >= 1000 ? 0 : 2).format(x);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+
+let ui = { filter: 'flag', open: [] };
+try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
+const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
+let data = null;
+
+async function load() {
+  if (DEMO) { data = DEMO; $('#demo').hidden = false; render(); return; }
+  try {
+    const r = await fetch('signals.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+    render();
+  } catch (e) {
+    if (!data) {
+      $('#stand').textContent = 'signals.json niet gevonden';
+      $('#lijst').innerHTML = '<div class="leeg">Nog geen signalen. Start de workflow “Patroonradar” in GitHub Actions; na een paar minuten verschijnt signals.json.</div>';
+    }
+  }
+}
+
+function render() {
+  const y = window.scrollY;
+  const cfg = data.config, items = data.items;
+  const t = new Date(data.generated);
+  $('#stand').textContent = 'Bijgewerkt ' + t.toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ', horizon ' + cfg.horizon + ' handelsdagen';
+  $('#l-down').textContent = 'mogelijke dalingen ≥' + nf(0).format(cfg.drop_pct) + '%';
+  $('#n-down').textContent = items.filter((i) => i.flag && i.direction === 'down').length;
+  $('#n-up').textContent = items.filter((i) => i.flag && i.direction === 'up').length;
+
+  const s = data.stats, rate = (a, b) => b ? Math.round(100 * a / b) : null;
+  const dn = rate(s.down.hits, s.down.n), dnb = rate(s.down.base_hits, s.down.base_n);
+  const upr = rate(s.up.hits, s.up.n), upb = rate(s.up.base_hits, s.up.base_n);
+  $('#terugblik').textContent = dn == null ? '' :
+    `Terugblik alle posities: na een dalingssignaal zakte de koers in ${dn}% van de gevallen ≥${nf(0).format(cfg.drop_pct)}% (zonder signaal ${dnb}%). Na een stijgingssignaal steeg hij in ${upr ?? '–'}% ≥${nf(0).format(cfg.eval_rise_pct)}% (zonder signaal ${upb}%).`;
+
+  document.querySelectorAll('[data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === ui.filter)));
+
+  let list = items.slice();
+  if (ui.filter === 'flag') list = list.filter((i) => i.flag);
+  else if (ui.filter === 'down' || ui.filter === 'up') list = list.filter((i) => i.flag && i.direction === ui.filter);
+  list.sort((a, b) => (b.flag - a.flag) || (Math.abs(b.score) - Math.abs(a.score)));
+
+  $('#lijst').innerHTML = list.length ? list.map(card).join('') :
+    `<div class="leeg">${ui.filter === 'all' ? 'Geen posities in signals.json.' : 'Nu geen posities met een verwachte daling ≥' + nf(0).format(cfg.drop_pct) + '% of een verwachte stijging. Kies “Alle posities” om de rest te zien.'}</div>`;
+
+  const errs = data.errors || [];
+  $('#fouten').hidden = !errs.length;
+  $('#fouten').textContent = errs.length ? `Niet opgehaald: ${errs.map((e) => e.symbol).join(', ')}. Controleer of de Yahoo-ticker klopt.` : '';
+  window.scrollTo(0, y);
+}
+
+function card(it) {
+  const open = ui.open.includes(it.symbol);
+  const d = it.direction, p = it.projected_pct;
+  const w = p == null ? 0 : Math.min(50, Math.abs(p) / 20 * 50);
+  const verw = d === 'flat' || p == null
+    ? `<span class="verw-tekst flat">Geen duidelijk patroon</span>`
+    : `<span class="verw-tekst ${d}">${pct(p)} naar ${money(it.target, it.currency)}</span>`;
+  return `<article class="kaart ${it.flag ? 'flag-' + d : ''}">
+    <button class="kop" aria-expanded="${open}" data-sym="${esc(it.symbol)}">
+      <span><span class="naam">${esc(it.name)}</span><br><span class="sym">${esc(it.symbol)}${it.category ? ', ' + esc(it.category) : ''}</span></span>
+      <span><span class="prijs" style="display:block">${money(it.price, it.currency)}</span><span class="dag ${it.day_pct > 0 ? 'up' : it.day_pct < 0 ? 'down' : ''}" style="display:block">${it.day_pct == null ? '' : pct(it.day_pct, 2)}</span></span>
+      <span class="verw"><span class="balk" aria-hidden="true">${w ? `<i class="${d}" style="width:${w}%"></i>` : ''}</span>${verw}</span>
+    </button>
+    ${plan(it)}
+    ${open ? detail(it) : ''}
+  </article>`;
+}
+
+const isWatch = (it) => /watch/i.test(it.category || '');
+
+function stappen(it) {
+  const p = it.plan; if (!p) return null;
+  const r = (a, b) => pct((b / a - 1) * 100);
+  if (it.direction === 'down') return [
+    isWatch(it) ? ['wacht', 'Nog niet kopen', p.entry, 'nu'] : ['verkoop', 'Verkopen', p.entry, 'nu'],
+    ['koop', isWatch(it) ? 'Kopen' : 'Terugkopen', p.target, r(p.entry, p.target)],
+    ['verkoop', isWatch(it) ? 'Verkopen' : 'Weer verkopen', p.next, r(p.target, p.next) + ' na herstel'],
+  ];
+  return [
+    ['koop', 'Kopen', p.entry, 'nu'],
+    ['verkoop', 'Verkopen', p.target, r(p.entry, p.target)],
+    ['koop', 'Terugkopen', p.next, r(p.target, p.next) + ' na terugval'],
+  ];
+}
+
+function plan(it) {
+  const s = stappen(it); if (!s) return '';
+  return `<dl class="plan" aria-label="Handelsplan" data-sym="${esc(it.symbol)}">${s.map(([cls, lbl, prijs, sub]) =>
+    `<div class="stap ${cls}"><dt>${lbl}</dt><dd>${money(prijs, it.currency)}<small>${sub}</small></dd></div>`).join('')}</dl>`;
+}
+
+function stopTekst(it) {
+  const p = it.plan; if (!p) return '';
+  const m = money(p.stop, it.currency);
+  if (it.direction === 'down') return isWatch(it)
+    ? `<p class="stop">Sluit de koers boven <b>${m}</b>, dan is het dalingspatroon mislukt en hoef je niet op ${money(p.target, it.currency)} te wachten.</p>`
+    : `<p class="stop">Sluit de koers boven <b>${m}</b>, dan is het dalingspatroon mislukt: koop dan terug in plaats van te wachten op ${money(p.target, it.currency)}.</p>`;
+  return `<p class="stop">Sluit de koers onder <b>${m}</b>, dan is het stijgingspatroon mislukt: verkoop dan (stop-loss).</p>`;
+}
+
+function detail(it) {
+  const bt = it.backtest[it.direction === 'up' ? 'up' : 'down'];
+  const isUp = it.direction === 'up';
+  const cfg = data.config;
+  const hit = bt.n ? Math.round(100 * bt.hits / bt.n) : null;
+  const base = bt.base_n ? Math.round(100 * bt.base_hits / bt.base_n) : null;
+  const drempel = nf(0).format(isUp ? cfg.eval_rise_pct : cfg.drop_pct);
+  let oordeel = '';
+  if (hit != null && base != null && bt.n >= 5) oordeel = hit >= base + 10 ? ' Duidelijk beter dan toeval.' : hit > base ? ' Iets beter dan toeval.' : ' Niet beter dan toeval.';
+  const btText = it.direction === 'flat'
+    ? `Geen actief signaal. Kans op ≥${nf(0).format(cfg.drop_pct)}% daling binnen ${cfg.horizon} dagen is historisch ${base ?? '–'}%.`
+    : bt.n
+      ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'stijgings' : 'dalings'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
+      : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
+  const pats = it.patterns.filter((p) => p.dir !== 'info');
+  return `<div class="detail">
+    ${spark(it)}
+    ${stopTekst(it)}
+    <ul class="pat">${pats.map((p) => `<li><span class="${p.dir}" aria-label="${p.dir === 'up' ? 'positief' : 'negatief'}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span>Geen patronen gevonden</span></li>'}</ul>
+    <dl class="feiten">
+      <div><dt>Signaal</dt><dd class="${it.score > 0 ? 'up' : it.score < 0 ? 'down' : ''}">${it.score > 0 ? '+' : ''}${it.score}</dd></div>
+      <div><dt>RSI</dt><dd>${it.rsi == null ? '–' : nf(0).format(it.rsi)}</dd></div>
+      <div><dt>Normale beweging</dt><dd>±${nf(1).format(it.sigma_pct)}%</dd></div>
+    </dl>
+    <p class="bt">${btText}</p>
+  </div>`;
+}
+
+function spark(it) {
+  const v = it.spark; if (!v || v.length < 2) return '';
+  const lines = [['support', 'muted', 'steun'], ['resistance', 'muted', 'weerstand'], ['target', 'accent', 'koersdoel']]
+    .filter(([k]) => it[k] != null && (k !== 'target' || it.direction !== 'flat'))
+    .filter(([k]) => !it.plan || !['support', 'resistance'].includes(k) || Math.abs(it[k] - it.plan.stop) > 1e-9);
+  if (it.plan) lines.push(['stop', 'muted', 'plan vervalt']);
+  const val = (k) => k === 'stop' ? it.plan.stop : it[k];
+  const all = v.concat(lines.map(([k]) => val(k)));
+  let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+  const W = 300, H = 110, X = (i) => (i / (v.length - 1)) * W, Y = (x) => H - ((x - lo) / (hi - lo)) * H;
+  const path = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(x).toFixed(1)).join('');
+  const col = (c) => c === 'accent' ? 'var(--accent)' : `var(--${c})`;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Koers laatste ${v.length} handelsdagen">
+      ${lines.map(([k, c]) => `<line x1="0" x2="${W}" y1="${Y(val(k)).toFixed(1)}" y2="${Y(val(k)).toFixed(1)}" stroke="${col(c)}" stroke-width="1.3" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`).join('')}
+      <path d="${path}" fill="none" stroke="var(--text)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    </svg>
+    <div class="legenda"><span>${v.length} handelsdagen</span>${lines.map(([k, c, l]) => `<span style="color:${col(c)}"><i></i>${l} ${money(val(k), it.currency)}</span>`).join('')}</div>`;
+}
+
+document.addEventListener('click', (e) => {
+  const f = e.target.closest('[data-f]');
+  if (f) { ui.filter = ui.filter === f.dataset.f && f.classList.contains('teller') ? 'flag' : f.dataset.f; saveUI(); render(); return; }
+  const k = e.target.closest('.kop, .plan');
+  if (k) {
+    const s = k.dataset.sym;
+    ui.open = ui.open.includes(s) ? ui.open.filter((x) => x !== s) : [...ui.open, s];
+    saveUI(); render();
+  }
+});
+
+load();
+setInterval(load, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

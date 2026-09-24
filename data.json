@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-24T19:20:29.234957+00:00",
+  "updated": "2026-09-24T21:54:08.014521+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -102,7 +102,7 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 29.145,
+      "price": 29.57,
       "prevClose": 20.57,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
@@ -192,7 +192,7 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 388.0,
+      "price": 395.0,
       "prevClose": 237.0,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",

@@ -13,15 +13,19 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: update-prices    # nooit twee koersen-runs tegelijk
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -35,7 +39,12 @@ jobs:
           git add data.json
           if git diff --staged --quiet; then
             echo "Geen wijzigingen in data.json"
-          else
-            git commit -m "Update koersen $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git push
+            exit 0
           fi
+          git commit -m "Update koersen $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
+          # de Patroonradar pusht ook: bij een botsing eerst de nieuwste versie ophalen
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push && exit 0
+            sleep $((i * 7))
+          done
+          exit 1

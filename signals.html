@@ -1,301 +1,551 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Patroonradar</title>
-<meta name="theme-color" content="#141517">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
 <style>
-:root{
-  --page:#EEF0F3;--surface:#FFFFFF;--line:#D5D9E0;--text:#16181C;--muted:#5A6170;
-  --accent:#2B67CC;--accent-weak:rgba(43,103,204,.12);
-  --up:#1B8454;--up-weak:rgba(27,132,84,.14);--down:#C2372E;--down-weak:rgba(194,55,46,.13);
-  --font:"Archivo","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  color-scheme:light;box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --page:#141517;--surface:#1C1E22;--line:#2B2E34;--text:#E8EAEE;--muted:#9AA1AC;
-  --accent:#4F8FF0;--accent-weak:rgba(79,143,240,.15);
-  --up:#3FBF86;--up-weak:rgba(63,191,134,.15);--down:#EF5A50;--down-weak:rgba(239,90,80,.15);
-  color-scheme:dark}}
-:root[data-theme="dark"]{
-  --page:#141517;--surface:#1C1E22;--line:#2B2E34;--text:#E8EAEE;--muted:#9AA1AC;
-  --accent:#4F8FF0;--accent-weak:rgba(79,143,240,.15);
-  --up:#3FBF86;--up-weak:rgba(63,191,134,.15);--down:#EF5A50;--down-weak:rgba(239,90,80,.15);
-  color-scheme:dark}
-*,*::before,*::after{box-sizing:inherit}
-[hidden]{display:none!important}
-html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--page);-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--page);color:var(--text);font:400 16px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
-button{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.up{color:var(--up)}.down{color:var(--down)}
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-.app{max-width:760px;margin:0 auto;padding:22px 14px 56px}
-.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-h1{margin:0;font-size:32px;line-height:1;font-weight:800;font-stretch:68%;letter-spacing:.01em}
-.stand{margin:6px 0 0;font-size:14px;color:var(--muted)}
-.terug{flex:none;padding:8px 13px;border:1px solid var(--line);border-radius:999px;font-size:14px;font-weight:600;color:var(--text);text-decoration:none}
-.terug:hover{border-color:var(--muted)}
-.demo{margin:16px 0 0;padding:11px 13px;border-radius:10px;background:var(--accent-weak);font-size:14px}
+  :root {
+    --ink: #141517;
+    --panel: #1a1c1e;
+    --panel-2: #202224;
+    --line: #2a2c2f;
+    --muted: #83888d;
+    --text: #eceef0;
+    --up: #3ecf8e;
+    --down: #f0595f;
+    --warn: #f5b544;
+    --accent: #4f8ff0;
+  }
 
-/* Tellers = filters */
-.tellers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:22px 0 10px}
-.teller{display:block;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
-.teller b{display:block;font-size:34px;line-height:1;font-weight:800;font-stretch:66%}
-.teller span{font-size:14px;color:var(--muted)}
-.teller.down b{color:var(--down)}.teller.up b{color:var(--up)}
-.teller[aria-pressed="true"].down{border-color:var(--down);background:var(--down-weak)}
-.teller[aria-pressed="true"].up{border-color:var(--up);background:var(--up-weak)}
-.filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
-.chip{padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:none;font-size:14px;cursor:pointer}
-.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-weak);font-weight:600}
-.terugblik{margin:8px 0 18px;font-size:13px;color:var(--muted)}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Kaart */
-.lijst{display:grid;gap:8px}
-.kaart{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.kaart.flag-down{border-left:4px solid var(--down)}
-.kaart.flag-up{border-left:4px solid var(--up)}
-.kop{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;width:100%;padding:12px 14px 13px;border:0;background:none;text-align:left;cursor:pointer}
-.naam{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sym{font-size:13px;color:var(--muted)}
-.prijs{text-align:right;font-weight:700;font-stretch:80%;font-size:18px;line-height:1.2}
-.dag{text-align:right;font-size:13px}
-.verw{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:6px}
-.balk{position:relative;height:8px;border-radius:4px;background:var(--line)}
-.balk::after{content:"";position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--muted)}
-.balk i{position:absolute;top:0;bottom:0;border-radius:4px}
-.balk i.down{right:50%;background:var(--down)}
-.balk i.up{left:50%;background:var(--up)}
-.verw-tekst{font-size:14px;font-weight:600;white-space:nowrap}
-.verw-tekst.flat{color:var(--muted);font-weight:400}
-.plan{cursor:pointer;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 14px;padding:10px 0 13px;border-top:1px solid var(--line)}
-.stap{min-width:0}
-.stap dt{font-size:12px;font-weight:700}
-.stap dd{margin:0;font-weight:700;font-stretch:80%;font-size:16px;line-height:1.25;white-space:nowrap}
-.stap small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
-.stap.koop dt{color:var(--up)}.stap.verkoop dt{color:var(--down)}.stap.wacht dt{color:var(--muted)}
-.stop{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%),
+      var(--ink);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 28px 18px 60px;
+  }
 
-.detail{padding:0 14px 16px;border-top:1px solid var(--line)}
-.spark{display:block;width:100%;height:110px;margin:12px 0 4px}
-.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:10px}
-.legenda i{display:inline-block;width:14px;height:0;border-top:2px dashed currentColor;vertical-align:middle;margin-right:5px}
-.pat{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
-.pat li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px;font-size:14px}
-.pat small{display:block;color:var(--muted);font-size:13px}
-.feiten{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px}
-.feiten dt{font-size:12px;color:var(--muted)}
-.feiten dd{margin:0;font-weight:600;font-size:15px}
-.bt{margin:0;font-size:13px;color:var(--muted)}
-.bt b{color:var(--text)}
+  .wrap { max-width: 1100px; margin: 0 auto; }
 
-.leeg{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
-.fouten{margin:18px 0 0;font-size:13px;color:var(--muted)}
-.voet{margin:28px 0 0;font-size:13px;color:var(--muted);max-width:62ch}
-@media (prefers-reduced-motion:no-preference){.detail{animation:open .18s ease-out}@keyframes open{from{opacity:0;transform:translateY(-4px)}}}
+  header.top {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    flex-wrap: wrap; gap: 16px; margin-bottom: 26px;
+  }
+  .title-block h1 {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .pulse {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(79,143,240,.55);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(79,143,240,.5); }
+    70% { box-shadow: 0 0 0 10px rgba(79,143,240,0); }
+    100% { box-shadow: 0 0 0 0 rgba(79,143,240,0); }
+  }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button, .btn {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 9px 15px;
+    border-radius: 10px; font-size: 13px; font-weight: 500; transition: .15s;
+    text-decoration: none; display: inline-block;
+  }
+  button:hover, .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+  .summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px;
+  }
+  .stat {
+    background: linear-gradient(180deg, var(--panel), var(--ink));
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+  }
+  .stat.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
+  .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat.clickable:active { transform: translateY(0); }
+  .stat.clickable.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
+  .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+  .toolbar {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    margin-bottom: 20px; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .toolbar select {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 7px 11px;
+    border-radius: 9px; font-size: 13px;
+  }
+  .toolbar select:hover { border-color: var(--accent); }
+  .tb-count { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; }
+  .tb-reset {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--muted); padding: 7px 12px;
+    border-radius: 9px; font-size: 13px;
+  }
+  .tb-reset:hover { border-color: var(--accent); color: var(--text); }
+  .section-header {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
+    margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px;
+  }
+  .section-header:first-child { margin-top: 0; }
+  .section-header::before {
+    content: ''; width: 4px; height: 18px; border-radius: 2px; background: var(--accent);
+  }
+
+  .position {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1.6fr 1.3fr auto; gap: 18px; align-items: center;
+    position: relative; overflow: hidden; transition: .2s;
+  }
+  .position::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line);
+  }
+  .position.down::before { background: var(--down); }
+  .position.down.flag {
+    border-color: rgba(255,93,108,.5);
+    box-shadow: 0 0 0 1px rgba(255,93,108,.25), 0 8px 30px -12px rgba(255,93,108,.4);
+  }
+  .position.up::before { background: var(--up); }
+  .position.up.flag {
+    border-color: rgba(62,207,142,.5);
+    box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4);
+  }
+
+  .p-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
+  .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
+
+  .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
+  .v.up, .c-up { color: var(--up); } .v.down, .c-down { color: var(--down); }
+  .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; color: var(--muted); }
+
+  .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
+  .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
+  .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+  .bar-fill.down { right: 50%; background: linear-gradient(270deg, var(--warn), var(--down)); }
+  .bar-fill.up { left: 50%; background: linear-gradient(90deg, var(--warn), var(--up)); }
+  .bar-marker { position: absolute; top: -3px; left: 50%; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+
+  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+  .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: flex; align-items: baseline; gap: 6px; }
+  .plan-row b { font-weight: 600; min-width: 92px; }
+  .plan-row .koop { color: var(--up); } .plan-row .verkoop { color: var(--down); } .plan-row .wacht { color: var(--muted); }
+  .plan-row .pp { color: var(--muted); margin-left: auto; }
+  .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+  .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.down { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
+  .badge.up { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
+  .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
+  .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; white-space: nowrap; }
+  .toggle:hover { border-color: var(--accent); color: var(--text); }
+
+  .detail {
+    grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px;
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px;
+  }
+  .spark { display: block; width: 100%; height: 130px; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 14px; border-top: 2px dashed currentColor; vertical-align: middle; margin-right: 5px; }
+  .d-k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+  .pat { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .pat li { font-size: 13px; display: flex; gap: 8px; }
+  .pat small { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 4px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .facts .v { font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px; }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .note b { color: var(--text); font-weight: 600; }
+  .stopnote { font-size: 12px; line-height: 1.5; padding: 9px 11px; border-radius: 9px; background: rgba(245,181,68,.10); border: 1px solid rgba(245,181,68,.35); color: var(--warn); margin-bottom: 14px; }
+
+  .state { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .err { color: var(--warn); }
+  .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
+  .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  @media (max-width: 860px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .position { grid-template-columns: 1fr 1fr; }
+    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    .bar-wrap { grid-column: span 2; }
+    .profit-block { grid-column: span 2; }
+    .detail { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    body { padding: 18px 12px 40px; }
+    header.top { flex-direction: column; align-items: stretch; }
+    .controls { justify-content: space-between; }
+    .summary { gap: 10px; }
+    .stat { padding: 12px 14px; }
+    .stat .value { font-size: 20px; }
+    .position { grid-template-columns: 1fr 1fr; padding: 16px; gap: 14px; }
+    .p-name { grid-column: span 2; }
+    .p-ticker { font-size: 22px; }
+  }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="wrap">
   <header class="top">
-    <div>
-      <h1>Patroonradar</h1>
-      <p class="stand" id="stand">Laden…</p>
+    <div class="title-block">
+      <h1><span class="pulse"></span>Patroonradar</h1>
+      <p>Koop- en verkoopsignalen uit technische patronen</p>
     </div>
-    <a class="terug" href="./">Portfolio</a>
+    <div class="controls">
+      <span class="updated" id="updated">laden…</span>
+      <a class="btn primary" href="./">Portfolio</a>
+    </div>
   </header>
-  <p class="demo" id="demo" hidden>Voorbeelddata met verzonnen koersen. Op GitHub Pages leest deze pagina je echte signals.json.</p>
+  <p class="hint" id="demo" hidden style="margin:-10px 0 20px">Voorbeeld met een kopie van je signals.json. Op GitHub Pages leest deze pagina je live bestand.</p>
 
-  <div class="tellers">
-    <button class="teller down" data-f="down" aria-pressed="false"><b id="n-down">–</b><span id="l-down">mogelijke dalingen</span></button>
-    <button class="teller up" data-f="up" aria-pressed="false"><b id="n-up">–</b><span>mogelijke stijgingen</span></button>
-  </div>
-  <div class="filters" role="group" aria-label="Filter">
-    <button class="chip" data-f="flag" aria-pressed="true">Interessant</button>
-    <button class="chip" data-f="all" aria-pressed="false">Alle posities</button>
-  </div>
-  <p class="terugblik" id="terugblik"></p>
+  <div class="summary" id="summary"></div>
 
-  <main class="lijst" id="lijst"></main>
-  <p class="fouten" id="fouten" hidden></p>
-  <p class="voet">Signalen komen uit bekende technische patronen (trend, RSI, MACD, Bollinger, uitbraken, double top/bottom, kop-schouders, candlesticks). Ze beschrijven kansen, geen zekerheden. De terugblik per positie laat zien hoe vaak het model op die koers in de afgelopen twee jaar gelijk had, vergeleken met toeval.</p>
+  <div class="toolbar">
+    <div class="tb-group">
+      <span class="tb-label">Sorteer</span>
+      <select id="sortSel">
+        <option value="section">Categorie (standaard)</option>
+        <option value="score">Sterkste signaal</option>
+        <option value="move">Grootste verwachte beweging</option>
+        <option value="name">Naam (A-Z)</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Categorie</span>
+      <select id="catSel">
+        <option value="all">Alle</option>
+        <option value="Watchlist">Watchlist</option>
+        <option value="Stocks">Stocks</option>
+        <option value="ETF's">ETF's</option>
+        <option value="Gold & Silver">Edelmetalen</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Status</span>
+      <select id="statusSel">
+        <option value="all">Alles</option>
+        <option value="flag">Interessant</option>
+        <option value="down">Verwachte daling</option>
+        <option value="up">Verwachte stijging</option>
+        <option value="flat">Geen signaal</option>
+      </select>
+    </div>
+    <button id="resetFilters" class="tb-reset">Reset</button>
+    <span class="tb-count" id="tbCount"></span>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <p class="hint">Signalen komen uit bekende technische patronen: trend, RSI, MACD, Bollinger, uitbraken, double top/bottom, kop-schouders en candlesticks. Ze beschrijven kansen, geen zekerheden. De terugblik laat per positie zien hoe vaak het model de afgelopen twee jaar gelijk had, vergeleken met toeval.</p>
 </div>
 
 <script>
 const DEMO = null; /*__DEMO__*/
+const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 const UI_KEY = 'signals_ui';
-const $ = (s) => document.querySelector(s);
-const nf = (d) => new Intl.NumberFormat('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
-const pct = (x, d = 1) => (x > 0 ? '+' : x < 0 ? '−' : '') + nf(d).format(Math.abs(x)) + '%';
-const cur = (c) => ({ EUR: '€', USD: '$', GBP: '£', GBp: 'p ', CHF: 'CHF ' }[c] ?? '');
-const money = (x, c) => x == null ? '–' : cur(c) + nf(x >= 1000 ? 0 : 2).format(x);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
-let ui = { filter: 'flag', open: [] };
+const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
+  style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2
+}).format(n);
+const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+
+let data = null;
+let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
-let data = null;
+
+// Posities van het portfolio (zelfde website, dus zelfde localStorage):
+// zo kloppen categorie, label en watchlist ook voor posities die je later toevoegt.
+function portfolioPositions() {
+  try {
+    const list = JSON.parse(localStorage.getItem('portfolio_positions') || '[]');
+    const map = {};
+    list.forEach(p => { if (p && p.ticker) map[p.ticker.toUpperCase()] = p; });
+    return map;
+  } catch (e) { return {}; }
+}
+
+function prep(raw) {
+  const pos = portfolioPositions();
+  const one = it => {
+    const p = pos[it.symbol.toUpperCase()];
+    return {
+      ...it,
+      category: (p && p.section) || it.category || 'Overig',
+      label: (p && p.label) || it.label,
+      watch: p ? !!(p.watch || p.cost == null) : !!it.watch,
+    };
+  };
+  return { ...raw, items: raw.items.map(one), errors: (raw.errors || []).map(one) };
+}
 
 async function load() {
-  if (DEMO) { data = DEMO; $('#demo').hidden = false; render(); return; }
+  if (DEMO) { data = prep(DEMO); document.getElementById('demo').hidden = false; render(); return; }
   try {
     const r = await fetch('signals.json?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    data = await r.json();
+    data = prep(await r.json());
     render();
   } catch (e) {
     if (!data) {
-      $('#stand').textContent = 'signals.json niet gevonden';
-      $('#lijst').innerHTML = '<div class="leeg">Nog geen signalen. Start de workflow “Patroonradar” in GitHub Actions; na een paar minuten verschijnt signals.json.</div>';
+      document.getElementById('updated').textContent = 'geen signals.json';
+      document.getElementById('cards').innerHTML = `<div class="empty">Nog geen signalen. Start de workflow <b>Patroonradar</b> via de tab <b>Actions</b> → <b>Run workflow</b> en ververs daarna.</div>`;
     }
   }
 }
-
-function render() {
-  const y = window.scrollY;
-  const cfg = data.config, items = data.items;
-  const t = new Date(data.generated);
-  $('#stand').textContent = 'Bijgewerkt ' + t.toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ', horizon ' + cfg.horizon + ' handelsdagen';
-  $('#l-down').textContent = 'mogelijke dalingen ≥' + nf(0).format(cfg.drop_pct) + '%';
-  $('#n-down').textContent = items.filter((i) => i.flag && i.direction === 'down').length;
-  $('#n-up').textContent = items.filter((i) => i.flag && i.direction === 'up').length;
-
-  const s = data.stats, rate = (a, b) => b ? Math.round(100 * a / b) : null;
-  const dn = rate(s.down.hits, s.down.n), dnb = rate(s.down.base_hits, s.down.base_n);
-  const upr = rate(s.up.hits, s.up.n), upb = rate(s.up.base_hits, s.up.base_n);
-  $('#terugblik').textContent = dn == null ? '' :
-    `Terugblik alle posities: na een dalingssignaal zakte de koers in ${dn}% van de gevallen ≥${nf(0).format(cfg.drop_pct)}% (zonder signaal ${dnb}%). Na een stijgingssignaal steeg hij in ${upr ?? '–'}% ≥${nf(0).format(cfg.eval_rise_pct)}% (zonder signaal ${upb}%).`;
-
-  document.querySelectorAll('[data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === ui.filter)));
-
-  let list = items.slice();
-  if (ui.filter === 'flag') list = list.filter((i) => i.flag);
-  else if (ui.filter === 'down' || ui.filter === 'up') list = list.filter((i) => i.flag && i.direction === ui.filter);
-  list.sort((a, b) => (b.flag - a.flag) || (Math.abs(b.score) - Math.abs(a.score)));
-
-  $('#lijst').innerHTML = list.length ? list.map(card).join('') :
-    `<div class="leeg">${ui.filter === 'all' ? 'Geen posities in signals.json.' : 'Nu geen posities met een verwachte daling ≥' + nf(0).format(cfg.drop_pct) + '% of een verwachte stijging. Kies “Alle posities” om de rest te zien.'}</div>`;
-
-  const errs = data.errors || [];
-  $('#fouten').hidden = !errs.length;
-  $('#fouten').textContent = errs.length ? `Niet opgehaald: ${errs.map((e) => e.symbol).join(', ')}. Controleer of de Yahoo-ticker klopt.` : '';
-  window.scrollTo(0, y);
-}
-
-function card(it) {
-  const open = ui.open.includes(it.symbol);
-  const d = it.direction, p = it.projected_pct;
-  const w = p == null ? 0 : Math.min(50, Math.abs(p) / 20 * 50);
-  const verw = d === 'flat' || p == null
-    ? `<span class="verw-tekst flat">Geen duidelijk patroon</span>`
-    : `<span class="verw-tekst ${d}">${pct(p)} naar ${money(it.target, it.currency)}</span>`;
-  return `<article class="kaart ${it.flag ? 'flag-' + d : ''}">
-    <button class="kop" aria-expanded="${open}" data-sym="${esc(it.symbol)}">
-      <span><span class="naam">${esc(it.name)}</span><br><span class="sym">${esc(it.symbol)}${it.category ? ', ' + esc(it.category) : ''}</span></span>
-      <span><span class="prijs" style="display:block">${money(it.price, it.currency)}</span><span class="dag ${it.day_pct > 0 ? 'up' : it.day_pct < 0 ? 'down' : ''}" style="display:block">${it.day_pct == null ? '' : pct(it.day_pct, 2)}</span></span>
-      <span class="verw"><span class="balk" aria-hidden="true">${w ? `<i class="${d}" style="width:${w}%"></i>` : ''}</span>${verw}</span>
-    </button>
-    ${plan(it)}
-    ${open ? detail(it) : ''}
-  </article>`;
-}
-
-const isWatch = (it) => /watch/i.test(it.category || '');
 
 function stappen(it) {
   const p = it.plan; if (!p) return null;
   const r = (a, b) => pct((b / a - 1) * 100);
   if (it.direction === 'down') return [
-    isWatch(it) ? ['wacht', 'Nog niet kopen', p.entry, 'nu'] : ['verkoop', 'Verkopen', p.entry, 'nu'],
-    ['koop', isWatch(it) ? 'Kopen' : 'Terugkopen', p.target, r(p.entry, p.target)],
-    ['verkoop', isWatch(it) ? 'Verkopen' : 'Weer verkopen', p.next, r(p.target, p.next) + ' na herstel'],
+    it.watch ? ['wacht', 'Nog niet kopen', p.entry, 'nu'] : ['verkoop', 'Verkopen', p.entry, 'nu'],
+    ['koop', it.watch ? 'Kopen' : 'Terugkopen', p.target, r(p.entry, p.target)],
+    ['verkoop', it.watch ? 'Verkopen' : 'Weer verkopen', p.next, r(p.target, p.next)],
   ];
   return [
-    ['koop', 'Kopen', p.entry, 'nu'],
+    ['koop', it.watch ? 'Kopen' : 'Bijkopen', p.entry, 'nu'],
     ['verkoop', 'Verkopen', p.target, r(p.entry, p.target)],
-    ['koop', 'Terugkopen', p.next, r(p.target, p.next) + ' na terugval'],
+    ['koop', 'Terugkopen', p.next, r(p.target, p.next)],
   ];
 }
 
-function plan(it) {
-  const s = stappen(it); if (!s) return '';
-  return `<dl class="plan" aria-label="Handelsplan" data-sym="${esc(it.symbol)}">${s.map(([cls, lbl, prijs, sub]) =>
-    `<div class="stap ${cls}"><dt>${lbl}</dt><dd>${money(prijs, it.currency)}<small>${sub}</small></dd></div>`).join('')}</dl>`;
-}
+function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
-function stopTekst(it) {
-  const p = it.plan; if (!p) return '';
-  const m = money(p.stop, it.currency);
-  if (it.direction === 'down') return isWatch(it)
-    ? `<p class="stop">Sluit de koers boven <b>${m}</b>, dan is het dalingspatroon mislukt en hoef je niet op ${money(p.target, it.currency)} te wachten.</p>`
-    : `<p class="stop">Sluit de koers boven <b>${m}</b>, dan is het dalingspatroon mislukt: koop dan terug in plaats van te wachten op ${money(p.target, it.currency)}.</p>`;
-  return `<p class="stop">Sluit de koers onder <b>${m}</b>, dan is het stijgingspatroon mislukt: verkoop dan (stop-loss).</p>`;
+function card(it) {
+  const el = document.createElement('div');
+  const d = it.direction, p = it.projected_pct, cur = it.currency;
+  el.className = 'position ' + (d === 'flat' ? '' : d) + (it.flag ? ' flag' : '');
+  const open = ui.open.includes(it.symbol);
+  const title = it.label || it.name || it.symbol;
+
+  const verw = (d === 'flat' || p == null)
+    ? `<div class="v" style="color:var(--muted)">geen patroon</div><div class="drop-tag">score ${it.score > 0 ? '+' : ''}${it.score}</div>`
+    : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>`;
+
+  const w = p == null || d === 'flat' ? 0 : Math.min(50, Math.abs(p) / 20 * 50);
+  const lblL = d === 'down' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
+  const lblR = d === 'up' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
+  const s = stappen(it);
+  const planBlock = s
+    ? s.map(([cls, lbl, prijs, sub]) => `<div class="plan-row"><b class="${cls}">${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
+    : `<div class="next-target">Geen plan: wacht op een duidelijk signaal</div>`;
+
+  const badge = d === 'down' ? `<span class="badge down">${it.watch ? 'NOG NIET KOPEN' : 'VERKOOPSIGNAAL'}</span>`
+    : d === 'up' ? `<span class="badge up">KOOPSIGNAAL</span>` : `<span class="badge hold">geen actie</span>`;
+
+  el.innerHTML = `
+    <div class="p-name">
+      <span class="p-ticker">${esc(title)}</span>
+      <span class="p-company">(${esc(it.symbol)})${it.label && it.name ? ' ' + esc(it.name) : ''}</span>
+    </div>
+    <div class="p-block">
+      <div class="k">Huidige koers</div>
+      <div class="v">${fmt(it.price, cur)}</div>
+      <div class="drop-tag ${it.day_pct > 0 ? 'c-up' : it.day_pct < 0 ? 'c-down' : ''}">${it.day_pct == null ? '' : pct(it.day_pct, 2) + ' vandaag'}</div>
+    </div>
+    <div class="p-block">
+      <div class="k">Verwachting ${data.config.horizon} dagen</div>
+      ${verw}
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-labels"><span>${lblL}</span><span>verwachte beweging</span><span>${lblR}</span></div>
+      <div class="bar">
+        ${w ? `<div class="bar-fill ${d}" style="width:${w}%"></div>` : ''}
+        <div class="bar-marker"></div>
+      </div>
+      <div class="drop-tag">${it.plan ? `plan vervalt ${d === 'down' ? 'boven' : 'onder'} ${fmt(it.plan.stop, cur)}` : `normale beweging ±${it.sigma_pct.toFixed(1).replace('.', ',')}%`}</div>
+    </div>
+    <div class="profit-block">
+      <div class="k">Plan</div>
+      ${planBlock}
+    </div>
+    <div class="p-actions">
+      ${badge}
+      <button class="toggle" data-sym="${esc(it.symbol)}">${open ? 'Minder' : 'Details'}</button>
+    </div>
+    ${open ? detail(it) : ''}`;
+  return el;
 }
 
 function detail(it) {
-  const bt = it.backtest[it.direction === 'up' ? 'up' : 'down'];
+  const cfg = data.config, cur = it.currency;
   const isUp = it.direction === 'up';
-  const cfg = data.config;
-  const hit = bt.n ? Math.round(100 * bt.hits / bt.n) : null;
-  const base = bt.base_n ? Math.round(100 * bt.base_hits / bt.base_n) : null;
-  const drempel = nf(0).format(isUp ? cfg.eval_rise_pct : cfg.drop_pct);
+  const bt = it.backtest[isUp ? 'up' : 'down'];
+  const hit = rate(bt.hits, bt.n), base = rate(bt.base_hits, bt.base_n);
+  const drempel = isUp ? cfg.eval_rise_pct : cfg.drop_pct;
   let oordeel = '';
   if (hit != null && base != null && bt.n >= 5) oordeel = hit >= base + 10 ? ' Duidelijk beter dan toeval.' : hit > base ? ' Iets beter dan toeval.' : ' Niet beter dan toeval.';
   const btText = it.direction === 'flat'
-    ? `Geen actief signaal. Kans op ≥${nf(0).format(cfg.drop_pct)}% daling binnen ${cfg.horizon} dagen is historisch ${base ?? '–'}%.`
+    ? `Geen actief signaal. Historisch zakt deze koers in ${base ?? '–'}% van de periodes van ${cfg.horizon} dagen ≥${cfg.drop_pct}%.`
     : bt.n
-      ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'stijgings' : 'dalings'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
+      ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'koop' : 'verkoop'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
       : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
-  const pats = it.patterns.filter((p) => p.dir !== 'info');
+
+  const stop = it.plan ? (it.direction === 'down'
+    ? `<div class="stopnote">Sluit de koers boven ${fmt(it.plan.stop, cur)}, dan is het dalingspatroon mislukt: ${it.watch ? 'wacht dan niet langer op ' + fmt(it.plan.target, cur) : 'koop dan terug in plaats van te wachten op ' + fmt(it.plan.target, cur)}.</div>`
+    : `<div class="stopnote">Sluit de koers onder ${fmt(it.plan.stop, cur)}, dan is het stijgingspatroon mislukt: verkoop dan (stop-loss).</div>`) : '';
+
+  const pats = it.patterns.filter(p => p.dir !== 'info');
   return `<div class="detail">
-    ${spark(it)}
-    ${stopTekst(it)}
-    <ul class="pat">${pats.map((p) => `<li><span class="${p.dir}" aria-label="${p.dir === 'up' ? 'positief' : 'negatief'}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span>Geen patronen gevonden</span></li>'}</ul>
-    <dl class="feiten">
-      <div><dt>Signaal</dt><dd class="${it.score > 0 ? 'up' : it.score < 0 ? 'down' : ''}">${it.score > 0 ? '+' : ''}${it.score}</dd></div>
-      <div><dt>RSI</dt><dd>${it.rsi == null ? '–' : nf(0).format(it.rsi)}</dd></div>
-      <div><dt>Normale beweging</dt><dd>±${nf(1).format(it.sigma_pct)}%</dd></div>
-    </dl>
-    <p class="bt">${btText}</p>
+    <div>${spark(it)}</div>
+    <div>
+      ${stop}
+      <div class="d-k">Gevonden patronen</div>
+      <ul class="pat">${pats.map(p => `<li><span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span style="color:var(--muted)">Geen patronen gevonden</span></li>'}</ul>
+      <div class="facts">
+        <div class="p-block"><div class="k">Score</div><div class="v ${it.score > 0 ? 'up' : it.score < 0 ? 'down' : ''}">${it.score > 0 ? '+' : ''}${it.score}</div></div>
+        <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>
+        <div class="p-block"><div class="k">Normaal ${cfg.horizon}d</div><div class="v">±${it.sigma_pct.toFixed(1).replace('.', ',')}%</div></div>
+      </div>
+      <p class="note">${btText}</p>
+    </div>
   </div>`;
 }
 
 function spark(it) {
   const v = it.spark; if (!v || v.length < 2) return '';
-  const lines = [['support', 'muted', 'steun'], ['resistance', 'muted', 'weerstand'], ['target', 'accent', 'koersdoel']]
-    .filter(([k]) => it[k] != null && (k !== 'target' || it.direction !== 'flat'))
-    .filter(([k]) => !it.plan || !['support', 'resistance'].includes(k) || Math.abs(it[k] - it.plan.stop) > 1e-9);
-  if (it.plan) lines.push(['stop', 'muted', 'plan vervalt']);
-  const val = (k) => k === 'stop' ? it.plan.stop : it[k];
-  const all = v.concat(lines.map(([k]) => val(k)));
+  const lines = [];
+  if (it.support != null) lines.push([it.support, 'var(--muted)', 'steun']);
+  if (it.resistance != null) lines.push([it.resistance, 'var(--muted)', 'weerstand']);
+  if (it.plan) {
+    lines.push([it.plan.target, 'var(--accent)', 'doel']);
+    lines.push([it.plan.stop, 'var(--warn)', 'plan vervalt']);
+  }
+  const all = v.concat(lines.map(l => l[0]));
   let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
-  const W = 300, H = 110, X = (i) => (i / (v.length - 1)) * W, Y = (x) => H - ((x - lo) / (hi - lo)) * H;
+  const W = 400, H = 130, X = i => (i / (v.length - 1)) * W, Y = x => H - ((x - lo) / (hi - lo)) * H;
   const path = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(x).toFixed(1)).join('');
-  const col = (c) => c === 'accent' ? 'var(--accent)' : `var(--${c})`;
-  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Koers laatste ${v.length} handelsdagen">
-      ${lines.map(([k, c]) => `<line x1="0" x2="${W}" y1="${Y(val(k)).toFixed(1)}" y2="${Y(val(k)).toFixed(1)}" stroke="${col(c)}" stroke-width="1.3" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`).join('')}
-      <path d="${path}" fill="none" stroke="var(--text)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+  const col = it.direction === 'down' ? 'var(--down)' : it.direction === 'up' ? 'var(--up)' : 'var(--text)';
+  return `<div class="d-k">Koers laatste ${v.length} handelsdagen</div>
+    <svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Koersgrafiek">
+      ${lines.map(([y, c]) => `<line x1="0" x2="${W}" y1="${Y(y).toFixed(1)}" y2="${Y(y).toFixed(1)}" stroke="${c}" stroke-width="1.2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`).join('')}
+      <path d="${path}" fill="none" stroke="${col}" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
     </svg>
-    <div class="legenda"><span>${v.length} handelsdagen</span>${lines.map(([k, c, l]) => `<span style="color:${col(c)}"><i></i>${l} ${money(val(k), it.currency)}</span>`).join('')}</div>`;
+    <div class="legend">${lines.map(([y, c, l]) => `<span style="color:${c}"><i></i>${l} ${fmt(y, it.currency)}</span>`).join('')}</div>`;
 }
 
-document.addEventListener('click', (e) => {
-  const f = e.target.closest('[data-f]');
-  if (f) { ui.filter = ui.filter === f.dataset.f && f.classList.contains('teller') ? 'flag' : f.dataset.f; saveUI(); render(); return; }
-  const k = e.target.closest('.kop, .plan');
-  if (k) {
-    const s = k.dataset.sym;
-    ui.open = ui.open.includes(s) ? ui.open.filter((x) => x !== s) : [...ui.open, s];
-    saveUI(); render();
+function errorCard(e) {
+  const el = document.createElement('div');
+  el.className = 'position';
+  el.innerHTML = `
+    <div class="p-name"><span class="p-ticker">${esc(e.label || e.name || e.symbol)}</span>
+      <span class="p-company">(${esc(e.symbol)})</span></div>
+    <div style="grid-column: span 4; font-size:12px; color:var(--muted); line-height:1.5">
+      <span class="err">Geen signaal mogelijk.</span> ${/weinig/.test(e.error) ? 'Yahoo heeft te weinig koershistorie voor deze beursnotering (minimaal 60 handelsdagen nodig).' : 'Koersen konden niet worden opgehaald: ' + esc(e.error)}
+    </div>
+    <div class="p-actions"><span class="badge hold">geen data</span></div>`;
+  return el;
+}
+
+function render() {
+  if (!data) return;
+  const scrollY = window.scrollY;
+  const cfg = data.config;
+  document.getElementById('sortSel').value = ui.sort;
+  document.getElementById('catSel').value = ui.cat;
+  document.getElementById('statusSel').value = ui.status;
+
+  const items = data.items, errors = data.errors;
+  const passes = it => {
+    if (ui.cat !== 'all' && it.category !== ui.cat) return false;
+    if (ui.status === 'flag' && !it.flag) return false;
+    if ((ui.status === 'down' || ui.status === 'up') && !(it.flag && it.direction === ui.status)) return false;
+    if (ui.status === 'flat' && it.flag) return false;
+    return true;
+  };
+  const filtered = items.filter(passes);
+  const errs = ui.status === 'all' ? errors.filter(e => ui.cat === 'all' || e.category === ui.cat) : [];
+  const naam = it => (it.label || it.name || it.symbol).toLowerCase();
+  const strength = it => (it.direction === 'flat' ? 0 : 1000) + Math.abs(it.score);
+
+  const cards = document.getElementById('cards');
+  cards.innerHTML = '';
+  if (!filtered.length && !errs.length) {
+    cards.innerHTML = `<div class="empty">Geen posities met dit filter. Kies bij Status "Alles" om alle posities te zien.</div>`;
+  } else if (ui.sort === 'section') {
+    const secs = [...new Set([...SECTION_ORDER, ...items.map(i => i.category), ...errors.map(e => e.category)])];
+    secs.forEach(sec => {
+      const inSec = filtered.filter(i => i.category === sec).sort((a, b) => strength(b) - strength(a) || naam(a).localeCompare(naam(b), 'nl'));
+      const errSec = errs.filter(e => e.category === sec);
+      if (!inSec.length && !errSec.length) return;
+      const h = document.createElement('div');
+      h.className = 'section-header';
+      h.textContent = sec;
+      cards.appendChild(h);
+      inSec.forEach(i => cards.appendChild(card(i)));
+      errSec.forEach(e => cards.appendChild(errorCard(e)));
+    });
+  } else {
+    filtered.slice().sort((a, b) => {
+      if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
+      if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
+      return strength(b) - strength(a);
+    }).forEach(i => cards.appendChild(card(i)));
+    errs.forEach(e => cards.appendChild(errorCard(e)));
   }
+
+  const total = items.length + errors.length;
+  const shown = filtered.length + errs.length;
+  document.getElementById('tbCount').textContent = shown === total ? `${total} posities` : `${shown} van ${total} getoond`;
+
+  const nDown = items.filter(i => i.flag && i.direction === 'down').length;
+  const nUp = items.filter(i => i.flag && i.direction === 'up').length;
+  const nFlat = items.length - nDown - nUp;  // incl. zwakke signalen onder de drempel
+  const s = data.stats;
+  const dn = rate(s.down.hits, s.down.n), dnb = rate(s.down.base_hits, s.down.base_n);
+  const up = rate(s.up.hits, s.up.n), upb = rate(s.up.base_hits, s.up.base_n);
+  const summary = document.getElementById('summary');
+  summary.innerHTML = `
+    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Daling ≥${cfg.drop_pct}%</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">verkoopsignalen</div></div>
+    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">koopsignalen</div></div>
+    <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${errors.length ? errors.length + ' zonder data' : 'rustig'}</div></div>
+    <div class="stat"><div class="label">Model trefkans</div><div class="value">${dn ?? '–'}%</div><div class="sub">daling, toeval ${dnb ?? '–'}%<br>stijging ${up ?? '–'}%, toeval ${upb ?? '–'}%</div></div>`;
+  summary.querySelectorAll('.stat.clickable').forEach(el => {
+    el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };
+  });
+
+  const d = new Date(data.generated);
+  document.getElementById('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  window.scrollTo(0, scrollY);
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('.toggle');
+  if (!t) return;
+  const sym = t.dataset.sym;
+  ui.open = ui.open.includes(sym) ? ui.open.filter(x => x !== sym) : [...ui.open, sym];
+  saveUI(); render();
 });
+document.getElementById('sortSel').onchange = e => { ui.sort = e.target.value; saveUI(); render(); };
+document.getElementById('catSel').onchange = e => { ui.cat = e.target.value; saveUI(); render(); };
+document.getElementById('statusSel').onchange = e => { ui.status = e.target.value; saveUI(); render(); };
+document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; ui.cat = 'all'; ui.status = 'all'; saveUI(); render(); };
 
 load();
 setInterval(load, 5 * 60 * 1000);

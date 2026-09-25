@@ -382,6 +382,13 @@ function stappen(it) {
 
 function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
+// winkans van het plan voor het huidige signaal van deze stock (null = geen signaal of nog niet berekend)
+function winkans(it) {
+  if (it.direction === 'flat' || !it.plan) return null;
+  const bt = it.backtest && it.backtest[it.direction];
+  return bt && bt.plan_n ? rate(bt.wins, bt.plan_n) : null;
+}
+
 function card(it) {
   const el = document.createElement('div');
   const d = it.direction, p = it.projected_pct, cur = it.currency;
@@ -391,7 +398,7 @@ function card(it) {
 
   const verw = (d === 'flat' || p == null)
     ? `<div class="v" style="color:var(--muted)">geen patroon</div><div class="drop-tag">score ${it.score > 0 ? '+' : ''}${it.score}</div>`
-    : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>`;
+    : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>${winkans(it) != null ? `<div class="drop-tag">winkans ${winkans(it)}%</div>` : ''}`;
 
   const w = p == null || d === 'flat' ? 0 : Math.min(50, Math.abs(p) / 20 * 50);
   const lblL = d === 'down' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
@@ -532,7 +539,8 @@ function render() {
   const filtered = items.filter(passes);
   const errs = (ui.status === 'all' || ui.status === 'flat') ? errors.filter(e => ui.cat === 'all' || e.category === ui.cat) : [];
   const naam = it => (it.label || it.name || it.symbol).toLowerCase();
-  const strength = it => (it.direction === 'flat' ? 0 : 1000) + Math.abs(it.score);
+  // eerst hoogste winkans van het plan, daarna alfabetisch; zonder plan achteraan
+  const byWin = (a, b) => (winkans(b) ?? -1) - (winkans(a) ?? -1) || naam(a).localeCompare(naam(b), 'nl');
 
   const cards = document.getElementById('cards');
   cards.innerHTML = '';
@@ -543,7 +551,7 @@ function render() {
   } else if (ui.sort === 'section') {
     const secs = [...new Set([...SECTION_ORDER, ...items.map(i => i.category), ...errors.map(e => e.category)])];
     secs.forEach(sec => {
-      const inSec = filtered.filter(i => i.category === sec).sort((a, b) => strength(b) - strength(a) || naam(a).localeCompare(naam(b), 'nl'));
+      const inSec = filtered.filter(i => i.category === sec).sort(byWin);
       const errSec = errs.filter(e => e.category === sec);
       if (!inSec.length && !errSec.length) return;
       const h = document.createElement('div');
@@ -557,7 +565,7 @@ function render() {
     filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
       if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
-      return strength(b) - strength(a);
+      return byWin(a, b);
     }).forEach(i => cards.appendChild(card(i)));
     errs.forEach(e => cards.appendChild(errorCard(e)));
   }
@@ -577,8 +585,8 @@ function render() {
   const avg = pn ? (s.down.ret_sum + s.up.ret_sum) / pn : null;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
-    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte STIJGING</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">stijging ≥${MOVE_MIN}%</div></div>
-    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte DALING</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">daling ≥${MOVE_MIN}%</div></div>
+    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">STIJGING ≥${MOVE_MIN}%</div></div>
+    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">DALING ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
     ${pn ? `<div class="stat"><div class="label">Winkans plan</div><div class="value" style="color:var(--up)">${win}%</div><div class="sub"><span style="color:var(--down)">verlieskans ${loss}%</span><br>gem. ${pct(avg)} per signaal</div></div>`
          : `<div class="stat"><div class="label">Winkans plan</div><div class="value">–</div><div class="sub">berekend bij de volgende run</div></div>`}`;

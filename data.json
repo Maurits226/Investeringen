@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-25T00:40:00.192548+00:00",
+  "updated": "2026-09-25T05:21:52.646977+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -8,7 +8,7 @@
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
       "high52": 549.0,
-      "low52": 132.4
+      "low52": 134.46
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
@@ -232,7 +232,7 @@
       "prevClose": 34.575,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
-      "high52": 46.95,
+      "high52": 47.255,
       "low52": 31.88
     },
     "VHYL.MI": {
@@ -250,7 +250,7 @@
       "prevClose": 108.57,
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
-      "high52": 131.39,
+      "high52": 131.83,
       "low52": 106.78
     },
     "WSLV.MI": {
@@ -260,7 +260,7 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
-      "low52": 37.38
+      "low52": 38.445
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",

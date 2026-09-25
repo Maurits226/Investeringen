@@ -145,7 +145,7 @@
   .position {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 20px; display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr 1.6fr 1.3fr auto; gap: 18px; align-items: center;
+    grid-template-columns: minmax(0,1.15fr) minmax(0,.8fr) minmax(0,.85fr) minmax(0,1.75fr) minmax(220px,1.5fr) auto; gap: 18px; align-items: center;
     position: relative; overflow: hidden; transition: .2s;
   }
   .position::before {
@@ -178,6 +178,7 @@
   .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
   .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .bar-labels .doel { color: var(--up); }
+  .bar-labels > span { white-space: nowrap; }
   .bar-wrap .drop-tag b { color: var(--text); font-weight: 600; }
   .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
   .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
@@ -185,12 +186,12 @@
   .bar-fill.up { left: 50%; background: linear-gradient(90deg, var(--warn), var(--up)); }
   .bar-marker { position: absolute; top: -3px; left: 50%; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
 
-  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-  .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: flex; align-items: baseline; gap: 6px; }
-  .plan-row b { font-weight: 600; min-width: 92px; }
+  .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: grid; grid-template-columns: 94px minmax(0,1fr) auto; align-items: baseline; gap: 6px; }
+  .plan-row b { font-weight: 600; }
   .plan-row b { color: var(--text); }
-  .plan-row .pp { color: var(--muted); margin-left: auto; }
+  .plan-row .pp { color: var(--muted); white-space: nowrap; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .plan-row .real-pct { display: block; margin-top: 1px; color: var(--up); font-weight: 600; }
 
@@ -225,6 +226,12 @@
   .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
   .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
+  @media (max-width: 1040px) {
+    .position { grid-template-columns: 1fr 1fr; }
+    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    .bar-wrap { grid-column: span 2; }
+    .profit-block { grid-column: span 2; }
+  }
   @media (max-width: 860px) {
     .summary { grid-template-columns: repeat(2, 1fr); }
     .stat .label { min-height: 2.8em; }
@@ -271,6 +278,9 @@
       <select id="sortSel">
         <option value="section">Categorie (standaard)</option>
         <option value="name">Naam (A-Z)</option>
+        <option value="result">Resultaat (hoog-laag)</option>
+        <option value="buy">Dichtst bij koopsignaal</option>
+        <option value="sell">Dichtst bij verkoopsignaal</option>
       </select>
     </div>
     <div class="tb-group">
@@ -285,8 +295,8 @@
       <span class="tb-label">Status</span>
       <select id="statusSel">
         <option value="all">Alles</option>
-        <option value="up">Verwachte stijging</option>
-        <option value="down">Verwachte daling</option>
+        <option value="up">Koopsignaal</option>
+        <option value="down">Verkoopsignaal</option>
         <option value="flat">Geen signaal</option>
       </select>
     </div>
@@ -317,7 +327,7 @@ let data = null;
 let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 if (!['all', 'Stocks', 'Gold & Silver'].includes(ui.cat)) ui.cat = 'all';
-if (!['section', 'name'].includes(ui.sort)) ui.sort = 'section';
+if (!['section', 'name', 'result', 'buy', 'sell'].includes(ui.sort)) ui.sort = 'section';
 if (!['all', 'up', 'down', 'flat'].includes(ui.status)) ui.status = 'all';
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
@@ -353,6 +363,10 @@ function prep(raw) {
 async function load() {
   if (DEMO) { data = prep(DEMO); quotes = DEMO_QUOTES || {}; document.getElementById('demo').hidden = false; render(); return; }
   try {
+    const r = await fetch('state.json?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) portfolioState = await r.json();
+  } catch (e) {}
+  try {
     const q = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     if (q.ok) quotes = (await q.json()).quotes || {};
   } catch (e) {}
@@ -387,6 +401,16 @@ function stappen(it) {
 function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
 // het realisatiepercentage dat in het plan groen staat (null = geen signaal)
+let portfolioState = {};
+function resultaat(it) {
+  const pos = it.position || {};
+  const lokaal = portfolioPositions()[it.symbol.toUpperCase()] || {};
+  const sec = lokaal.section || pos.section;
+  const st = sec ? portfolioState[sec + '|' + it.symbol] : null;
+  const cost = (st && st.cost != null) ? st.cost : (lokaal.cost ?? pos.cost);
+  return cost ? (it.price / cost - 1) * 100 : null;
+}
+
 function realPct(it) {
   if (!it.flag || !it.plan) return null;
   const p = it.plan;
@@ -578,6 +602,9 @@ function render() {
   } else {
     filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
+      if (ui.sort === 'result') return (resultaat(b) ?? -Infinity) - (resultaat(a) ?? -Infinity) || naam(a).localeCompare(naam(b), 'nl');
+      if (ui.sort === 'buy') return b.score - a.score || naam(a).localeCompare(naam(b), 'nl');
+      if (ui.sort === 'sell') return a.score - b.score || naam(a).localeCompare(naam(b), 'nl');
       if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
       return byReal(a, b);
     }).forEach(i => cards.appendChild(card(i)));

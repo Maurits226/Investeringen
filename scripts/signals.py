@@ -588,6 +588,18 @@ def analyse(tk, bars, meta):
     plan = make_plan(price, direction, target, sup, res, sig)
     if plan:
         plan = {k: round(v, 4) for k, v in plan.items()}
+
+    # Nieuw signaal? Vergelijk met de vorige handelsdag (slotkoers van gisteren).
+    def signal_at(j):
+        Pj, tj = evaluate(S, j)
+        sj = score_of(Pj)
+        dj = "down" if sj <= -SIGNAL_SCORE else "up" if sj >= SIGNAL_SCORE else "flat"
+        tgt = project(S, j, sj, tj)[0]
+        mv = (tgt / S.c[j] - 1) * 100 if tgt else None
+        ok = mv is not None and ((dj == "down" and -mv >= DROP_PCT) or (dj == "up" and mv >= RISE_PCT))
+        return dj if ok else None
+    prev_signal = signal_at(i - 1) if i > 210 else None
+    new_signal = bool(flag and prev_signal != direction)
     prev = meta.get("chartPreviousClose") if i == 0 else S.c[i - 1]
     lo_spark = max(0, len(S.c) - SPARK_BARS)
     r2 = lambda x: round(x, 4) if x is not None else None  # noqa: E731
@@ -612,6 +624,8 @@ def analyse(tk, bars, meta):
         "support": r2(sup),
         "resistance": r2(res),
         "plan": plan,
+        "new_signal": new_signal,
+        "prev_signal": prev_signal,
         "rsi": round(S.rsi[i], 1) if S.rsi[i] is not None else None,
         "patterns": P,
         "backtest": backtest(S, 210),

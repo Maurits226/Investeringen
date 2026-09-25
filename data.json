@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-25T20:10:33.766473+00:00",
+  "updated": "2026-09-25T20:20:32.823042+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,7 +157,7 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 206.54,
+      "price": 206.55,
       "prevClose": 143.06,
       "currency": "USD",
       "name": "Arista Networks, Inc.",

@@ -186,7 +186,8 @@
   .plan-row .koop { color: var(--up); } .plan-row .verkoop { color: var(--down); } .plan-row .wacht { color: var(--muted); }
   .plan-row .pp { color: var(--muted); margin-left: auto; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
-  .plan-real { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--up); font-weight: 600; line-height: 1.4; }
+  .plan-row .real { color: var(--up); }
+  .plan-row .real-pct { display: block; margin-top: 1px; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
@@ -263,8 +264,6 @@
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
         <option value="section">Categorie (standaard)</option>
-        <option value="score">Sterkste signaal</option>
-        <option value="move">Grootste verwachte beweging</option>
         <option value="name">Naam (A-Z)</option>
       </select>
     </div>
@@ -280,9 +279,8 @@
       <span class="tb-label">Status</span>
       <select id="statusSel">
         <option value="all">Alles</option>
-        <option value="flag">Interessant</option>
-        <option value="down">Verwachte daling</option>
         <option value="up">Verwachte stijging</option>
+        <option value="down">Verwachte daling</option>
         <option value="flat">Geen signaal</option>
       </select>
     </div>
@@ -313,6 +311,8 @@ let data = null;
 let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 if (!['all', 'Stocks', 'Gold & Silver'].includes(ui.cat)) ui.cat = 'all';
+if (!['section', 'name'].includes(ui.sort)) ui.sort = 'section';
+if (!['all', 'up', 'down', 'flat'].includes(ui.status)) ui.status = 'all';
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
 // Posities van het portfolio (zelfde website, dus zelfde localStorage):
@@ -369,11 +369,11 @@ function stappen(it) {
   if (it.direction === 'down') return [
     it.watch ? ['wacht', 'Nog niet kopen', p.entry, 'nu'] : ['verkoop', 'Verkopen', p.entry, 'nu'],
     ['koop', it.watch ? 'Kopen' : 'Terugkopen', p.target, r(p.entry, p.target)],
-    ['real', 'Realisatie', p.next, (p.next / p.target - 1) * 100],
+    ['real', 'Weer verkopen', p.next, (p.next / p.target - 1) * 100],
   ];
   return [
     ['koop', it.watch ? 'Kopen' : 'Bijkopen', p.entry, 'nu'],
-    ['real', 'Realisatie', p.target, (p.target / p.entry - 1) * 100],
+    ['real', 'Verkopen', p.target, (p.target / p.entry - 1) * 100],
     ['koop', 'Terugkopen', p.next, r(p.target, p.next)],
   ];
 }
@@ -397,7 +397,7 @@ function card(it) {
   const s = stappen(it);
   const planBlock = s
     ? s.map(([cls, lbl, prijs, sub]) => cls === 'real'
-        ? `<div class="plan-real">${lbl} voor ${Math.abs(sub).toFixed(1).replace('.', ',')}% (verkoop ${fmt(prijs, cur)})</div>`
+        ? `<div class="plan-row"><b class="verkoop">${lbl}</b><span>${fmt(prijs, cur)}<span class="pp real-pct">(voor +${Math.abs(sub).toFixed(1).replace('.', ',')}% realisatie)</span></span></div>`
         : `<div class="plan-row"><b class="${cls}">${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
     : `<div class="next-target">Geen plan: wacht op een duidelijk signaal</div>`;
 

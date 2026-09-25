@@ -56,6 +56,8 @@ def fetch_one(ticker):
         "name": meta.get("longName") or meta.get("shortName") or ticker,
         "high52": high52,
         "low52": low52,
+        "exchange": meta.get("exchangeName"),
+        "exchangeFull": meta.get("fullExchangeName"),
     }
 
 def main():

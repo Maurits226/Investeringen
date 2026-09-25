@@ -2,19 +2,21 @@ name: Update stock prices
 
 on:
   schedule:
-    # Elke 10 min gevraagd. Let op: GitHub vertraagt gratis scheduled runs vaak,
-    # dus in de praktijk draait dit doorgaans elke 15-30 min. Dat is normaal en
-    # ruim voldoende voor koopsignalen op basis van de 52-weeks top.
+    # Elke 10 min gevraagd. GitHub kan geplande runs vertragen; dat is normaal.
     - cron: "*/10 * * * *"
-  workflow_dispatch:      # laat je het ook handmatig starten via de Actions-tab
+  workflow_dispatch:      # handmatig starten via de Actions-tab
   push:
-    branches: [ main ]    # werk ook bij na elke wijziging
+    branches: [ main ]
+    paths-ignore:         # geen koers-run starten bij alleen data/state-wijzigingen
+      - 'state.json'
+      - 'data.json'
 
 permissions:
   contents: write
 
+# Voorkom dat twee runs tegelijk draaien en elkaar in de weg zitten
 concurrency:
-  group: update-prices    # nooit twee koersen-runs tegelijk
+  group: update-prices
   cancel-in-progress: false
 
 jobs:
@@ -22,10 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -41,10 +43,13 @@ jobs:
             echo "Geen wijzigingen in data.json"
             exit 0
           fi
-          git commit -m "Update koersen $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
-          # de Patroonradar pusht ook: bij een botsing eerst de nieuwste versie ophalen
+          git commit -m "Update koersen $(date -u +'%Y-%m-%d %H:%M UTC')"
+          # Haal eerst eventuele nieuwe commits op (bv. state.json vanuit het dashboard)
+          # en probeer tot 5 keer te pushen.
           for i in 1 2 3 4 5; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push && exit 0
-            sleep $((i * 7))
+            git pull --rebase origin main && git push origin main && exit 0
+            echo "Push mislukt, poging $i — opnieuw proberen..."
+            sleep 5
           done
+          echo "Push na 5 pogingen niet gelukt"
           exit 1

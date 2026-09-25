@@ -300,6 +300,7 @@ const DEMO_QUOTES = null; /*__DEMOQ__*/
 const SECTION_ORDER = ['Stocks', 'Gold & Silver'];
 const SKIP_CATEGORIES = ["ETF's"];                 // ETF's doen niet mee in de radar
 const MERGE_CATEGORY = { Watchlist: 'Stocks' };    // watchlist telt gewoon als stock
+const MOVE_MIN = 5;                                // interessant vanaf een verwachte daling of stijging van 5%
 const UI_KEY = 'signals_ui';
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
@@ -330,12 +331,15 @@ function prep(raw) {
   const one = it => {
     const p = pos[it.symbol.toUpperCase()];
     const cat = (p && p.section) || it.category || 'Stocks';
-    return { ...it, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: false };
+    const pr = it.projected_pct;
+    const flag = pr != null && ((it.direction === 'down' && -pr >= MOVE_MIN) || (it.direction === 'up' && pr >= MOVE_MIN));
+    return { ...it, flag, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: false };
   };
   const keep = it => !SKIP_CATEGORIES.includes(it.category);
   const items = raw.items.map(one).filter(keep);
   // trefkans opnieuw optellen zonder de weggelaten posities
-  const stats = { down: { n: 0, hits: 0, base_n: 0, base_hits: 0 }, up: { n: 0, hits: 0, base_n: 0, base_hits: 0 } };
+  const leeg = () => ({ n: 0, hits: 0, base_n: 0, base_hits: 0, plan_n: 0, wins: 0, losses: 0, ret_sum: 0 });
+  const stats = { down: leeg(), up: leeg() };
   items.forEach(it => ['down', 'up'].forEach(d => Object.keys(stats[d]).forEach(k => { stats[d][k] += (it.backtest?.[d]?.[k] || 0); })));
   return { ...raw, stats, items, errors: (raw.errors || []).map(one).filter(keep) };
 }
@@ -447,6 +451,9 @@ function detail(it) {
     : bt.n
       ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'koop' : 'verkoop'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
       : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
+  const planText = (it.direction !== 'flat' && bt.plan_n)
+    ? `<br>Plan: <b>${bt.wins} van ${bt.plan_n}</b> keer doel gehaald (winkans <b>${rate(bt.wins, bt.plan_n)}%</b>), ${bt.losses} keer vervallen (verlieskans ${rate(bt.losses, bt.plan_n)}%), gemiddeld ${pct(bt.ret_sum / bt.plan_n)} per signaal.`
+    : '';
 
   const stop = it.plan ? (it.direction === 'down'
     ? `<div class="stopnote">Sluit de koers boven ${fmt(it.plan.stop, cur)}, dan is het dalingspatroon mislukt: ${it.watch ? 'wacht dan niet langer op ' + fmt(it.plan.target, cur) : 'koop dan terug in plaats van te wachten op ' + fmt(it.plan.target, cur)}.</div>`
@@ -464,7 +471,7 @@ function detail(it) {
         <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>
         <div class="p-block"><div class="k">Normaal ${cfg.horizon}d</div><div class="v">±${it.sigma_pct.toFixed(1).replace('.', ',')}%</div></div>
       </div>
-      <p class="note">${btText}</p>
+      <p class="note">${btText}${planText}</p>
     </div>
   </div>`;
 }
@@ -559,14 +566,16 @@ function render() {
   const nUp = items.filter(i => i.flag && i.direction === 'up').length;
   const nFlat = items.length - nDown - nUp;
   const s = data.stats;
-  const dn = rate(s.down.hits, s.down.n), dnb = rate(s.down.base_hits, s.down.base_n);
-  const up = rate(s.up.hits, s.up.n), upb = rate(s.up.base_hits, s.up.base_n);
+  const pn = s.down.plan_n + s.up.plan_n;
+  const win = rate(s.down.wins + s.up.wins, pn), loss = rate(s.down.losses + s.up.losses, pn);
+  const avg = pn ? (s.down.ret_sum + s.up.ret_sum) / pn : null;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
-    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Daling ≥${cfg.drop_pct}%</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">verkoopsignalen</div></div>
-    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">koopsignalen</div></div>
+    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Dalingen ≥${MOVE_MIN}%</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">stocks met verwachte daling</div></div>
+    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Stijgingen ≥${MOVE_MIN}%</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">stocks met verwachte stijging</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${errors.length ? errors.length + ' zonder data' : 'rustig'}</div></div>
-    <div class="stat"><div class="label">Model trefkans</div><div class="value">${dn ?? '–'}%</div><div class="sub">daling, toeval ${dnb ?? '–'}%<br>stijging ${up ?? '–'}%, toeval ${upb ?? '–'}%</div></div>`;
+    ${pn ? `<div class="stat"><div class="label">Winkans plan</div><div class="value" style="color:var(--up)">${win}%</div><div class="sub"><span style="color:var(--down)">verlieskans ${loss}%</span><br>gem. ${pct(avg)} per signaal</div></div>`
+         : `<div class="stat"><div class="label">Winkans plan</div><div class="value">–</div><div class="sub">berekend bij de volgende run</div></div>`}`;
   summary.querySelectorAll('.stat.clickable').forEach(el => {
     el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };
   });

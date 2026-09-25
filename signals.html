@@ -67,7 +67,7 @@
   .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
 
   .summary {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px;
   }
   .stat {
     background: linear-gradient(180deg, var(--panel), var(--ink));
@@ -168,6 +168,8 @@
   .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
   .src-live { color: var(--up); }
   .src-none { color: var(--warn); }
+  .src-new { color: var(--warn); }
+  .p-ticker.is-new { color: var(--warn); }
 
   .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
@@ -279,8 +281,6 @@
         <option value="section">Categorie (standaard)</option>
         <option value="name">Naam (A-Z)</option>
         <option value="result">Resultaat (hoog-laag)</option>
-        <option value="buy">Dichtst bij koopsignaal</option>
-        <option value="sell">Dichtst bij verkoopsignaal</option>
       </select>
     </div>
     <div class="tb-group">
@@ -298,6 +298,7 @@
         <option value="up">Koopsignaal</option>
         <option value="down">Verkoopsignaal</option>
         <option value="flat">Geen signaal</option>
+        <option value="new">Nieuw signaal</option>
       </select>
     </div>
     <button id="resetFilters" class="tb-reset">Reset</button>
@@ -327,8 +328,8 @@ let data = null;
 let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 if (!['all', 'Stocks', 'Gold & Silver'].includes(ui.cat)) ui.cat = 'all';
-if (!['section', 'name', 'result', 'buy', 'sell'].includes(ui.sort)) ui.sort = 'section';
-if (!['all', 'up', 'down', 'flat'].includes(ui.status)) ui.status = 'all';
+if (!['section', 'name', 'result'].includes(ui.sort)) ui.sort = 'section';
+if (!['all', 'up', 'down', 'flat', 'new'].includes(ui.status)) ui.status = 'all';
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
 // Posities van het portfolio (zelfde website, dus zelfde localStorage):
@@ -362,10 +363,6 @@ function prep(raw) {
 
 async function load() {
   if (DEMO) { data = prep(DEMO); quotes = DEMO_QUOTES || {}; document.getElementById('demo').hidden = false; render(); return; }
-  try {
-    const r = await fetch('state.json?t=' + Date.now(), { cache: 'no-store' });
-    if (r.ok) portfolioState = await r.json();
-  } catch (e) {}
   try {
     const q = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     if (q.ok) quotes = (await q.json()).quotes || {};
@@ -401,15 +398,8 @@ function stappen(it) {
 function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
 // het realisatiepercentage dat in het plan groen staat (null = geen signaal)
-let portfolioState = {};
-function resultaat(it) {
-  const pos = it.position || {};
-  const lokaal = portfolioPositions()[it.symbol.toUpperCase()] || {};
-  const sec = lokaal.section || pos.section;
-  const st = sec ? portfolioState[sec + '|' + it.symbol] : null;
-  const cost = (st && st.cost != null) ? st.cost : (lokaal.cost ?? pos.cost);
-  return cost ? (it.price / cost - 1) * 100 : null;
-}
+// signaal vandaag gekregen dat er gisteren nog niet was
+function isNew(it) { return !!(it.flag && it.new_signal); }
 
 function realPct(it) {
   if (!it.flag || !it.plan) return null;
@@ -455,8 +445,8 @@ function card(it) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
-      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="Koersdata opgehaald">● data</span></span>
+      <span class="p-ticker${isNew(it) ? ' is-new' : ''}"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
+      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="Koersdata opgehaald">● data</span>${isNew(it) ? ' <span class="src src-new" title="Dit signaal is er sinds de vorige handelsdag">● nieuw signaal</span>' : ''}</span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -572,6 +562,7 @@ function render() {
     if (ui.status === 'flag' && !it.flag) return false;
     if ((ui.status === 'down' || ui.status === 'up') && !(it.flag && it.direction === ui.status)) return false;
     if (ui.status === 'flat' && it.flag) return false;
+    if (ui.status === 'new' && !isNew(it)) return false;
     return true;
   };
   const filtered = items.filter(passes);
@@ -583,7 +574,7 @@ function render() {
   const cards = document.getElementById('cards');
   cards.innerHTML = '';
   if (!filtered.length && !errs.length) {
-    const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', down: 'met een verwachte daling ≥' + MOVE_MIN + '%', flat: 'zonder signaal' }[ui.status] || '';
+    const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', down: 'met een verwachte daling ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
     const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : 'posities';
     cards.innerHTML = `<div class="empty">Op dit moment geen ${cat} ${wat}.</div>`;
   } else if (ui.sort === 'section') {
@@ -602,9 +593,7 @@ function render() {
   } else {
     filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
-      if (ui.sort === 'result') return (resultaat(b) ?? -Infinity) - (resultaat(a) ?? -Infinity) || naam(a).localeCompare(naam(b), 'nl');
-      if (ui.sort === 'buy') return b.score - a.score || naam(a).localeCompare(naam(b), 'nl');
-      if (ui.sort === 'sell') return a.score - b.score || naam(a).localeCompare(naam(b), 'nl');
+      if (ui.sort === 'result') return byReal(a, b);   // resultaat = realisatie hoog-laag, over alle categorieën
       if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
       return byReal(a, b);
     }).forEach(i => cards.appendChild(card(i)));
@@ -620,12 +609,14 @@ function render() {
   const nDown = catItems.filter(i => i.flag && i.direction === 'down').length;
   const nUp = catItems.filter(i => i.flag && i.direction === 'up').length;
   const nFlat = catItems.length - nDown - nUp + catErrors.length;
+  const nNew = catItems.filter(isNew).length;
   const s = data.stats;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
     <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">STIJGING ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">DALING ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
+    <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">sinds de vorige handelsdag</div></div>
 `;
   summary.querySelectorAll('.stat.clickable').forEach(el => {
     el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };

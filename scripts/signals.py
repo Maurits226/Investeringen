@@ -111,9 +111,14 @@ def portfolio_info():
         obj = m.group(0)
         sec = re.search(r"section:\s*(['\"])(.*?)\1", obj)
         lab = re.search(r"label:\s*(['\"])(.*?)\1", obj)
+        num = lambda k: (lambda r: float(r.group(1)) if r else None)(  # noqa: E731
+            re.search(k + r":\s*(-?[0-9.]+)", obj))
         info[m.group(1).upper()] = {"section": sec.group(2) if sec else None,
                                     "label": lab.group(2) if lab else None,
-                                    "watch": "watch: true" in obj}
+                                    "watch": "watch: true" in obj,
+                                    "cost": num("cost"), "qty": num("qty"), "thresh": num("thresh")}
+    ver = re.search(r"DEFAULT_VERSION\s*=\s*(\d+)", html)
+    info["__version__"] = int(ver.group(1)) if ver else 0
     return info
 
 
@@ -135,7 +140,9 @@ def enrich(tickers):
         t["label"] = p.get("label")
         t["watch"] = bool(p.get("watch")) or (t.get("category") or "").lower() == "watchlist"
         t["name"] = t.get("name") or names.get(sym)
-    return tickers
+        t["position"] = {"ticker": sym, "section": t["category"], "label": t["label"], "watch": t["watch"],
+                         "cost": p.get("cost"), "qty": p.get("qty"), "thresh": p.get("thresh")}
+    return tickers, info.get("__version__", 0)
 
 
 def parse_tickers_txt(path):
@@ -549,6 +556,7 @@ def analyse(tk, bars, meta):
         "label": tk.get("label"),
         "category": tk.get("category"),
         "watch": tk.get("watch", False),
+        "position": tk.get("position"),
         "currency": meta.get("currency", ""),
         "price": r2(price),
         "day_pct": round((price / prev - 1) * 100, 2) if prev else None,
@@ -571,7 +579,7 @@ def analyse(tk, bars, meta):
 
 def main():
     tickers, source = load_tickers()
-    tickers = enrich(tickers)
+    tickers, portfolio_version = enrich(tickers)
     print(f"{len(tickers)} tickers uit {source}")
     items, errors = [], []
     for tk in tickers:
@@ -583,7 +591,8 @@ def main():
                   f"{'' if item['projected_pct'] is None else item['projected_pct']:>6}")
         except Exception as e:  # noqa: BLE001
             errors.append({"symbol": tk["symbol"], "name": tk.get("name"), "label": tk.get("label"),
-                           "category": tk.get("category"), "error": str(e)[:200]})
+                           "category": tk.get("category"), "watch": tk.get("watch", False),
+                           "position": tk.get("position"), "error": str(e)[:200]})
             print(f"  {tk['symbol']:<10} FOUT: {e}")
         time.sleep(0.4)
 
@@ -596,6 +605,7 @@ def main():
     out = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": source,
+        "portfolio_version": portfolio_version,
         "config": {"horizon": HORIZON, "drop_pct": DROP_PCT, "rise_pct": RISE_PCT,
                    "eval_rise_pct": EVAL_RISE_PCT, "signal_score": SIGNAL_SCORE,
                    "retrace": RETRACE},

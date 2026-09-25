@@ -82,6 +82,35 @@
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
 
   .cards { display: flex; flex-direction: column; gap: 14px; }
+  .markets {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px; margin-bottom: 18px;
+  }
+  .mkt {
+    display: flex; flex-direction: column; gap: 4px; padding: 11px 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    min-width: 0;
+  }
+  .mkt-top { display: flex; align-items: center; gap: 8px; }
+  .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .mkt.open .mkt-dot { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+  .mkt.closed .mkt-dot { background: var(--down); }
+  .mkt-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
+  .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
+  .mkt-foot {
+    font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+    margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--line);
+  }
+  .exch-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 8px; vertical-align: middle; position: relative; top: -2px;
+    background: var(--line);
+  }
+  .exch-dot.open { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+  .exch-dot.closed { background: var(--down); }
   .toolbar {
     display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
     margin-bottom: 20px; padding: 12px 16px;
@@ -140,6 +169,7 @@
   .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
   .v.up, .c-up { color: var(--up); } .v.down, .c-down { color: var(--down); }
   .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; color: var(--muted); }
+  .drop-tag.c-up { color: var(--up); } .drop-tag.c-down { color: var(--down); }
 
   .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
   .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
@@ -156,10 +186,7 @@
   .plan-row .koop { color: var(--up); } .plan-row .verkoop { color: var(--down); } .plan-row .wacht { color: var(--muted); }
   .plan-row .pp { color: var(--muted); margin-left: auto; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
-  .realise {
-    background: rgba(55,211,154,.15); border: 1px solid rgba(55,211,154,.45); color: var(--up);
-    font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 8px; line-height: 1.3;
-  }
+  .plan-real { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--up); font-weight: 600; line-height: 1.4; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
@@ -201,6 +228,8 @@
     .detail { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
+    .markets { grid-template-columns: repeat(2, 1fr); }
+    .mkt-top { flex-wrap: wrap; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
     .controls { justify-content: space-between; }
@@ -218,14 +247,14 @@
   <header class="top">
     <div class="title-block">
       <h1><span class="pulse"></span>Patroonradar</h1>
-      <p>Koop- en verkoopsignalen uit technische patronen</p>
     </div>
     <div class="controls">
       <span class="updated" id="updated">laden…</span>
-      <a class="btn primary" href="./">Portfolio</a>
     </div>
   </header>
   <p class="hint" id="demo" hidden style="margin:-10px 0 20px">Voorbeeld met een kopie van je signals.json. Op GitHub Pages leest deze pagina je live bestand.</p>
+
+  <div class="markets" id="markets"></div>
 
   <div class="summary" id="summary"></div>
 
@@ -243,9 +272,7 @@
       <span class="tb-label">Categorie</span>
       <select id="catSel">
         <option value="all">Alle</option>
-        <option value="Watchlist">Watchlist</option>
         <option value="Stocks">Stocks</option>
-        <option value="ETF's">ETF's</option>
         <option value="Gold & Silver">Edelmetalen</option>
       </select>
     </div>
@@ -265,12 +292,14 @@
 
   <div class="cards" id="cards"></div>
 
-  <p class="hint">Signalen komen uit bekende technische patronen: trend, RSI, MACD, Bollinger, uitbraken, double top/bottom, kop-schouders en candlesticks. Ze beschrijven kansen, geen zekerheden. De terugblik laat per positie zien hoe vaak het model de afgelopen twee jaar gelijk had, vergeleken met toeval.</p>
 </div>
 
 <script>
 const DEMO = null; /*__DEMO__*/
-const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
+const DEMO_QUOTES = null; /*__DEMOQ__*/
+const SECTION_ORDER = ['Stocks', 'Gold & Silver'];
+const SKIP_CATEGORIES = ["ETF's"];                 // ETF's doen niet mee in de radar
+const MERGE_CATEGORY = { Watchlist: 'Stocks' };    // watchlist telt gewoon als stock
 const UI_KEY = 'signals_ui';
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
@@ -282,6 +311,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '
 let data = null;
 let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
+if (!['all', 'Stocks', 'Gold & Silver'].includes(ui.cat)) ui.cat = 'all';
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
 // Posities van het portfolio (zelfde website, dus zelfde localStorage):
@@ -299,18 +329,23 @@ function prep(raw) {
   const pos = portfolioPositions();
   const one = it => {
     const p = pos[it.symbol.toUpperCase()];
-    return {
-      ...it,
-      category: (p && p.section) || it.category || 'Overig',
-      label: (p && p.label) || it.label,
-      watch: p ? !!(p.watch || p.cost == null) : !!it.watch,
-    };
+    const cat = (p && p.section) || it.category || 'Stocks';
+    return { ...it, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: false };
   };
-  return { ...raw, items: raw.items.map(one), errors: (raw.errors || []).map(one) };
+  const keep = it => !SKIP_CATEGORIES.includes(it.category);
+  const items = raw.items.map(one).filter(keep);
+  // trefkans opnieuw optellen zonder de weggelaten posities
+  const stats = { down: { n: 0, hits: 0, base_n: 0, base_hits: 0 }, up: { n: 0, hits: 0, base_n: 0, base_hits: 0 } };
+  items.forEach(it => ['down', 'up'].forEach(d => Object.keys(stats[d]).forEach(k => { stats[d][k] += (it.backtest?.[d]?.[k] || 0); })));
+  return { ...raw, stats, items, errors: (raw.errors || []).map(one).filter(keep) };
 }
 
 async function load() {
-  if (DEMO) { data = prep(DEMO); document.getElementById('demo').hidden = false; render(); return; }
+  if (DEMO) { data = prep(DEMO); quotes = DEMO_QUOTES || {}; document.getElementById('demo').hidden = false; render(); return; }
+  try {
+    const q = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    if (q.ok) quotes = (await q.json()).quotes || {};
+  } catch (e) {}
   try {
     const r = await fetch('signals.json?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -358,7 +393,7 @@ function card(it) {
   const s = stappen(it);
   const planBlock = s
     ? s.map(([cls, lbl, prijs, sub]) => cls === 'real'
-        ? `<div class="realise">${lbl} voor ${Math.abs(sub).toFixed(1).replace('.', ',')}% (verkoop ${fmt(prijs, cur)})</div>`
+        ? `<div class="plan-real">${lbl} voor ${Math.abs(sub).toFixed(1).replace('.', ',')}% (verkoop ${fmt(prijs, cur)})</div>`
         : `<div class="plan-row"><b class="${cls}">${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
     : `<div class="next-target">Geen plan: wacht op een duidelijk signaal</div>`;
 
@@ -367,8 +402,8 @@ function card(it) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker">${esc(title)}</span>
-      <span class="p-company">(${esc(it.symbol)})${it.label && it.name ? ' ' + esc(it.name) : ''}</span>
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
+      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)}${it.label && it.name ? ' ' + esc(it.name) : ''}</span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -460,8 +495,8 @@ function errorCard(e) {
   const el = document.createElement('div');
   el.className = 'position';
   el.innerHTML = `
-    <div class="p-name"><span class="p-ticker">${esc(e.label || e.name || e.symbol)}</span>
-      <span class="p-company">(${esc(e.symbol)})</span></div>
+    <div class="p-name"><span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(e.symbol) || ''}"></span>${esc(e.label || e.name || e.symbol)}</span>
+      <span class="p-company">(${esc(e.symbol)})${exchName(e.symbol)}</span></div>
     <div style="grid-column: span 4; font-size:12px; color:var(--muted); line-height:1.5">
       <span class="err">Geen signaal mogelijk.</span> ${/weinig/.test(e.error) ? 'Yahoo heeft te weinig koershistorie voor deze beursnotering (minimaal 60 handelsdagen nodig).' : 'Koersen konden niet worden opgehaald: ' + esc(e.error)}
     </div>
@@ -538,8 +573,119 @@ function render() {
 
   const d = new Date(data.generated);
   document.getElementById('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  renderMarkets();
   window.scrollTo(0, scrollY);
 }
+
+
+// ---- Beursstatus: open/dicht per handelsplaats (zelfde regels als het portfolio) ----
+let quotes = {};
+const EXCHANGES = {
+  XETRA:  { name: 'Xetra',              city: 'Frankfurt',  tz: 'Europe/Berlin',    open: [9, 0],  close: [17, 30] },
+  DUS:    { name: 'Börse Düsseldorf',   city: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
+  AMS:    { name: 'Euronext Amsterdam', city: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
+  MIL:    { name: 'Borsa Italiana',     city: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
+  NYSE:   { name: 'NYSE',               city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
+  NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
+  US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
+};
+const YAHOO_EXCHANGE = {
+  GER: 'XETRA', DUS: 'DUS', AMS: 'AMS', MIL: 'MIL',
+  NYQ: 'NYSE', ASE: 'NYSE', PCX: 'NYSE',
+  NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ'
+};
+const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL' };
+
+function exchangeKeyOf(ticker) {
+  const q = quotes[ticker.toUpperCase()];
+  if (q && q.exchange && YAHOO_EXCHANGE[q.exchange]) return YAHOO_EXCHANGE[q.exchange];
+  const m = ticker.match(/\.([A-Z]+)$/);
+  if (m) return SUFFIX_EXCHANGE[m[1]] || null;
+  return 'US';
+}
+function exchName(ticker) {
+  const k = exchangeKeyOf(ticker);
+  return k && EXCHANGES[k] ? ' · ' + EXCHANGES[k].name : '';
+}
+function tzParts(date, tz) {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const o = {};
+  f.formatToParts(date).forEach(p => { o[p.type] = p.value; });
+  return { y: +o.year, m: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute };
+}
+function tzDate(tz, y, m, d, h, mi) {
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  const p = tzParts(new Date(guess), tz);
+  const offset = Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi) - guess;
+  return new Date(guess - offset);
+}
+function marketStatus(ex, now) {
+  const p = tzParts(now, ex.tz);
+  for (let k = 0; k < 8; k++) {
+    const day = new Date(Date.UTC(p.y, p.m - 1, p.d + k));
+    const wd = day.getUTCDay();
+    if (wd === 0 || wd === 6) continue;
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, d = day.getUTCDate();
+    const openAt = tzDate(ex.tz, y, m, d, ex.open[0], ex.open[1]);
+    const closeAt = tzDate(ex.tz, y, m, d, ex.close[0], ex.close[1]);
+    if (now >= openAt && now < closeAt) return { open: true, at: closeAt };
+    if (now < openAt) return { open: false, at: openAt };
+  }
+  return { open: false, at: null };
+}
+function fmtMoment(date, now) {
+  const tijd = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  if (date.toDateString() === now.toDateString()) return tijd;
+  const morgen = new Date(now); morgen.setDate(now.getDate() + 1);
+  if (date.toDateString() === morgen.toDateString()) return 'morgen ' + tijd;
+  return date.toLocaleDateString('nl-NL', { weekday: 'short' }) + ' ' + tijd;
+}
+function renderMarkets() {
+  const box = document.getElementById('markets');
+  if (!box || !data) return;
+  const counts = {};
+  data.items.concat(data.errors || []).forEach(it => {
+    const key = exchangeKeyOf(it.symbol);
+    if (key && EXCHANGES[key]) counts[key] = (counts[key] || 0) + 1;
+  });
+  const now = new Date();
+  const status = {};
+  Object.keys(EXCHANGES).forEach(k => { status[k] = marketStatus(EXCHANGES[k], now); });
+  function lokaleTijden(ex) {
+    const p = tzParts(now, ex.tz);
+    const o = tzDate(ex.tz, p.y, p.m, p.d, ex.open[0], ex.open[1]);
+    const c = tzDate(ex.tz, p.y, p.m, p.d, ex.close[0], ex.close[1]);
+    const hm = d => d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    return { openMin: o.getHours() * 60 + o.getMinutes(), closeMin: c.getHours() * 60 + c.getMinutes(), label: hm(o) + '–' + hm(c) };
+  }
+  const keys = Object.keys(counts).filter(k => EXCHANGES[k]);
+  const tijden = {};
+  keys.forEach(k => { tijden[k] = lokaleTijden(EXCHANGES[k]); });
+  keys.sort((a, b) => tijden[a].openMin - tijden[b].openMin || tijden[a].closeMin - tijden[b].closeMin ||
+    EXCHANGES[a].name.localeCompare(EXCHANGES[b].name));
+  box.innerHTML = keys.map(key => {
+    const ex = EXCHANGES[key], st = status[key];
+    const tekst = st.open ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
+      : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
+    return `<div class="mkt ${st.open ? 'open' : 'closed'}">
+      <div class="mkt-top"><span class="mkt-dot"></span><span class="mkt-name">${ex.name}</span></div>
+      <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
+      <div class="mkt-state">${tekst}</div>
+      <div class="mkt-foot">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.exch-dot').forEach(el => {
+    const ex = EXCHANGES[el.dataset.exch];
+    if (!ex) { el.className = 'exch-dot'; return; }
+    const st = status[el.dataset.exch];
+    el.className = 'exch-dot ' + (st.open ? 'open' : 'closed');
+    el.title = `${ex.name}: ${st.open ? 'open, sluit ' : 'gesloten, opent '}${st.at ? fmtMoment(st.at, now) : ''}`;
+  });
+}
+setInterval(renderMarkets, 60 * 1000);
 
 document.addEventListener('click', e => {
   const t = e.target.closest('.toggle');

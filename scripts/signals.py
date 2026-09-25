@@ -27,7 +27,7 @@ from urllib.request import Request, urlopen
 # ── Instellingen ─────────────────────────────────────────────────────────
 HORIZON = 10          # handelsdagen vooruit (~2 weken)
 DROP_PCT = 5.0        # daling vanaf deze grootte = interessant
-RISE_PCT = 0.0        # stijging vanaf deze grootte = interessant (0 = elke verwachte stijging)
+RISE_PCT = 5.0        # stijging vanaf deze grootte = interessant
 EVAL_RISE_PCT = 5.0   # stijging die de backtest als 'raak' telt
 SIGNAL_SCORE = 35     # |score| vanaf hier is er een richting (schaal -100..100)
 PIVOT_K = 5           # bars links/rechts voor een swing-top/-bodem
@@ -499,11 +499,44 @@ def project(S, i, score, targets):
     return target, sup, res, sig
 
 
+def make_plan(price, direction, target, sup, res, sig):
+    """Verkoop/koop nu, doel, vervolgstap na terugveer en de grens waarop het plan vervalt."""
+    if not target or direction == "flat":
+        return None
+    if direction == "down":   # verkopen nu, terugkopen op doel, weer verkopen na herstel
+        nxt = target + RETRACE * (price - target)
+        stop = res if res and res > price else price * math.exp(sig)
+    else:                     # kopen nu, verkopen op doel, terugkopen na terugval
+        nxt = target - RETRACE * (target - price)
+        stop = sup if sup and sup < price else price * math.exp(-sig)
+    return {"entry": price, "target": target, "next": nxt, "stop": stop}
+
+
+def plan_outcome(S, i, d, plan):
+    """Speel het plan na: eerst het doel gehaald = winst, eerst de grens geraakt = verlies.
+    Raakt een dag beide, dan telt het als verlies (voorzichtig)."""
+    entry, target, stop = plan["entry"], plan["target"], plan["stop"]
+    for j in range(i + 1, i + HORIZON + 1):
+        if d == "up":
+            if S.l[j] <= stop:
+                return "loss", stop / entry - 1
+            if S.h[j] >= target:
+                return "win", target / entry - 1
+        else:
+            if S.h[j] >= stop:
+                return "loss", 1 - stop / entry
+            if S.l[j] <= target:
+                return "win", 1 - target / entry
+    end = S.c[i + HORIZON]
+    return "open", (end / entry - 1) if d == "up" else (1 - end / entry)
+
+
 # ── Backtest ─────────────────────────────────────────────────────────────
 def backtest(S, start):
     n = len(S.c)
     res = {"down": [0, 0], "up": [0, 0]}      # [signalen, raak]
     base = {"down": [0, 0], "up": [0, 0]}
+    plan = {d: {"plan_n": 0, "wins": 0, "losses": 0, "ret_sum": 0.0} for d in ("down", "up")}
     cool = {"down": -99, "up": -99}
     for i in range(start, n - HORIZON):
         fut_lo = min(S.l[i + 1:i + HORIZON + 1])
@@ -514,14 +547,26 @@ def backtest(S, start):
         base["down"][1] += hit_dn
         base["up"][0] += 1
         base["up"][1] += hit_up
-        s = score_of(evaluate(S, i)[0])
+        P, targets = evaluate(S, i)
+        s = score_of(P)
         d = "down" if s <= -SIGNAL_SCORE else "up" if s >= SIGNAL_SCORE else None
         if d and i - cool[d] >= HORIZON // 2:   # geen overlappende signalen dubbel tellen
             cool[d] = i
             res[d][0] += 1
             res[d][1] += hit_dn if d == "down" else hit_up
-    return {d: {"n": res[d][0], "hits": res[d][1], "base_n": base[d][0], "base_hits": base[d][1]}
-            for d in ("down", "up")}
+            target, sup, rs, sig = project(S, i, s, targets)
+            pl = make_plan(S.c[i], d, target, sup, rs, sig)
+            if pl:
+                uitkomst, ret = plan_outcome(S, i, d, pl)
+                plan[d]["plan_n"] += 1
+                plan[d]["wins"] += uitkomst == "win"
+                plan[d]["losses"] += uitkomst == "loss"
+                plan[d]["ret_sum"] += ret * 100
+    out = {}
+    for d in ("down", "up"):
+        out[d] = {"n": res[d][0], "hits": res[d][1], "base_n": base[d][0], "base_hits": base[d][1]}
+        out[d].update({k: (round(v, 2) if isinstance(v, float) else v) for k, v in plan[d].items()})
+    return out
 
 
 # ── Hoofdprogramma ───────────────────────────────────────────────────────
@@ -535,17 +580,10 @@ def analyse(tk, bars, meta):
     price = S.c[i]
     proj = round((target / price - 1) * 100, 1) if target else None
     flag = bool(proj is not None and (
-        (direction == "down" and -proj >= DROP_PCT) or (direction == "up" and proj > RISE_PCT)))
-    plan = None
-    if target and direction != "flat":
-        if direction == "down":   # verkopen nu, terugkopen op doel, weer verkopen na herstel
-            nxt = target + RETRACE * (price - target)
-            stop = res if res and res > price else price * math.exp(sig)
-        else:                     # kopen nu, verkopen op doel, terugkopen na terugval
-            nxt = target - RETRACE * (target - price)
-            stop = sup if sup and sup < price else price * math.exp(-sig)
-        plan = {"entry": round(price, 4), "target": round(target, 4),
-                "next": round(nxt, 4), "stop": round(stop, 4)}
+        (direction == "down" and -proj >= DROP_PCT) or (direction == "up" and proj >= RISE_PCT)))
+    plan = make_plan(price, direction, target, sup, res, sig)
+    if plan:
+        plan = {k: round(v, 4) for k, v in plan.items()}
     prev = meta.get("chartPreviousClose") if i == 0 else S.c[i - 1]
     lo_spark = max(0, len(S.c) - SPARK_BARS)
     r2 = lambda x: round(x, 4) if x is not None else None  # noqa: E731
@@ -596,7 +634,8 @@ def main():
             print(f"  {tk['symbol']:<10} FOUT: {e}")
         time.sleep(0.4)
 
-    agg = {d: {"n": 0, "hits": 0, "base_n": 0, "base_hits": 0} for d in ("down", "up")}
+    agg = {d: {"n": 0, "hits": 0, "base_n": 0, "base_hits": 0,
+               "plan_n": 0, "wins": 0, "losses": 0, "ret_sum": 0.0} for d in ("down", "up")}
     for it in items:
         for d in agg:
             for k in agg[d]:

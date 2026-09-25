@@ -1,40 +1,59 @@
 name: Patroonradar
 
+# GitHub start geplande runs bij rustige repo's vaak uren te laat. Daarom blijft
+# één run tijdens handelsuren zelf doorlopen en ververst hij elke 15 minuten.
+# Loopt een run af (max ~5,5 uur), dan staat de volgende geplande run al klaar.
+
 on:
   schedule:
-    # elke 15 minuten op werkdagen tijdens Europese + Amerikaanse beurstijden
-    # (GitHub rekent in UTC: 6-21 UTC = 8:00-23:59 Nederlandse zomertijd)
-    - cron: "*/15 6-21 * * 1-5"
+    - cron: "*/15 5-21 * * 1-5"   # startmomenten (UTC); de lus doet de rest
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:                        # na een wijziging aan de radar direct herstarten
+      - 'scripts/signals.py'
+      - 'tickers.txt'
+      - '.github/workflows/signals.yml'
 
 permissions:
   contents: write
 
 concurrency:
   group: patroonradar
-  cancel-in-progress: false
+  # handmatig of na een push: lopende run stoppen en met de nieuwe code beginnen
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v5
 
-      # Python staat standaard op de runner; het script heeft geen extra pakketten nodig
-      - name: Signalen berekenen
-        run: python3 scripts/signals.py
-
-      - name: signals.json committen
+      - name: Signalen berekenen, elke 15 minuten tijdens handelsuren
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
-          git add signals.json
-          git diff --cached --quiet && exit 0
-          git commit -m "Patroonradar $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
-          # de koersen-workflow pusht elke 10 min: bij een botsing eerst rebasen
-          for i in 1 2 3 4 5; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push && exit 0
-            sleep $((i * 7))
+          INTERVAL=900                                  # 15 minuten
+          STOP=$(( $(date +%s) + 5*3600 + 30*60 ))      # ruim binnen de limiet van 6 uur
+          while true; do
+            git pull -q --rebase origin "${GITHUB_REF_NAME}" || true
+            python3 scripts/signals.py || echo "Run mislukt, volgende poging over 15 min"
+            git add signals.json
+            if ! git diff --cached --quiet; then
+              git commit -q -m "Patroonradar $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
+              for i in 1 2 3 4 5; do
+                git pull -q --rebase origin "${GITHUB_REF_NAME}" && git push -q && break
+                sleep $((i * 7))
+              done
+            fi
+            NEXT=$(( ( $(date +%s) / INTERVAL + 1 ) * INTERVAL ))
+            HHMM=$(date -u -d "@$NEXT" +%H%M)
+            DOW=$(date -u -d "@$NEXT" +%u)
+            # handelsuren 05:45-21:15 UTC op werkdagen (dekt zomer- en wintertijd)
+            if [ "$NEXT" -ge "$STOP" ] || [ "$DOW" -ge 6 ] || [ "$HHMM" -lt 0545 ] || [ "$HHMM" -gt 2115 ]; then
+              echo "Klaar voor nu; de volgende geplande run neemt het over."
+              break
+            fi
+            sleep $(( NEXT - $(date +%s) ))
           done
-          exit 1

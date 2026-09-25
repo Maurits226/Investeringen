@@ -1,8 +1,11 @@
 name: Update stock prices
 
+# GitHub start geplande runs bij rustige repo's vaak uren te laat. Daarom blijft
+# één run tijdens handelsuren zelf doorlopen en haalt hij elke 10 minuten koersen op.
+# Buiten handelsuren doet elke geplande run één keer een update.
+
 on:
   schedule:
-    # Elke 10 min gevraagd. GitHub kan geplande runs vertragen; dat is normaal.
     - cron: "*/10 * * * *"
   workflow_dispatch:      # handmatig starten via de Actions-tab
   push:
@@ -10,46 +13,53 @@ on:
     paths-ignore:         # geen koers-run starten bij alleen data/state-wijzigingen
       - 'state.json'
       - 'data.json'
+      - 'signals.json'
 
 permissions:
   contents: write
 
-# Voorkom dat twee runs tegelijk draaien en elkaar in de weg zitten
 concurrency:
   group: update-prices
-  cancel-in-progress: false
+  # handmatig of na een push: lopende run stoppen en met de nieuwe code beginnen
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Fetch prices
-        run: python update_prices.py
-
-      - name: Commit updated data
+      - name: Koersen ophalen, elke 10 minuten tijdens handelsuren
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json
-          if git diff --staged --quiet; then
-            echo "Geen wijzigingen in data.json"
-            exit 0
-          fi
-          git commit -m "Update koersen $(date -u +'%Y-%m-%d %H:%M UTC')"
-          # Haal eerst eventuele nieuwe commits op (bv. state.json vanuit het dashboard)
-          # en probeer tot 5 keer te pushen.
-          for i in 1 2 3 4 5; do
-            git pull --rebase origin main && git push origin main && exit 0
-            echo "Push mislukt, poging $i — opnieuw proberen..."
-            sleep 5
+          INTERVAL=600                                  # 10 minuten
+          STOP=$(( $(date +%s) + 5*3600 + 30*60 ))      # ruim binnen de limiet van 6 uur
+          while true; do
+            git pull -q --rebase origin main || true
+            python update_prices.py || echo "Ophalen mislukt, volgende poging over 10 min"
+            git add data.json
+            if ! git diff --staged --quiet; then
+              git commit -q -m "Update koersen $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
+              for i in 1 2 3 4 5; do
+                git pull -q --rebase origin main && git push -q origin main && break
+                sleep $((i * 7))
+              done
+            fi
+            NEXT=$(( ( $(date +%s) / INTERVAL + 1 ) * INTERVAL ))
+            HHMM=$(date -u -d "@$NEXT" +%H%M)
+            DOW=$(date -u -d "@$NEXT" +%u)
+            # handelsuren 05:45-21:15 UTC op werkdagen (dekt zomer- en wintertijd)
+            if [ "$NEXT" -ge "$STOP" ] || [ "$DOW" -ge 6 ] || [ "$HHMM" -lt 0545 ] || [ "$HHMM" -gt 2115 ]; then
+              echo "Klaar voor nu; de volgende geplande run neemt het over."
+              break
+            fi
+            sleep $(( NEXT - $(date +%s) ))
           done
-          echo "Push na 5 pogingen niet gelukt"
-          exit 1

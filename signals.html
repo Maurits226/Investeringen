@@ -67,7 +67,7 @@
   .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
 
   .summary {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px;
   }
   .stat {
     background: linear-gradient(180deg, var(--panel), var(--ink));
@@ -165,6 +165,9 @@
   .p-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
   .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
+  .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
+  .src-live { color: var(--up); }
+  .src-none { color: var(--warn); }
 
   .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
@@ -173,7 +176,9 @@
   .drop-tag.c-up { color: var(--up); } .drop-tag.c-down { color: var(--down); }
 
   .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
-  .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .bar-labels .doel { color: var(--up); }
+  .bar-wrap .drop-tag b { color: var(--text); font-weight: 600; }
   .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
   .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
   .bar-fill.down { right: 50%; background: linear-gradient(270deg, var(--warn), var(--down)); }
@@ -381,11 +386,11 @@ function stappen(it) {
 
 function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
-// winkans van het plan voor het huidige signaal van deze stock (null = geen signaal of nog niet berekend)
-function winkans(it) {
-  if (!it.flag || it.direction === 'flat' || !it.plan) return null;
-  const bt = it.backtest && it.backtest[it.direction];
-  return bt && bt.plan_n ? rate(bt.wins, bt.plan_n) : null;
+// het realisatiepercentage dat in het plan groen staat (null = geen signaal)
+function realPct(it) {
+  if (!it.flag || !it.plan) return null;
+  const p = it.plan;
+  return it.direction === 'up' ? (p.target / p.entry - 1) * 100 : (p.next / p.target - 1) * 100;
 }
 
 function card(it) {
@@ -400,17 +405,18 @@ function card(it) {
 
   const verw = !sig
     ? `<div class="v" style="color:var(--muted)">geen signaal</div><div class="drop-tag">${it.direction === 'flat' || p == null ? 'geen duidelijk patroon' : `verwacht ${pct(p)}, onder de ${MOVE_MIN}%`}</div>`
-    : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>${winkans(it) != null ? `<div class="drop-tag">winkans ${winkans(it)}%</div>` : ''}`;
+    : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>`;
 
   // Balk: wit streepje = koers nu. Groen naar rechts = verwachte stijging, rood naar links = verwachte daling.
   const w = sig ? Math.min(50, Math.abs(p) / 20 * 50) : 0;
   let lblL = '', lblR = '', under = `normale beweging ${sigma}`;
+  const doel = `<span class="doel">doel ${fmt(it.target, cur)}</span>`;
   if (sig && d === 'up') {
-    lblL = 'stop ' + fmt(it.plan.stop, cur); lblR = 'doel ' + fmt(it.target, cur);
-    under = `slot onder ${fmt(it.plan.stop, cur)}: verkopen`;
+    lblL = 'stop ' + fmt(it.plan.stop, cur); lblR = doel;
+    under = `plan eindigt onder ${fmt(it.plan.stop, cur)}<br>actie: <b>verkopen</b>`;
   } else if (sig && d === 'down') {
-    lblL = 'doel ' + fmt(it.target, cur); lblR = 'stop ' + fmt(it.plan.stop, cur);
-    under = `slot boven ${fmt(it.plan.stop, cur)}: terugkopen`;
+    lblL = doel; lblR = 'stop ' + fmt(it.plan.stop, cur);
+    under = `plan eindigt boven ${fmt(it.plan.stop, cur)}<br>actie: <b>terugkopen</b>`;
   }
 
   const s = sig ? stappen(it) : null;
@@ -426,7 +432,7 @@ function card(it) {
   el.innerHTML = `
     <div class="p-name">
       <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
-      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)}${it.label && it.name ? ' ' + esc(it.name) : ''}</span>
+      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="Koersdata opgehaald">● data</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -470,9 +476,7 @@ function detail(it) {
     : bt.n
       ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'koop' : 'verkoop'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
       : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
-  const planText = (it.flag && bt.plan_n)
-    ? `<br>Plan: <b>${bt.wins} van ${bt.plan_n}</b> keer doel gehaald (winkans <b>${rate(bt.wins, bt.plan_n)}%</b>), ${bt.losses} keer vervallen (verlieskans ${rate(bt.losses, bt.plan_n)}%), gemiddeld ${pct(bt.ret_sum / bt.plan_n)} per signaal.`
-    : '';
+  const planText = '';
 
   const stop = (it.plan && it.flag) ? (it.direction === 'down'
     ? `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daarboven, dan is de daling niet doorgezet. Koop dan terug (had je verkocht) en wacht niet langer op ${fmt(it.plan.target, cur)}.</div>`
@@ -522,7 +526,7 @@ function errorCard(e) {
   el.className = 'position';
   el.innerHTML = `
     <div class="p-name"><span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(e.symbol) || ''}"></span>${esc(e.label || e.name || e.symbol)}</span>
-      <span class="p-company">(${esc(e.symbol)})${exchName(e.symbol)}</span></div>
+      <span class="p-company">(${esc(e.symbol)})${exchName(e.symbol)} <span class="src src-none" title="Geen koershistorie">● geen data</span></span></div>
     <div style="grid-column: span 4; font-size:12px; color:var(--muted); line-height:1.5">
       <span class="err">Geen signaal mogelijk.</span> ${/weinig/.test(e.error) ? 'Yahoo heeft te weinig koershistorie voor deze beursnotering (minimaal 60 handelsdagen nodig).' : 'Koersen konden niet worden opgehaald: ' + esc(e.error)}
     </div>
@@ -549,8 +553,8 @@ function render() {
   const filtered = items.filter(passes);
   const errs = (ui.status === 'all' || ui.status === 'flat') ? errors.filter(e => ui.cat === 'all' || e.category === ui.cat) : [];
   const naam = it => (it.label || it.name || it.symbol).toLowerCase();
-  // eerst hoogste winkans van het plan, daarna alfabetisch; zonder plan achteraan
-  const byWin = (a, b) => (winkans(b) ?? -1) - (winkans(a) ?? -1) || naam(a).localeCompare(naam(b), 'nl');
+  // eerst hoogste realisatie, daarna alfabetisch; zonder signaal achteraan
+  const byReal = (a, b) => (realPct(b) ?? -Infinity) - (realPct(a) ?? -Infinity) || naam(a).localeCompare(naam(b), 'nl');
 
   const cards = document.getElementById('cards');
   cards.innerHTML = '';
@@ -561,7 +565,7 @@ function render() {
   } else if (ui.sort === 'section') {
     const secs = [...new Set([...SECTION_ORDER, ...items.map(i => i.category), ...errors.map(e => e.category)])];
     secs.forEach(sec => {
-      const inSec = filtered.filter(i => i.category === sec).sort(byWin);
+      const inSec = filtered.filter(i => i.category === sec).sort(byReal);
       const errSec = errs.filter(e => e.category === sec);
       if (!inSec.length && !errSec.length) return;
       const h = document.createElement('div');
@@ -575,7 +579,7 @@ function render() {
     filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
       if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
-      return byWin(a, b);
+      return byReal(a, b);
     }).forEach(i => cards.appendChild(card(i)));
     errs.forEach(e => cards.appendChild(errorCard(e)));
   }
@@ -590,16 +594,12 @@ function render() {
   const nUp = catItems.filter(i => i.flag && i.direction === 'up').length;
   const nFlat = catItems.length - nDown - nUp + catErrors.length;
   const s = data.stats;
-  const pn = s.down.plan_n + s.up.plan_n;
-  const win = rate(s.down.wins + s.up.wins, pn), loss = rate(s.down.losses + s.up.losses, pn);
-  const avg = pn ? (s.down.ret_sum + s.up.ret_sum) / pn : null;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
     <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">STIJGING ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">DALING ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
-    ${pn ? `<div class="stat"><div class="label">Winkans plan</div><div class="value" style="color:var(--up)">${win}%</div><div class="sub"><span style="color:var(--down)">verlieskans ${loss}%</span><br>gem. ${pct(avg)} per signaal</div></div>`
-         : `<div class="stat"><div class="label">Winkans plan</div><div class="value">–</div><div class="sub">berekend bij de volgende run</div></div>`}`;
+`;
   summary.querySelectorAll('.stat.clickable').forEach(el => {
     el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };
   });

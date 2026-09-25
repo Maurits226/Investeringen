@@ -184,11 +184,10 @@
   .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: flex; align-items: baseline; gap: 6px; }
   .plan-row b { font-weight: 600; min-width: 92px; }
-  .plan-row .koop { color: var(--up); } .plan-row .verkoop { color: var(--down); } .plan-row .wacht { color: var(--muted); }
+  .plan-row b { color: var(--text); }
   .plan-row .pp { color: var(--muted); margin-left: auto; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
-  .plan-row .real { color: var(--up); }
-  .plan-row .real-pct { display: block; margin-top: 1px; }
+  .plan-row .real-pct { display: block; margin-top: 1px; color: var(--up); font-weight: 600; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
@@ -384,33 +383,44 @@ function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
 // winkans van het plan voor het huidige signaal van deze stock (null = geen signaal of nog niet berekend)
 function winkans(it) {
-  if (it.direction === 'flat' || !it.plan) return null;
+  if (!it.flag || it.direction === 'flat' || !it.plan) return null;
   const bt = it.backtest && it.backtest[it.direction];
   return bt && bt.plan_n ? rate(bt.wins, bt.plan_n) : null;
 }
 
 function card(it) {
   const el = document.createElement('div');
-  const d = it.direction, p = it.projected_pct, cur = it.currency;
-  el.className = 'position' + (it.flag ? ' ' + d + ' flag' : '');
+  const cur = it.currency;
+  // alleen een signaal bij een verwachte beweging van 5% of meer
+  const sig = it.flag, d = sig ? it.direction : 'flat', p = it.projected_pct;
+  el.className = 'position' + (sig ? ' ' + d + ' flag' : '');
   const open = ui.open.includes(it.symbol);
   const title = it.label || it.name || it.symbol;
+  const sigma = `±${it.sigma_pct.toFixed(1).replace('.', ',')}%`;
 
-  const verw = (d === 'flat' || p == null)
-    ? `<div class="v" style="color:var(--muted)">geen patroon</div><div class="drop-tag">score ${it.score > 0 ? '+' : ''}${it.score}</div>`
+  const verw = !sig
+    ? `<div class="v" style="color:var(--muted)">geen signaal</div><div class="drop-tag">${it.direction === 'flat' || p == null ? 'geen duidelijk patroon' : `verwacht ${pct(p)}, onder de ${MOVE_MIN}%`}</div>`
     : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>${winkans(it) != null ? `<div class="drop-tag">winkans ${winkans(it)}%</div>` : ''}`;
 
-  const w = p == null || d === 'flat' ? 0 : Math.min(50, Math.abs(p) / 20 * 50);
-  const lblL = d === 'down' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
-  const lblR = d === 'up' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
-  const s = stappen(it);
+  // Balk: wit streepje = koers nu. Groen naar rechts = verwachte stijging, rood naar links = verwachte daling.
+  const w = sig ? Math.min(50, Math.abs(p) / 20 * 50) : 0;
+  let lblL = '', lblR = '', under = `normale beweging ${sigma}`;
+  if (sig && d === 'up') {
+    lblL = 'stop ' + fmt(it.plan.stop, cur); lblR = 'doel ' + fmt(it.target, cur);
+    under = `slot onder ${fmt(it.plan.stop, cur)}: verkopen`;
+  } else if (sig && d === 'down') {
+    lblL = 'doel ' + fmt(it.target, cur); lblR = 'stop ' + fmt(it.plan.stop, cur);
+    under = `slot boven ${fmt(it.plan.stop, cur)}: terugkopen`;
+  }
+
+  const s = sig ? stappen(it) : null;
   const planBlock = s
     ? s.map(([cls, lbl, prijs, sub]) => cls === 'real'
-        ? `<div class="plan-row"><b class="verkoop">${lbl}</b><span>${fmt(prijs, cur)}<span class="pp real-pct">(voor +${Math.abs(sub).toFixed(1).replace('.', ',')}% realisatie)</span></span></div>`
-        : `<div class="plan-row"><b class="${cls}">${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
-    : `<div class="next-target">Geen plan: wacht op een duidelijk signaal</div>`;
+        ? `<div class="plan-row"><b>${lbl}</b><span>${fmt(prijs, cur)}<span class="pp real-pct">(voor +${Math.abs(sub).toFixed(1).replace('.', ',')}% realisatie)</span></span></div>`
+        : `<div class="plan-row"><b>${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
+    : `<div class="next-target">Geen plan: verwachte beweging kleiner dan ${MOVE_MIN}%</div>`;
 
-  const badge = !it.flag ? `<span class="badge hold">${d === 'flat' ? 'geen actie' : 'zwak signaal'}</span>`
+  const badge = !sig ? `<span class="badge hold">geen actie</span>`
     : d === 'down' ? `<span class="badge down">VERKOOPSIGNAAL</span>` : `<span class="badge up">KOOPSIGNAAL</span>`;
 
   el.innerHTML = `
@@ -428,12 +438,12 @@ function card(it) {
       ${verw}
     </div>
     <div class="bar-wrap">
-      <div class="bar-labels"><span>${lblL}</span><span>verwachte beweging</span><span>${lblR}</span></div>
+      <div class="bar-labels"><span>${lblL}</span><span>${sig ? 'nu' : ''}</span><span>${lblR}</span></div>
       <div class="bar">
         ${w ? `<div class="bar-fill ${d}" style="width:${w}%"></div>` : ''}
         <div class="bar-marker"></div>
       </div>
-      <div class="drop-tag">${it.plan ? `plan vervalt ${d === 'down' ? 'boven' : 'onder'} ${fmt(it.plan.stop, cur)}` : `normale beweging ±${it.sigma_pct.toFixed(1).replace('.', ',')}%`}</div>
+      <div class="drop-tag">${under}</div>
     </div>
     <div class="profit-block">
       <div class="k">Plan</div>
@@ -455,18 +465,18 @@ function detail(it) {
   const drempel = isUp ? cfg.eval_rise_pct : cfg.drop_pct;
   let oordeel = '';
   if (hit != null && base != null && bt.n >= 5) oordeel = hit >= base + 10 ? ' Duidelijk beter dan toeval.' : hit > base ? ' Iets beter dan toeval.' : ' Niet beter dan toeval.';
-  const btText = it.direction === 'flat'
+  const btText = !it.flag
     ? `Geen actief signaal. Historisch zakt deze koers in ${base ?? '–'}% van de periodes van ${cfg.horizon} dagen ≥${cfg.drop_pct}%.`
     : bt.n
       ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'koop' : 'verkoop'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
       : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
-  const planText = (it.direction !== 'flat' && bt.plan_n)
+  const planText = (it.flag && bt.plan_n)
     ? `<br>Plan: <b>${bt.wins} van ${bt.plan_n}</b> keer doel gehaald (winkans <b>${rate(bt.wins, bt.plan_n)}%</b>), ${bt.losses} keer vervallen (verlieskans ${rate(bt.losses, bt.plan_n)}%), gemiddeld ${pct(bt.ret_sum / bt.plan_n)} per signaal.`
     : '';
 
-  const stop = it.plan ? (it.direction === 'down'
-    ? `<div class="stopnote">Sluit de koers boven ${fmt(it.plan.stop, cur)}, dan is het dalingspatroon mislukt: ${it.watch ? 'wacht dan niet langer op ' + fmt(it.plan.target, cur) : 'koop dan terug in plaats van te wachten op ' + fmt(it.plan.target, cur)}.</div>`
-    : `<div class="stopnote">Sluit de koers onder ${fmt(it.plan.stop, cur)}, dan is het stijgingspatroon mislukt: verkoop dan (stop-loss).</div>`) : '';
+  const stop = (it.plan && it.flag) ? (it.direction === 'down'
+    ? `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daarboven, dan is de daling niet doorgezet. Koop dan terug (had je verkocht) en wacht niet langer op ${fmt(it.plan.target, cur)}.</div>`
+    : `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daaronder, dan is de stijging mislukt. Verkoop dan (stop-loss) om verder verlies te beperken, en koop niet bij.</div>`) : '';
 
   const pats = it.patterns.filter(p => p.dir !== 'info');
   return `<div class="detail">
@@ -490,9 +500,9 @@ function spark(it) {
   const lines = [];
   if (it.support != null) lines.push([it.support, 'var(--muted)', 'steun']);
   if (it.resistance != null) lines.push([it.resistance, 'var(--muted)', 'weerstand']);
-  if (it.plan) {
+  if (it.plan && it.flag) {
     lines.push([it.plan.target, 'var(--accent)', 'doel']);
-    lines.push([it.plan.stop, 'var(--warn)', 'plan vervalt']);
+    lines.push([it.plan.stop, 'var(--warn)', 'stop']);
   }
   const all = v.concat(lines.map(l => l[0]));
   let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;

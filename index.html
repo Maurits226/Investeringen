@@ -184,7 +184,7 @@
   .p-name { display: flex; flex-direction: column; gap: 4px; }
   .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
   .p-company { font-size: 12px; color: var(--muted); max-width: 200px; }
-  .src { font-size: 10px; font-weight: 600; margin-left: 4px; }
+  .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; display: inline-block; }
   .src-live { color: var(--up); }
   .src-proxy { color: var(--warn); }
 
@@ -429,7 +429,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 30;
+const DEFAULT_VERSION = 31;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.

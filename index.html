@@ -107,6 +107,10 @@
   .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
   .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
   .mkt-count { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .mkt-foot {
+    font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+    margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--line);
+  }
   .mkt-city { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 2px; }
   .exch-dot {
     display: inline-block; width: 9px; height: 9px; border-radius: 50%;
@@ -425,7 +429,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 28;
+const DEFAULT_VERSION = 30;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -1134,10 +1138,10 @@ function renderMarkets() {
       <div class="mkt-top">
         <span class="mkt-dot"></span>
         <span class="mkt-name">${ex.name}</span>
-        <span class="mkt-count">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</span>
       </div>
       <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
       <div class="mkt-state">${tekst}</div>
+      <div class="mkt-foot">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</div>
     </div>`;
   }).join('');
 

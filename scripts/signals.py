@@ -551,10 +551,14 @@ def backtest(S, start):
         s = score_of(P)
         d = "down" if s <= -SIGNAL_SCORE else "up" if s >= SIGNAL_SCORE else None
         if d and i - cool[d] >= HORIZON // 2:   # geen overlappende signalen dubbel tellen
+            target, sup, rs, sig = project(S, i, s, targets)
+            move = (target / S.c[i] - 1) * 100 if target else 0
+            # alleen signalen die het dashboard ook zou tonen: verwachte beweging >= 5%
+            if (d == "down" and -move < DROP_PCT) or (d == "up" and move < RISE_PCT):
+                continue
             cool[d] = i
             res[d][0] += 1
             res[d][1] += hit_dn if d == "down" else hit_up
-            target, sup, rs, sig = project(S, i, s, targets)
             pl = make_plan(S.c[i], d, target, sup, rs, sig)
             if pl:
                 uitkomst, ret = plan_outcome(S, i, d, pl)

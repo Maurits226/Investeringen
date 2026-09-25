@@ -88,11 +88,17 @@
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
 
   .cards { display: flex; flex-direction: column; gap: 14px; }
-  .markets { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-  .mkt {
-    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  .markets {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px; margin-bottom: 18px;
   }
+  .mkt {
+    display: flex; flex-direction: column; gap: 4px; padding: 11px 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    min-width: 0;
+  }
+  .mkt-top { display: flex; align-items: center; gap: 8px; }
+  .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .mkt.open .mkt-dot { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
   .mkt.closed .mkt-dot { background: var(--down); }
@@ -100,7 +106,7 @@
   .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
   .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
   .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
-  .mkt-count { font-size: 11px; color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+  .mkt-count { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
   .mkt-city { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 2px; }
   .exch-dot {
     display: inline-block; width: 9px; height: 9px; border-radius: 50%;
@@ -244,6 +250,8 @@
     .profit-block { grid-column: span 2; }
   }
   @media (max-width: 520px) {
+    .markets { grid-template-columns: repeat(2, 1fr); }
+    .mkt-top { flex-wrap: wrap; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
     .controls { justify-content: space-between; }
@@ -417,7 +425,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 27;
+const DEFAULT_VERSION = 28;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -1095,16 +1103,41 @@ function renderMarkets() {
   const status = {};
   Object.keys(EXCHANGES).forEach(k => { status[k] = marketStatus(EXCHANGES[k], now); });
 
-  box.innerHTML = EXCHANGE_ORDER.filter(k => counts[k]).map(key => {
+  // Handelstijden van vandaag in lokale tijd, voor weergave én sortering
+  function lokaleTijden(ex) {
+    const p = tzParts(now, ex.tz);
+    const o = tzDate(ex.tz, p.y, p.m, p.d, ex.open[0], ex.open[1]);
+    const c = tzDate(ex.tz, p.y, p.m, p.d, ex.close[0], ex.close[1]);
+    const hm = d => d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    return {
+      openMin: o.getHours() * 60 + o.getMinutes(),
+      closeMin: c.getHours() * 60 + c.getMinutes(),
+      label: hm(o) + '–' + hm(c)
+    };
+  }
+
+  const keys = Object.keys(counts).filter(k => EXCHANGES[k]);
+  const tijden = {};
+  keys.forEach(k => { tijden[k] = lokaleTijden(EXCHANGES[k]); });
+  keys.sort((a, b) =>
+    tijden[a].openMin - tijden[b].openMin ||
+    tijden[a].closeMin - tijden[b].closeMin ||
+    EXCHANGES[a].name.localeCompare(EXCHANGES[b].name));
+
+  box.innerHTML = keys.map(key => {
     const ex = EXCHANGES[key];
     const st = status[key];
     const tekst = st.open
       ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
       : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
     return `<div class="mkt ${st.open ? 'open' : 'closed'}">
-      <span class="mkt-dot"></span>
-      <div><div class="mkt-name">${ex.name} <span class="mkt-city">${ex.city}</span></div><div class="mkt-state">${tekst}</div></div>
-      <span class="mkt-count">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</span>
+      <div class="mkt-top">
+        <span class="mkt-dot"></span>
+        <span class="mkt-name">${ex.name}</span>
+        <span class="mkt-count">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</span>
+      </div>
+      <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
+      <div class="mkt-state">${tekst}</div>
     </div>`;
   }).join('');
 

@@ -121,13 +121,13 @@
   .position::before {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line);
   }
-  .position.down::before { background: var(--down); }
-  .position.down.flag {
+  .position.alert::before { background: var(--down); }
+  .position.alert {
     border-color: rgba(255,93,108,.5);
     box-shadow: 0 0 0 1px rgba(255,93,108,.25), 0 8px 30px -12px rgba(255,93,108,.4);
   }
-  .position.up::before { background: var(--up); }
-  .position.up.flag {
+  .position.sell-alert::before { background: var(--up); }
+  .position.sell-alert {
     border-color: rgba(62,207,142,.5);
     box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4);
   }
@@ -144,43 +144,31 @@
   .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
   .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
-  .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
-  .bar-fill.down { right: 50%; background: linear-gradient(270deg, var(--warn), var(--down)); }
-  .bar-fill.up { left: 50%; background: linear-gradient(90deg, var(--warn), var(--up)); }
-  .bar-marker { position: absolute; top: -3px; left: 50%; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, var(--down), var(--warn), var(--up)); }
+  .bar-marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
 
   .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
   .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: flex; align-items: baseline; gap: 6px; }
-  .plan-row b { font-weight: 600; min-width: 92px; }
+  .plan-row b { font-weight: 600; }
   .plan-row .koop { color: var(--up); } .plan-row .verkoop { color: var(--down); } .plan-row .wacht { color: var(--muted); }
-  .plan-row .pp { color: var(--muted); margin-left: auto; }
+  .plan-row .pp { color: var(--muted); }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .realise {
+    background: rgba(55,211,154,.15); border: 1px solid rgba(55,211,154,.45); color: var(--up);
+    font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 8px; line-height: 1.3;
+  }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .badge.down { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
   .badge.up { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
+  .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
+  .badge.sell { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
   .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
-  .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; white-space: nowrap; }
-  .toggle:hover { border-color: var(--accent); color: var(--text); }
 
-  .detail {
-    grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px;
-    display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px;
-  }
-  .spark { display: block; width: 100%; height: 130px; }
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); margin-top: 8px; }
-  .legend i { display: inline-block; width: 14px; border-top: 2px dashed currentColor; vertical-align: middle; margin-right: 5px; }
-  .d-k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
-  .pat { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-  .pat li { font-size: 13px; display: flex; gap: 8px; }
-  .pat small { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 4px; }
-  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-  .facts .v { font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px; }
   .note { font-size: 12px; color: var(--muted); line-height: 1.6; }
   .note b { color: var(--text); font-weight: 600; }
-  .stopnote { font-size: 12px; line-height: 1.5; padding: 9px 11px; border-radius: 9px; background: rgba(245,181,68,.10); border: 1px solid rgba(245,181,68,.35); color: var(--warn); margin-bottom: 14px; }
 
   .state { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
   .err { color: var(--warn); }
@@ -188,13 +176,39 @@
   .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
   .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
+  /* Patroonregel onder de portfoliogegevens */
+  .pattern {
+    grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 14px;
+    display: grid; grid-template-columns: 1fr 1fr 3.4fr 1.5fr auto; gap: 18px; align-items: start;
+  }
+  .pattern .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .pattern .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
+  .steps { display: flex; gap: 8px; margin-top: 6px; align-items: stretch; }
+  .step { font-size: 11px; font-family: 'IBM Plex Mono', monospace; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); line-height: 1.35; flex: 1 1 0; min-width: 0; }
+  .step b { display: block; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 600; }
+  .step.koop b { color: var(--up); } .step.verkoop b { color: var(--down); } .step.wacht b { color: var(--muted); }
+  .step.realise { background: rgba(55,211,154,.15); border-color: rgba(55,211,154,.45); color: var(--up); font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 600; display: flex; align-items: center; }
+  .why { font-size: 12px; line-height: 1.5; margin-top: 6px; }
+  .why .muted { color: var(--muted); }
+  .pattern .p-actions { align-items: flex-end; }
+  .pattern.flat { grid-template-columns: 1fr auto; align-items: center; }
+  .pattern.flat .why { margin: 0; color: var(--muted); }
+  .src { font-size: 10px; font-weight: 600; margin-left: 4px; }
+  .src-live { color: var(--up); }
+  .model { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin: -12px 0 22px; }
+
   @media (max-width: 860px) {
+    .pattern { grid-template-columns: 1fr 1fr; }
+    .pattern > .p-plan, .pattern > .p-why { grid-column: span 2; }
+    .pattern > .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; }
+    .steps { flex-direction: column; }
+    .pattern.flat { grid-template-columns: 1fr; }
+    .pattern.flat > .p-actions { grid-column: auto; justify-content: flex-start; }
     .summary { grid-template-columns: repeat(2, 1fr); }
     .position { grid-template-columns: 1fr 1fr; }
     .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
     .bar-wrap { grid-column: span 2; }
     .profit-block { grid-column: span 2; }
-    .detail { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
     body { padding: 18px 12px 40px; }
@@ -214,25 +228,28 @@
   <header class="top">
     <div class="title-block">
       <h1><span class="pulse"></span>Patroonradar</h1>
-      <p>Koop- en verkoopsignalen uit technische patronen</p>
+      <p>Overzicht: waar kun je op inspelen</p>
     </div>
     <div class="controls">
       <span class="updated" id="updated">laden…</span>
       <a class="btn primary" href="./">Portfolio</a>
     </div>
   </header>
-  <p class="hint" id="demo" hidden style="margin:-10px 0 20px">Voorbeeld met een kopie van je signals.json. Op GitHub Pages leest deze pagina je live bestand.</p>
+  <p class="hint" id="demo" hidden style="margin:-10px 0 20px">Voorbeeld met een kopie van je eigen data. Op GitHub Pages leest deze pagina je live bestanden.</p>
 
   <div class="summary" id="summary"></div>
+  <p class="model" id="model"></p>
 
   <div class="toolbar">
     <div class="tb-group">
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
         <option value="section">Categorie (standaard)</option>
-        <option value="score">Sterkste signaal</option>
-        <option value="move">Grootste verwachte beweging</option>
+        <option value="score">Sterkste patroon</option>
         <option value="name">Naam (A-Z)</option>
+        <option value="result">Resultaat (hoog-laag)</option>
+        <option value="signal">Dichtst bij koopsignaal</option>
+        <option value="sellsignal">Dichtst bij verkoopsignaal</option>
       </select>
     </div>
     <div class="tb-group">
@@ -249,10 +266,11 @@
       <span class="tb-label">Status</span>
       <select id="statusSel">
         <option value="all">Alles</option>
-        <option value="flag">Interessant</option>
+        <option value="act">Alles om op in te spelen</option>
         <option value="down">Verwachte daling</option>
         <option value="up">Verwachte stijging</option>
-        <option value="flat">Geen signaal</option>
+        <option value="signals">Koopsignalen</option>
+        <option value="open">Openstaande verkoop</option>
       </select>
     </div>
     <button id="resetFilters" class="tb-reset">Reset</button>
@@ -261,291 +279,290 @@
 
   <div class="cards" id="cards"></div>
 
-  <p class="hint">Signalen komen uit bekende technische patronen: trend, RSI, MACD, Bollinger, uitbraken, double top/bottom, kop-schouders en candlesticks. Ze beschrijven kansen, geen zekerheden. De terugblik laat per positie zien hoe vaak het model de afgelopen twee jaar gelijk had, vergeleken met toeval.</p>
+  <p class="hint">Bovenste regel per kaart: dezelfde gegevens als je portfolio (koers, resultaat, 52-weeks range, winst nemen). Onderste regel: het patroonsignaal voor de komende 10 handelsdagen, met koop- en verkoopkoersen. Patronen beschrijven kansen, geen zekerheden.</p>
 </div>
 
 <script>
 const DEMO = null; /*__DEMO__*/
 const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 const UI_KEY = 'signals_ui';
+const REOPEN_DROP = 0.25;
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
   style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2
 }).format(n);
-const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
+const pct = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const pct1 = n => (n >= 0 ? '+' : '') + n.toFixed(1).replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
-let data = null;
-let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
+let ui = { sort: 'section', cat: 'all', status: 'all' };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
-const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
+const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify({ sort: ui.sort, cat: ui.cat, status: ui.status })); } catch (e) {} };
 
-// Posities van het portfolio (zelfde website, dus zelfde localStorage):
-// zo kloppen categorie, label en watchlist ook voor posities die je later toevoegt.
-function portfolioPositions() {
-  try {
-    const list = JSON.parse(localStorage.getItem('portfolio_positions') || '[]');
-    const map = {};
-    list.forEach(p => { if (p && p.ticker) map[p.ticker.toUpperCase()] = p; });
-    return map;
-  } catch (e) { return {}; }
+let rows = [], sig = null, quotesUpdated = null;
+
+// ── Zelfde regels als het portfolio ─────────────────────────────────────
+function sellPctForStep(step) { const m = (step - 1) % 3; return m === 0 ? 10 : (m === 1 ? 20 : 30); }
+function stepsReached(plPct) { return plPct < 50 ? 0 : Math.floor(plPct / 50); }
+function posId(p) { return (p.section || 'X') + '|' + p.ticker; }
+
+function portfolioMetrics(p, q, state) {
+  if (!q) return null;
+  const isWatch = p.watch || p.cost == null;
+  const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
+  const drop = q.high52 ? ((q.high52 - q.price) / q.high52) * 100 : 0;
+  const thresh = p.thresh ?? 20;
+  const alert = drop >= thresh;
+  const rangePos = q.high52 > q.low52 ? Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100)) : 50;
+  let openSell = false, nextStep = null, toSell = Infinity, heropend = false;
+  if (!isWatch) {
+    const sells = (state[posId(p)] || {}).sells || [];
+    const reached = stepsReached(plPct);
+    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+    for (let step = 1; step <= maxDone; step++) {
+      const opStap = sells.filter(s => s.level === step);
+      const v = opStap.length ? opStap[opStap.length - 1] : null;
+      if (v && v.price != null && step <= reached && q.price <= v.price * (1 - REOPEN_DROP)) { heropend = true; nextStep = step; break; }
+    }
+    if (!heropend) nextStep = maxDone + 1;
+    openSell = heropend || reached >= nextStep;
+    toSell = openSell ? 0 : nextStep * 50 - plPct;
+  }
+  return { isWatch, plPct, drop, thresh, alert, rangePos, openSell, nextStep, heropend, toSell };
 }
 
-function prep(raw) {
-  const pos = portfolioPositions();
-  const one = it => {
-    const p = pos[it.symbol.toUpperCase()];
-    return {
-      ...it,
-      category: (p && p.section) || it.category || 'Overig',
-      label: (p && p.label) || it.label,
-      watch: p ? !!(p.watch || p.cost == null) : !!it.watch,
-    };
-  };
-  return { ...raw, items: raw.items.map(one), errors: (raw.errors || []).map(one) };
+// ── Data laden: signals.json + data.json + state.json ──────────────────
+async function getJSON(url) {
+  const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(url + ' HTTP ' + r.status);
+  return r.json();
 }
 
 async function load() {
-  if (DEMO) { data = prep(DEMO); document.getElementById('demo').hidden = false; render(); return; }
-  try {
-    const r = await fetch('signals.json?t=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    data = prep(await r.json());
-    render();
-  } catch (e) {
-    if (!data) {
-      document.getElementById('updated').textContent = 'geen signals.json';
-      document.getElementById('cards').innerHTML = `<div class="empty">Nog geen signalen. Start de workflow <b>Patroonradar</b> via de tab <b>Actions</b> → <b>Run workflow</b> en ververs daarna.</div>`;
+  let s, quotes = {}, state = {};
+  if (DEMO) {
+    s = DEMO.signals; quotes = DEMO.quotes; state = DEMO.state; quotesUpdated = DEMO.updated;
+    document.getElementById('demo').hidden = false;
+  } else {
+    try { s = await getJSON('signals.json'); }
+    catch (e) {
+      if (!sig) {
+        document.getElementById('updated').textContent = 'geen signals.json';
+        document.getElementById('cards').innerHTML = '<div class="empty">Nog geen signalen. Start de workflow <b>Patroonradar</b> via <b>Actions</b> → <b>Run workflow</b> en ververs daarna.</div>';
+      }
+      return;
+    }
+    try { const d = await getJSON('data.json'); quotes = d.quotes || {}; quotesUpdated = d.updated; } catch (e) {}
+    try { state = await getJSON('state.json'); } catch (e) {
+      try { state = JSON.parse(localStorage.getItem('portfolio_state') || '{}'); } catch (e2) {}
     }
   }
+  sig = s;
+
+  // Posities: zoals het portfolio ze in deze browser heeft, anders de standaardlijst
+  let local = {};
+  try {
+    const ver = parseInt(localStorage.getItem('portfolio_version') || '0');
+    const saved = JSON.parse(localStorage.getItem('portfolio_positions') || 'null');
+    if (saved && ver >= (s.portfolio_version || 0)) saved.forEach(p => { if (p && p.ticker) local[p.ticker.toUpperCase()] = p; });
+  } catch (e) {}
+
+  const make = (it, hasPattern) => {
+    const base = it.position || { ticker: it.symbol, section: it.category, label: it.label, watch: it.watch };
+    const p = { ...base, ...(local[it.symbol.toUpperCase()] || {}) };
+    const st = state[posId(p)];
+    if (st && st.cost != null) p.cost = st.cost;
+    const q = quotes[it.symbol] || quotes[it.symbol.toUpperCase()] || null;
+    return {
+      it: hasPattern ? it : null, err: hasPattern ? null : it,
+      p, q, m: portfolioMetrics(p, q, state),
+      sym: it.symbol, section: p.section || it.category || 'Overig',
+      title: p.label || (q && q.name) || it.name || it.symbol,
+      cur: (q && q.currency) || it.currency || 'EUR',
+    };
+  };
+  rows = s.items.map(i => make(i, true)).concat((s.errors || []).map(e => make(e, false)));
+  render();
 }
 
-function stappen(it) {
-  const p = it.plan; if (!p) return null;
-  const r = (a, b) => pct((b / a - 1) * 100);
-  if (it.direction === 'down') return [
-    it.watch ? ['wacht', 'Nog niet kopen', p.entry, 'nu'] : ['verkoop', 'Verkopen', p.entry, 'nu'],
-    ['koop', it.watch ? 'Kopen' : 'Terugkopen', p.target, r(p.entry, p.target)],
-    ['verkoop', it.watch ? 'Verkopen' : 'Weer verkopen', p.next, r(p.target, p.next)],
-  ];
-  return [
-    ['koop', it.watch ? 'Kopen' : 'Bijkopen', p.entry, 'nu'],
-    ['verkoop', 'Verkopen', p.target, r(p.entry, p.target)],
-    ['koop', 'Terugkopen', p.next, r(p.target, p.next)],
-  ];
-}
+// ── Kaart ───────────────────────────────────────────────────────────────
+function portfolioPart(r) {
+  const { p, q, m, cur } = r;
+  if (!q || !m) return `
+    <div class="p-name"><span class="p-ticker">${esc(r.title)}</span><span class="p-company">(${esc(r.sym)})</span></div>
+    <div style="grid-column: span 4; font-size:12px; color:var(--muted)">Geen koers in data.json. Staat hij in <code>tickers.txt</code>?</div>
+    <div class="p-actions"><span class="badge hold">geen data</span></div>`;
 
-function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
+  const resultBlock = m.isWatch
+    ? `<div class="p-block"><div class="k">Op watchlist</div><div class="v" style="color:var(--muted)">volgen</div><div class="drop-tag">geen positie</div></div>`
+    : `<div class="p-block"><div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div><div class="v ${m.plPct >= 0 ? 'up' : 'down'}">${pct(m.plPct)}</div></div>`;
 
-function card(it) {
-  const el = document.createElement('div');
-  const d = it.direction, p = it.projected_pct, cur = it.currency;
-  el.className = 'position ' + (d === 'flat' ? '' : d) + (it.flag ? ' flag' : '');
-  const open = ui.open.includes(it.symbol);
-  const title = it.label || it.name || it.symbol;
+  let profit = '';
+  if (!m.isWatch) {
+    const target = m.nextStep * 50, sell = sellPctForStep(m.nextStep);
+    profit = `<div class="profit-block"><div class="k">Winst nemen</div>${m.openSell
+      ? `<div class="realise">${m.heropend ? 'Opnieuw realisatie' : 'Realisatie'} voor ${target}% (verkoop ${sell}%)</div>`
+      : `<div class="next-target">Volgende: +${target}% → ${sell}% verkopen</div>`}</div>`;
+  } else {
+    profit = '<div class="profit-block"></div>';
+  }
 
-  const verw = (d === 'flat' || p == null)
-    ? `<div class="v" style="color:var(--muted)">geen patroon</div><div class="drop-tag">score ${it.score > 0 ? '+' : ''}${it.score}</div>`
-    : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>`;
+  const badge = m.alert ? '<span class="badge buy">KOOPSIGNAAL</span>'
+    : (!m.isWatch && m.openSell) ? '<span class="badge sell">VERKOOPSIGNAAL</span>'
+    : '<span class="badge hold">geen actie</span>';
 
-  const w = p == null || d === 'flat' ? 0 : Math.min(50, Math.abs(p) / 20 * 50);
-  const lblL = d === 'down' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
-  const lblR = d === 'up' ? fmt(it.target, cur) : it.plan ? fmt(it.plan.stop, cur) : '';
-  const s = stappen(it);
-  const planBlock = s
-    ? s.map(([cls, lbl, prijs, sub]) => `<div class="plan-row"><b class="${cls}">${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
-    : `<div class="next-target">Geen plan: wacht op een duidelijk signaal</div>`;
-
-  const badge = d === 'down' ? `<span class="badge down">${it.watch ? 'NOG NIET KOPEN' : 'VERKOOPSIGNAAL'}</span>`
-    : d === 'up' ? `<span class="badge up">KOOPSIGNAAL</span>` : `<span class="badge hold">geen actie</span>`;
-
-  el.innerHTML = `
+  return `
     <div class="p-name">
-      <span class="p-ticker">${esc(title)}</span>
-      <span class="p-company">(${esc(it.symbol)})${it.label && it.name ? ' ' + esc(it.name) : ''}</span>
+      <span class="p-ticker">${esc(r.title)}</span>
+      <span class="p-company">(${esc(r.sym)}) <span class="src src-live">● data</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
-      <div class="v">${fmt(it.price, cur)}</div>
-      <div class="drop-tag ${it.day_pct > 0 ? 'c-up' : it.day_pct < 0 ? 'c-down' : ''}">${it.day_pct == null ? '' : pct(it.day_pct, 2) + ' vandaag'}</div>
+      <div class="v ${m.isWatch ? '' : (m.plPct >= 0 ? 'up' : 'down')}">${fmt(q.price, cur)}</div>
     </div>
-    <div class="p-block">
-      <div class="k">Verwachting ${data.config.horizon} dagen</div>
-      ${verw}
-    </div>
+    ${resultBlock}
     <div class="bar-wrap">
-      <div class="bar-labels"><span>${lblL}</span><span>verwachte beweging</span><span>${lblR}</span></div>
-      <div class="bar">
-        ${w ? `<div class="bar-fill ${d}" style="width:${w}%"></div>` : ''}
-        <div class="bar-marker"></div>
-      </div>
-      <div class="drop-tag">${it.plan ? `plan vervalt ${d === 'down' ? 'boven' : 'onder'} ${fmt(it.plan.stop, cur)}` : `normale beweging ±${it.sigma_pct.toFixed(1).replace('.', ',')}%`}</div>
+      <div class="bar-labels"><span>${fmt(q.low52, cur)}</span><span>52-wk range</span><span>${fmt(q.high52, cur)}</span></div>
+      <div class="bar"><div class="bar-fill" style="width:100%"></div><div class="bar-marker" style="left:${m.rangePos}%"></div></div>
+      <div class="drop-tag" style="color:${m.alert ? 'var(--down)' : 'var(--muted)'}">${m.drop.toFixed(1)}% onder de top · drempel ${m.thresh}%</div>
     </div>
-    <div class="profit-block">
-      <div class="k">Plan</div>
-      ${planBlock}
-    </div>
-    <div class="p-actions">
-      ${badge}
-      <button class="toggle" data-sym="${esc(it.symbol)}">${open ? 'Minder' : 'Details'}</button>
-    </div>
-    ${open ? detail(it) : ''}`;
-  return el;
+    ${profit}
+    <div class="p-actions">${badge}</div>`;
 }
 
-function detail(it) {
-  const cfg = data.config, cur = it.currency;
-  const isUp = it.direction === 'up';
-  const bt = it.backtest[isUp ? 'up' : 'down'];
-  const hit = rate(bt.hits, bt.n), base = rate(bt.base_hits, bt.base_n);
-  const drempel = isUp ? cfg.eval_rise_pct : cfg.drop_pct;
-  let oordeel = '';
-  if (hit != null && base != null && bt.n >= 5) oordeel = hit >= base + 10 ? ' Duidelijk beter dan toeval.' : hit > base ? ' Iets beter dan toeval.' : ' Niet beter dan toeval.';
-  const btText = it.direction === 'flat'
-    ? `Geen actief signaal. Historisch zakt deze koers in ${base ?? '–'}% van de periodes van ${cfg.horizon} dagen ≥${cfg.drop_pct}%.`
-    : bt.n
-      ? `Terugblik: <b>${bt.hits} van ${bt.n}</b> ${isUp ? 'koop' : 'verkoop'}signalen gaven ≥${drempel}% ${isUp ? 'stijging' : 'daling'} binnen ${cfg.horizon} dagen (<b>${hit}%</b>, zonder signaal ${base}%).${oordeel}`
-      : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
+function stappen(it, watch) {
+  const p = it.plan; if (!p) return [];
+  const r = (a, b) => pct1((b / a - 1) * 100);
+  const real = (price, from) => ['realise', `Realisatie voor ${Math.abs((price / from - 1) * 100).toFixed(1).replace('.', ',')}% (verkoop ${fmt(price, it.currency)})`];
+  if (it.direction === 'down') return [
+    watch ? ['wacht', 'Nog niet kopen', fmt(p.entry, it.currency) + ' nu'] : ['verkoop', 'Verkopen', fmt(p.entry, it.currency) + ' nu'],
+    ['koop', watch ? 'Kopen' : 'Terugkopen', fmt(p.target, it.currency) + ' ' + r(p.entry, p.target)],
+    real(p.next, p.target),
+  ];
+  return [
+    ['koop', watch ? 'Kopen' : 'Bijkopen', fmt(p.entry, it.currency) + ' nu'],
+    real(p.target, p.entry),
+    ['koop', 'Terugkopen', fmt(p.next, it.currency) + ' ' + r(p.target, p.next)],
+  ];
+}
 
-  const stop = it.plan ? (it.direction === 'down'
-    ? `<div class="stopnote">Sluit de koers boven ${fmt(it.plan.stop, cur)}, dan is het dalingspatroon mislukt: ${it.watch ? 'wacht dan niet langer op ' + fmt(it.plan.target, cur) : 'koop dan terug in plaats van te wachten op ' + fmt(it.plan.target, cur)}.</div>`
-    : `<div class="stopnote">Sluit de koers onder ${fmt(it.plan.stop, cur)}, dan is het stijgingspatroon mislukt: verkoop dan (stop-loss).</div>`) : '';
+function patternPart(r) {
+  if (r.err) return `<div class="pattern flat"><p class="why"><b>Patroon:</b> geen signaal mogelijk. ${/weinig/.test(r.err.error) ? 'Yahoo heeft te weinig koershistorie voor deze beursnotering.' : 'Koershistorie kon niet worden opgehaald.'}</p><div class="p-actions"><span class="badge hold">geen patroon</span></div></div>`;
+  const it = r.it, d = it.direction, cfg = sig.config;
+  if (d === 'flat' || !it.plan) return `<div class="pattern flat"><p class="why"><b>Patroon:</b> geen duidelijk signaal voor de komende ${cfg.horizon} dagen.</p><div class="p-actions"><span class="badge hold">geen patroon</span></div></div>`;
 
-  const pats = it.patterns.filter(p => p.dir !== 'info');
-  return `<div class="detail">
-    <div>${spark(it)}</div>
-    <div>
-      ${stop}
-      <div class="d-k">Gevonden patronen</div>
-      <ul class="pat">${pats.map(p => `<li><span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span style="color:var(--muted)">Geen patronen gevonden</span></li>'}</ul>
-      <div class="facts">
-        <div class="p-block"><div class="k">Score</div><div class="v ${it.score > 0 ? 'up' : it.score < 0 ? 'down' : ''}">${it.score > 0 ? '+' : ''}${it.score}</div></div>
-        <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>
-        <div class="p-block"><div class="k">Normaal ${cfg.horizon}d</div><div class="v">±${it.sigma_pct.toFixed(1).replace('.', ',')}%</div></div>
-      </div>
-      <p class="note">${btText}</p>
-    </div>
+  const watch = r.m ? r.m.isWatch : it.watch;
+  const pats = it.patterns.filter(p => p.dir === (d === 'up' ? 'up' : 'down')).slice(0, 3).map(p => esc(p.label)).join(', ');
+  const bt = it.backtest[d === 'up' ? 'up' : 'down'];
+  const hit = bt.n ? Math.round(100 * bt.hits / bt.n) : null, base = bt.base_n ? Math.round(100 * bt.base_hits / bt.base_n) : null;
+  const trefkans = hit == null ? 'nog geen eerdere signalen' : `eerder raak in ${bt.hits} van ${bt.n} keer (${hit}%, toeval ${base}%)`;
+  const stop = `${d === 'down' ? 'Boven' : 'Onder'} ${fmt(it.plan.stop, it.currency)} vervalt het plan`;
+  const badge = d === 'down'
+    ? `<span class="badge buy">${watch ? 'NOG NIET KOPEN' : 'DALING VERWACHT'}</span>`
+    : `<span class="badge sell">STIJGING VERWACHT</span>`;
+  return `<div class="pattern">
+    <div class="p-block"><div class="k">Patroon ${cfg.horizon} dagen</div><div class="v ${d}">${pct1(it.projected_pct)}</div><div class="drop-tag">naar ${fmt(it.target, it.currency)}</div></div>
+    <div class="p-block"><div class="k">Plan vervalt</div><div class="v" style="font-size:15px">${fmt(it.plan.stop, it.currency)}</div><div class="drop-tag">${d === 'down' ? 'bij slot erboven' : 'bij slot eronder'}</div></div>
+    <div class="p-plan"><div class="k">Plan</div><div class="steps">${stappen(it, watch).map(([cls, a, b]) =>
+      cls === 'realise' ? `<div class="step realise">${a}</div>` : `<div class="step ${cls}"><b>${a}</b>${b}</div>`).join('')}</div></div>
+    <div class="p-why"><div class="k">Waarom</div><div class="why">${pats || '–'}<br><span class="muted">${trefkans}</span></div></div>
+    <div class="p-actions">${badge}</div>
   </div>`;
 }
 
-function spark(it) {
-  const v = it.spark; if (!v || v.length < 2) return '';
-  const lines = [];
-  if (it.support != null) lines.push([it.support, 'var(--muted)', 'steun']);
-  if (it.resistance != null) lines.push([it.resistance, 'var(--muted)', 'weerstand']);
-  if (it.plan) {
-    lines.push([it.plan.target, 'var(--accent)', 'doel']);
-    lines.push([it.plan.stop, 'var(--warn)', 'plan vervalt']);
-  }
-  const all = v.concat(lines.map(l => l[0]));
-  let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
-  const W = 400, H = 130, X = i => (i / (v.length - 1)) * W, Y = x => H - ((x - lo) / (hi - lo)) * H;
-  const path = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(x).toFixed(1)).join('');
-  const col = it.direction === 'down' ? 'var(--down)' : it.direction === 'up' ? 'var(--up)' : 'var(--text)';
-  return `<div class="d-k">Koers laatste ${v.length} handelsdagen</div>
-    <svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Koersgrafiek">
-      ${lines.map(([y, c]) => `<line x1="0" x2="${W}" y1="${Y(y).toFixed(1)}" y2="${Y(y).toFixed(1)}" stroke="${c}" stroke-width="1.2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`).join('')}
-      <path d="${path}" fill="none" stroke="${col}" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-    </svg>
-    <div class="legend">${lines.map(([y, c, l]) => `<span style="color:${c}"><i></i>${l} ${fmt(y, it.currency)}</span>`).join('')}</div>`;
-}
-
-function errorCard(e) {
+function card(r) {
   const el = document.createElement('div');
   el.className = 'position';
-  el.innerHTML = `
-    <div class="p-name"><span class="p-ticker">${esc(e.label || e.name || e.symbol)}</span>
-      <span class="p-company">(${esc(e.symbol)})</span></div>
-    <div style="grid-column: span 4; font-size:12px; color:var(--muted); line-height:1.5">
-      <span class="err">Geen signaal mogelijk.</span> ${/weinig/.test(e.error) ? 'Yahoo heeft te weinig koershistorie voor deze beursnotering (minimaal 60 handelsdagen nodig).' : 'Koersen konden niet worden opgehaald: ' + esc(e.error)}
-    </div>
-    <div class="p-actions"><span class="badge hold">geen data</span></div>`;
+  const it = r.it;
+  if (it && it.flag && it.direction === 'down') el.classList.add('alert');
+  else if (it && it.flag && it.direction === 'up') el.classList.add('sell-alert');
+  else if (r.m && r.m.alert) el.classList.add('alert');
+  else if (r.m && !r.m.isWatch && r.m.openSell) el.classList.add('sell-alert');
+  el.innerHTML = portfolioPart(r) + patternPart(r);
   return el;
 }
 
+// ── Pagina ──────────────────────────────────────────────────────────────
 function render() {
-  if (!data) return;
+  if (!sig) return;
   const scrollY = window.scrollY;
-  const cfg = data.config;
   document.getElementById('sortSel').value = ui.sort;
   document.getElementById('catSel').value = ui.cat;
   document.getElementById('statusSel').value = ui.status;
 
-  const items = data.items, errors = data.errors;
-  const passes = it => {
-    if (ui.cat !== 'all' && it.category !== ui.cat) return false;
-    if (ui.status === 'flag' && !it.flag) return false;
-    if ((ui.status === 'down' || ui.status === 'up') && !(it.flag && it.direction === ui.status)) return false;
-    if (ui.status === 'flat' && it.flag) return false;
+  const isDown = r => r.it && r.it.flag && r.it.direction === 'down';
+  const isUp = r => r.it && r.it.flag && r.it.direction === 'up';
+  const isBuy = r => r.m && r.m.alert;
+  const isSell = r => r.m && !r.m.isWatch && r.m.openSell;
+  const passes = r => {
+    if (ui.cat !== 'all' && r.section !== ui.cat) return false;
+    if (ui.status === 'act') return isDown(r) || isUp(r) || isBuy(r) || isSell(r);
+    if (ui.status === 'down') return isDown(r);
+    if (ui.status === 'up') return isUp(r);
+    if (ui.status === 'signals') return isBuy(r);
+    if (ui.status === 'open') return isSell(r);
     return true;
   };
-  const filtered = items.filter(passes);
-  const errs = ui.status === 'all' ? errors.filter(e => ui.cat === 'all' || e.category === ui.cat) : [];
-  const naam = it => (it.label || it.name || it.symbol).toLowerCase();
-  const strength = it => (it.direction === 'flat' ? 0 : 1000) + Math.abs(it.score);
+  const filtered = rows.filter(passes);
+  const naam = r => r.title.toLowerCase();
+  const strength = r => r.it && r.it.direction !== 'flat' ? 1000 + Math.abs(r.it.score) : 0;
+  const pl = r => r.m ? r.m.plPct : -Infinity;
+  const drop = r => r.m ? r.m.drop : -Infinity;
+  const toSell = r => r.m ? r.m.toSell : Infinity;
 
   const cards = document.getElementById('cards');
   cards.innerHTML = '';
-  if (!filtered.length && !errs.length) {
-    cards.innerHTML = `<div class="empty">Geen posities met dit filter. Kies bij Status "Alles" om alle posities te zien.</div>`;
+  if (!filtered.length) {
+    cards.innerHTML = '<div class="empty">Geen posities met dit filter. Kies bij Status "Alles" om alles te zien.</div>';
   } else if (ui.sort === 'section') {
-    const secs = [...new Set([...SECTION_ORDER, ...items.map(i => i.category), ...errors.map(e => e.category)])];
+    const secs = [...new Set([...SECTION_ORDER, ...rows.map(r => r.section)])];
     secs.forEach(sec => {
-      const inSec = filtered.filter(i => i.category === sec).sort((a, b) => strength(b) - strength(a) || naam(a).localeCompare(naam(b), 'nl'));
-      const errSec = errs.filter(e => e.category === sec);
-      if (!inSec.length && !errSec.length) return;
+      const inSec = filtered.filter(r => r.section === sec);
+      if (!inSec.length) return;
       const h = document.createElement('div');
       h.className = 'section-header';
       h.textContent = sec;
       cards.appendChild(h);
-      inSec.forEach(i => cards.appendChild(card(i)));
-      errSec.forEach(e => cards.appendChild(errorCard(e)));
+      inSec.sort((a, b) => naam(a).localeCompare(naam(b), 'nl')).forEach(r => cards.appendChild(card(r)));
     });
   } else {
     filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
-      if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
+      if (ui.sort === 'result') return pl(b) - pl(a);
+      if (ui.sort === 'signal') return drop(b) - drop(a);
+      if (ui.sort === 'sellsignal') return toSell(a) - toSell(b);
       return strength(b) - strength(a);
-    }).forEach(i => cards.appendChild(card(i)));
-    errs.forEach(e => cards.appendChild(errorCard(e)));
+    }).forEach(r => cards.appendChild(card(r)));
   }
 
-  const total = items.length + errors.length;
-  const shown = filtered.length + errs.length;
-  document.getElementById('tbCount').textContent = shown === total ? `${total} posities` : `${shown} van ${total} getoond`;
+  document.getElementById('tbCount').textContent = filtered.length === rows.length
+    ? `${rows.length} posities` : `${filtered.length} van ${rows.length} getoond`;
 
-  const nDown = items.filter(i => i.flag && i.direction === 'down').length;
-  const nUp = items.filter(i => i.flag && i.direction === 'up').length;
-  const nFlat = items.length - nDown - nUp;  // incl. zwakke signalen onder de drempel
-  const s = data.stats;
-  const dn = rate(s.down.hits, s.down.n), dnb = rate(s.down.base_hits, s.down.base_n);
-  const up = rate(s.up.hits, s.up.n), upb = rate(s.up.base_hits, s.up.base_n);
+  const cfg = sig.config, n = f => rows.filter(f).length;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
-    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Daling ≥${cfg.drop_pct}%</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">verkoopsignalen</div></div>
-    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">koopsignalen</div></div>
-    <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${errors.length ? errors.length + ' zonder data' : 'rustig'}</div></div>
-    <div class="stat"><div class="label">Model trefkans</div><div class="value">${dn ?? '–'}%</div><div class="sub">daling, toeval ${dnb ?? '–'}%<br>stijging ${up ?? '–'}%, toeval ${upb ?? '–'}%</div></div>`;
+    <div class="stat clickable" data-status="down"><div class="label">Daling ≥${cfg.drop_pct}%</div><div class="value" style="color:var(--down)">${n(isDown)}</div><div class="sub" style="color:var(--muted)">verwacht door patroon</div></div>
+    <div class="stat clickable" data-status="up"><div class="label">Stijging</div><div class="value" style="color:var(--up)">${n(isUp)}</div><div class="sub" style="color:var(--muted)">verwacht door patroon</div></div>
+    <div class="stat clickable" data-status="signals"><div class="label">Koopsignalen</div><div class="value">${n(isBuy)}</div><div class="sub" style="color:var(--muted)">onder de drempel</div></div>
+    <div class="stat clickable" data-status="open"><div class="label">Verkoopsignalen</div><div class="value">${n(isSell)}</div><div class="sub" style="color:var(--muted)">winst nemen</div></div>`;
   summary.querySelectorAll('.stat.clickable').forEach(el => {
-    el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };
+    if (ui.status === el.dataset.status) el.classList.add('active');
+    el.onclick = () => { ui.status = ui.status === el.dataset.status ? 'all' : el.dataset.status; saveUI(); render(); };
   });
 
-  const d = new Date(data.generated);
-  document.getElementById('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const s = sig.stats, rate = (a, b) => b ? Math.round(100 * a / b) : '–';
+  document.getElementById('model').textContent =
+    `Patroonmodel afgelopen 2 jaar: daling raak ${rate(s.down.hits, s.down.n)}% (toeval ${rate(s.down.base_hits, s.down.base_n)}%) · stijging raak ${rate(s.up.hits, s.up.n)}% (toeval ${rate(s.up.base_hits, s.up.base_n)}%)`;
+
+  const t = d => new Date(d).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('updated').textContent = `koersen ${quotesUpdated ? t(quotesUpdated) : '–'} · patronen ${t(sig.generated)}`;
   window.scrollTo(0, scrollY);
 }
 
-document.addEventListener('click', e => {
-  const t = e.target.closest('.toggle');
-  if (!t) return;
-  const sym = t.dataset.sym;
-  ui.open = ui.open.includes(sym) ? ui.open.filter(x => x !== sym) : [...ui.open, sym];
-  saveUI(); render();
-});
 document.getElementById('sortSel').onchange = e => { ui.sort = e.target.value; saveUI(); render(); };
 document.getElementById('catSel').onchange = e => { ui.cat = e.target.value; saveUI(); render(); };
 document.getElementById('statusSel').onchange = e => { ui.status = e.target.value; saveUI(); render(); };
-document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; ui.cat = 'all'; ui.status = 'all'; saveUI(); render(); };
+document.getElementById('resetFilters').onclick = () => { ui = { sort: 'section', cat: 'all', status: 'all' }; saveUI(); render(); };
 
 load();
 setInterval(load, 5 * 60 * 1000);

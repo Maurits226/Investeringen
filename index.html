@@ -88,6 +88,19 @@
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
 
   .cards { display: flex; flex-direction: column; gap: 14px; }
+  .markets { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .mkt {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .mkt.open .mkt-dot { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+  .mkt.closed .mkt-dot { background: var(--down); }
+  .mkt-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
+  .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
+  .mkt-count { font-size: 11px; color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
   .toolbar {
     display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
     margin-bottom: 20px; padding: 12px 16px;
@@ -249,6 +262,8 @@
     </div>
   </header>
 
+  <div class="markets" id="markets"></div>
+
   <div class="summary" id="summary"></div>
 
   <div class="toolbar">
@@ -394,7 +409,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 25;
+const DEFAULT_VERSION = 26;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -723,7 +738,7 @@ function positionCard(p, q, err) {
 
     const btnHtml = canRealise
       ? `<button class="realise" data-id="${id}" data-step="${nextStep}" data-pct="${nextSellPct}">
-           ${isHeropend ? 'Opnieuw realisatie' : 'Realisatie'} voor ${nextTargetPct}% (verkoop ${nextSellPct}%)
+           ${isHeropend ? 'Opnieuw realiseren' : 'Realiseer'} +${nextTargetPct}% (verkoop ${nextSellPct}%)
          </button>`
       : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
 
@@ -953,6 +968,7 @@ async function render() {
   // Herstel de scrollpositie (behalve bij de allereerste render)
   if (!firstRender) window.scrollTo(0, scrollY);
   firstRender = false;
+  renderMarkets();
 }
 
 function removePosition(id) {
@@ -988,6 +1004,89 @@ document.getElementById('f-save').onclick = () => {
 
 // Automatisch verversen: de pagina haalt elke 5 minuten data.json opnieuw op.
 // GitHub werkt data.json elke 15 min bij, dus nieuwe koersen komen vanzelf binnen.
+// ---- Beursstatus: open/dicht per handelsplaats in je portefeuille ----
+const EXCHANGES = {
+  DE: { name: 'Xetra',      tz: 'Europe/Berlin',    open: [9, 0],  close: [17, 30] },
+  DU: { name: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
+  AS: { name: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
+  MI: { name: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
+  US: { name: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
+};
+const EXCHANGE_ORDER = ['DE', 'DU', 'AS', 'MI', 'US'];
+
+function exchangeOf(ticker) {
+  const m = ticker.match(/\.([A-Z]+)$/);
+  return m ? m[1] : 'US';
+}
+
+// Datum/tijd-onderdelen van een moment in een bepaalde tijdzone
+function tzParts(date, tz) {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const o = {};
+  f.formatToParts(date).forEach(p => { o[p.type] = p.value; });
+  return { y: +o.year, m: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute };
+}
+// Het echte moment (Date) van een lokale beurstijd y-m-d h:mi in tijdzone tz
+function tzDate(tz, y, m, d, h, mi) {
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  const p = tzParts(new Date(guess), tz);
+  const offset = Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi) - guess;
+  return new Date(guess - offset);
+}
+
+function marketStatus(ex, now) {
+  const p = tzParts(now, ex.tz);
+  for (let k = 0; k < 8; k++) {
+    const day = new Date(Date.UTC(p.y, p.m - 1, p.d + k));
+    const wd = day.getUTCDay();
+    if (wd === 0 || wd === 6) continue;            // weekend
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, d = day.getUTCDate();
+    const openAt = tzDate(ex.tz, y, m, d, ex.open[0], ex.open[1]);
+    const closeAt = tzDate(ex.tz, y, m, d, ex.close[0], ex.close[1]);
+    if (now >= openAt && now < closeAt) return { open: true, at: closeAt };
+    if (now < openAt) return { open: false, at: openAt };
+  }
+  return { open: false, at: null };
+}
+
+function fmtMoment(date, now) {
+  const tijd = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  const zelfdeDag = date.toDateString() === now.toDateString();
+  if (zelfdeDag) return tijd;
+  const morgen = new Date(now); morgen.setDate(now.getDate() + 1);
+  if (date.toDateString() === morgen.toDateString()) return 'morgen ' + tijd;
+  return date.toLocaleDateString('nl-NL', { weekday: 'short' }) + ' ' + tijd;
+}
+
+function renderMarkets() {
+  const box = document.getElementById('markets');
+  if (!box) return;
+  const counts = {};
+  positions.forEach(p => {
+    const code = exchangeOf(p.ticker);
+    if (EXCHANGES[code]) counts[code] = (counts[code] || 0) + 1;
+  });
+  const now = new Date();
+  box.innerHTML = EXCHANGE_ORDER.filter(c => counts[c]).map(code => {
+    const ex = EXCHANGES[code];
+    const st = marketStatus(ex, now);
+    const tekst = st.open
+      ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
+      : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
+    return `<div class="mkt ${st.open ? 'open' : 'closed'}">
+      <span class="mkt-dot"></span>
+      <div><div class="mkt-name">${ex.name}</div><div class="mkt-state">${tekst}</div></div>
+      <span class="mkt-count">${counts[code]} ${counts[code] === 1 ? 'positie' : 'posities'}</span>
+    </div>`;
+  }).join('');
+}
+
+renderMarkets();
+setInterval(renderMarkets, 60 * 1000);
+
 setInterval(render, 5 * 60 * 1000);
 
 // Ook verversen zodra je terugkeert naar het tabblad

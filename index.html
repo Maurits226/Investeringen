@@ -101,6 +101,14 @@
   .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
   .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
   .mkt-count { font-size: 11px; color: var(--muted); padding-left: 10px; border-left: 1px solid var(--line); }
+  .mkt-city { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+  .exch-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 8px; vertical-align: middle; position: relative; top: -2px;
+    background: var(--line);
+  }
+  .exch-dot.open { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+  .exch-dot.closed { background: var(--down); }
   .toolbar {
     display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
     margin-bottom: 20px; padding: 12px 16px;
@@ -409,7 +417,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 26;
+const DEFAULT_VERSION = 27;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -752,8 +760,8 @@ function positionCard(p, q, err) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker">${p.label || q.name}</span>
-      <span class="p-company">(${p.ticker}) <span class="src src-live">● data</span></span>
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(p.ticker) || ''}"></span>${p.label || q.name}</span>
+      <span class="p-company">(${p.ticker})${(() => { const k = exchangeKeyOf(p.ticker); return k && EXCHANGES[k] ? ' · ' + EXCHANGES[k].name : ''; })()} <span class="src src-live">● data</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -1006,17 +1014,31 @@ document.getElementById('f-save').onclick = () => {
 // GitHub werkt data.json elke 15 min bij, dus nieuwe koersen komen vanzelf binnen.
 // ---- Beursstatus: open/dicht per handelsplaats in je portefeuille ----
 const EXCHANGES = {
-  DE: { name: 'Xetra',      tz: 'Europe/Berlin',    open: [9, 0],  close: [17, 30] },
-  DU: { name: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
-  AS: { name: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
-  MI: { name: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
-  US: { name: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
+  XETRA:  { name: 'Xetra',              city: 'Frankfurt',  tz: 'Europe/Berlin',    open: [9, 0],  close: [17, 30] },
+  DUS:    { name: 'Börse Düsseldorf',   city: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
+  AMS:    { name: 'Euronext Amsterdam', city: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
+  MIL:    { name: 'Borsa Italiana',     city: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
+  NYSE:   { name: 'NYSE',               city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
+  NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
+  US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
 };
-const EXCHANGE_ORDER = ['DE', 'DU', 'AS', 'MI', 'US'];
+const EXCHANGE_ORDER = ['XETRA', 'DUS', 'AMS', 'MIL', 'NYSE', 'NASDAQ', 'US'];
 
-function exchangeOf(ticker) {
+// Yahoo-beurscodes -> onze sleutels
+const YAHOO_EXCHANGE = {
+  GER: 'XETRA', DUS: 'DUS', AMS: 'AMS', MIL: 'MIL',
+  NYQ: 'NYSE', ASE: 'NYSE', PCX: 'NYSE',
+  NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ'
+};
+// Terugval op het achtervoegsel van de ticker (als de data nog geen beurscode heeft)
+const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL' };
+
+function exchangeKeyOf(ticker) {
+  const q = dataCache && dataCache[ticker.toUpperCase()];
+  if (q && q.exchange && YAHOO_EXCHANGE[q.exchange]) return YAHOO_EXCHANGE[q.exchange];
   const m = ticker.match(/\.([A-Z]+)$/);
-  return m ? m[1] : 'US';
+  if (m) return SUFFIX_EXCHANGE[m[1]] || null;
+  return 'US';
 }
 
 // Datum/tijd-onderdelen van een moment in een bepaalde tijdzone
@@ -1066,22 +1088,35 @@ function renderMarkets() {
   if (!box) return;
   const counts = {};
   positions.forEach(p => {
-    const code = exchangeOf(p.ticker);
-    if (EXCHANGES[code]) counts[code] = (counts[code] || 0) + 1;
+    const key = exchangeKeyOf(p.ticker);
+    if (key && EXCHANGES[key]) counts[key] = (counts[key] || 0) + 1;
   });
   const now = new Date();
-  box.innerHTML = EXCHANGE_ORDER.filter(c => counts[c]).map(code => {
-    const ex = EXCHANGES[code];
-    const st = marketStatus(ex, now);
+  const status = {};
+  Object.keys(EXCHANGES).forEach(k => { status[k] = marketStatus(EXCHANGES[k], now); });
+
+  box.innerHTML = EXCHANGE_ORDER.filter(k => counts[k]).map(key => {
+    const ex = EXCHANGES[key];
+    const st = status[key];
     const tekst = st.open
       ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
       : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
     return `<div class="mkt ${st.open ? 'open' : 'closed'}">
       <span class="mkt-dot"></span>
-      <div><div class="mkt-name">${ex.name}</div><div class="mkt-state">${tekst}</div></div>
-      <span class="mkt-count">${counts[code]} ${counts[code] === 1 ? 'positie' : 'posities'}</span>
+      <div><div class="mkt-name">${ex.name} <span class="mkt-city">${ex.city}</span></div><div class="mkt-state">${tekst}</div></div>
+      <span class="mkt-count">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</span>
     </div>`;
   }).join('');
+
+  // Bolletjes op de kaarten bijwerken
+  document.querySelectorAll('.exch-dot').forEach(el => {
+    const key = el.dataset.exch;
+    const ex = EXCHANGES[key];
+    if (!ex) { el.className = 'exch-dot'; return; }
+    const st = status[key];
+    el.className = 'exch-dot ' + (st.open ? 'open' : 'closed');
+    el.title = `${ex.name}: ${st.open ? 'open, sluit ' : 'gesloten, opent '}${st.at ? fmtMoment(st.at, now) : ''}`;
+  });
 }
 
 renderMarkets();

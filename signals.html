@@ -78,6 +78,7 @@
   .stat.clickable:active { transform: translateY(0); }
   .stat.clickable.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .stat .label.plain { text-transform: none; letter-spacing: .3px; font-size: 12px; }
   .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
 
@@ -576,8 +577,8 @@ function render() {
   const avg = pn ? (s.down.ret_sum + s.up.ret_sum) / pn : null;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
-    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Stocks met verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">stijging ≥${MOVE_MIN}%</div></div>
-    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Stocks met verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">daling ≥${MOVE_MIN}%</div></div>
+    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte STIJGING</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">stijging ≥${MOVE_MIN}%</div></div>
+    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte DALING</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">daling ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
     ${pn ? `<div class="stat"><div class="label">Winkans plan</div><div class="value" style="color:var(--up)">${win}%</div><div class="sub"><span style="color:var(--down)">verlieskans ${loss}%</span><br>gem. ${pct(avg)} per signaal</div></div>`
          : `<div class="stat"><div class="label">Winkans plan</div><div class="value">–</div><div class="sub">berekend bij de volgende run</div></div>`}`;

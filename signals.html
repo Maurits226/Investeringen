@@ -162,14 +162,18 @@
     box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4);
   }
 
+  .position.new::before { background: var(--warn); }
+  .position.new.flag {
+    border-color: rgba(245,181,68,.55);
+    box-shadow: 0 0 0 1px rgba(245,181,68,.28), 0 8px 30px -12px rgba(245,181,68,.45);
+  }
+
   .p-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
   .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
   .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
   .src-live { color: var(--up); }
   .src-none { color: var(--warn); }
-  .src-new { color: var(--warn); }
-  .p-ticker.is-new { color: var(--warn); }
 
   .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
@@ -201,6 +205,7 @@
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .badge.down { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
   .badge.up { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
+  .badge.new { background: rgba(245,181,68,.15); color: var(--warn); border: 1px solid rgba(245,181,68,.45); }
   .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
   .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; white-space: nowrap; }
   .toggle:hover { border-color: var(--accent); color: var(--text); }
@@ -412,7 +417,7 @@ function card(it) {
   const cur = it.currency;
   // alleen een signaal bij een verwachte beweging van 5% of meer
   const sig = it.flag, d = sig ? it.direction : 'flat', p = it.projected_pct;
-  el.className = 'position' + (sig ? ' ' + d + ' flag' : '');
+  el.className = 'position' + (sig ? ' ' + d + ' flag' : '') + (isNew(it) ? ' new' : '');
   const open = ui.open.includes(it.symbol);
   const title = it.label || it.name || it.symbol;
   const sigma = `±${it.sigma_pct.toFixed(1).replace('.', ',')}%`;
@@ -445,8 +450,8 @@ function card(it) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker${isNew(it) ? ' is-new' : ''}"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
-      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="${it.pattern_symbol ? 'Patroon berekend op ' + esc(it.pattern_symbol) + ' (VS), koersen in euro' : 'Koersdata opgehaald'}">● data${it.pattern_symbol ? ' via ' + esc(it.pattern_symbol) : ''}</span>${isNew(it) ? ' <span class="src src-new" title="Dit signaal is er sinds de vorige handelsdag">● nieuw signaal</span>' : ''}</span>
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
+      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="${it.pattern_symbol ? 'Patroon berekend op ' + esc(it.pattern_symbol) + ' (VS), koersen in euro' : 'Koersdata opgehaald'}">● data${it.pattern_symbol ? ' via ' + esc(it.pattern_symbol) : ''}</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -470,6 +475,7 @@ function card(it) {
       ${planBlock}
     </div>
     <div class="p-actions">
+      ${isNew(it) ? '<span class="badge new" title="Dit signaal is er sinds de vorige handelsdag">NIEUW SIGNAAL</span>' : ''}
       ${badge}
       <button class="toggle" data-sym="${esc(it.symbol)}">${open ? 'Minder' : 'Details'}</button>
     </div>

@@ -48,10 +48,29 @@ def fetch_one(ticker):
     high52 = meta.get("fiftyTwoWeekHigh") or (max(closes) if closes else None)
     low52 = meta.get("fiftyTwoWeekLow") or (min(closes) if closes else None)
 
+    # Slotkoers van de vorige handelsdag (voor de dagbeweging).
+    # 'chartPreviousClose' is bij range=1y de koers van een jaar geleden, dus
+    # die gebruiken we niet. We halen hem uit de dagreeks: is de laatste dag in
+    # de reeks de huidige handelsdag, dan is de dag ervoor de vorige slotkoers.
+    stamps = result.get("timestamp", []) or []
+    raw = result["indicators"]["quote"][0].get("close", []) or []
+    pairs = [(t, c) for t, c in zip(stamps, raw) if c is not None]
+    gmt = meta.get("gmtoffset", 0) or 0
+    def dag(ts):
+        return datetime.fromtimestamp(ts + gmt, timezone.utc).date()
+    prev_close = None
+    if pairs:
+        last_t, last_c = pairs[-1]
+        rmt = meta.get("regularMarketTime")
+        if rmt and dag(last_t) == dag(rmt):
+            prev_close = pairs[-2][1] if len(pairs) >= 2 else None
+        else:
+            prev_close = last_c
+
     return {
         "ticker": ticker,
         "price": meta.get("regularMarketPrice"),
-        "prevClose": meta.get("chartPreviousClose") or meta.get("previousClose"),
+        "prevClose": prev_close,
         "currency": meta.get("currency", "USD"),
         "name": meta.get("longName") or meta.get("shortName") or ticker,
         "high52": high52,

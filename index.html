@@ -432,7 +432,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 32;
+const DEFAULT_VERSION = 33;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -780,7 +780,7 @@ function positionCard(p, q, err) {
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
-      <div class="v ${isWatch ? '' : (plPct >= 0 ? 'up' : 'down')}">${fmt(q.price, cur)}</div>
+      <div class="v ${q.prevClose ? (dayChg >= 0 ? 'up' : 'down') : ''}">${fmt(q.price, cur)}</div>
       ${q.prevClose ? `<div class="day-chg ${dayChg >= 0 ? 'up' : 'down'}">${dayChg >= 0 ? '+' : ''}${dayChg.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% vandaag</div>` : ''}
     </div>
     ${resultBlock}

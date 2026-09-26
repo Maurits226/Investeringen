@@ -6,6 +6,10 @@ Haalt per ticker ~2 jaar dagkoersen op bij Yahoo Finance (server-side, dus
 geen CORS), zoekt bekende technische patronen, schat de verwachte beweging
 binnen HORIZON handelsdagen en test het model terug op de eigen historie.
 
+Staat een Europese notering (.DE/.AS/.MI/.DU) ook op NASDAQ/NYSE, dan wordt het patroon
+berekend op de Amerikaanse notering (langere historie, meer handel). Koop- en verkooppunten
+worden daarna omgerekend naar de euro-notering, zodat je in euro kunt handelen.
+
 Alleen standaardbibliotheek: geen pip install nodig in GitHub Actions.
 
 Tickerbron (eerste die iets oplevert):
@@ -33,6 +37,11 @@ SIGNAL_SCORE = 35     # |score| vanaf hier is er een richting (schaal -100..100)
 PIVOT_K = 5           # bars links/rechts voor een swing-top/-bodem
 SPARK_BARS = 120
 RETRACE = 0.5         # na het koersdoel: terugveer-/terugvalniveau (50% van de beweging)
+US_HISTORY = "5y"     # patroon op de Amerikaanse notering: langere historie
+US_EXCHANGES = {"NMS", "NGM", "NCM", "NAS", "NYQ", "ASE", "PCX", "BTS"}
+PRICE_MATCH = 0.12    # euro-koers en omgerekende dollarkoers mogen max 12% verschillen
+# Handmatig vastleggen of uitsluiten, bv. {"45C.DE": "XYZ"} of {"PHAU.AS": None}
+US_LISTING_OVERRIDES = {}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "signals.json")
@@ -182,11 +191,29 @@ def parse_tickers_txt(path):
 
 
 # ── Data ─────────────────────────────────────────────────────────────────
-def fetch_bars(symbol):
+def add_live_bar(bars, meta):
+    """Yahoo levert de dagkaars van vandaag bij Europese noteringen vaak pas de volgende dag.
+    Daarom de laatste koers (regularMarketPrice) als kaars van vandaag toevoegen of bijwerken."""
+    p, t = meta.get("regularMarketPrice"), meta.get("regularMarketTime")
+    if not p or not t or not bars:
+        return bars
+    off = meta.get("gmtoffset") or 0
+    day = lambda ts: (ts + off) // 86400  # noqa: E731
+    ts, o, h, l, c, v = bars[-1]
+    if day(t) > day(ts):
+        hi = meta.get("regularMarketDayHigh") or p
+        lo = meta.get("regularMarketDayLow") or p
+        bars.append((t, c, max(hi, p), min(lo, p), p, meta.get("regularMarketVolume") or 0))
+    elif day(t) == day(ts):
+        bars[-1] = (ts, o, max(h, p), min(l, p), p, v)
+    return bars
+
+
+def fetch_bars(symbol, rng="2y", min_bars=60):
     last_err = None
     for host in ("query1", "query2"):
         url = (f"https://{host}.finance.yahoo.com/v8/finance/chart/{quote(symbol)}"
-               "?range=2y&interval=1d&includePrePost=false")
+               f"?range={rng}&interval=1d&includePrePost=false")
         for attempt in range(3):
             try:
                 with urlopen(Request(url, headers={"User-Agent": UA}), timeout=20) as r:
@@ -199,13 +226,94 @@ def fetch_bars(symbol):
                     if None in (o, h, l, c):
                         continue
                     bars.append((ts, o, h, l, c, v or 0))
-                if len(bars) < 60:
+                meta = res.get("meta", {})
+                bars = add_live_bar(bars, meta)
+                if len(bars) < min_bars:
                     raise ValueError(f"te weinig koersdata ({len(bars)} dagen)")
-                return bars, res.get("meta", {})
+                return bars, meta
             except Exception as e:  # noqa: BLE001
                 last_err = e
                 time.sleep(1.5 * (attempt + 1))
     raise RuntimeError(str(last_err))
+
+
+def get_json(url):
+    with urlopen(Request(url, headers={"User-Agent": UA}), timeout=20) as r:
+        return json.load(r)
+
+
+def eurusd():
+    """Dollars per euro (laatste slot)."""
+    bars, _ = fetch_bars("EURUSD=X", "5d", 1)
+    return bars[-1][4]
+
+
+def find_us_listing(tk, eu_price, fx, cache):
+    """Zoekt dezelfde stock op NASDAQ/NYSE. Controle: omgerekende dollarkoers ~ euro-koers."""
+    sym = tk["symbol"].upper()
+    if "." not in sym:
+        return None                         # is zelf al de Amerikaanse notering
+    if sym in US_LISTING_OVERRIDES:
+        return US_LISTING_OVERRIDES[sym]
+    hit = cache.get(sym)
+    if hit is not None and hit.get("checked") == datetime.now(timezone.utc).strftime("%Y-%W"):
+        return hit.get("us") or None        # deze week al gecontroleerd
+    name = (tk.get("name") or "").split(",")[0]
+    if not name:
+        return None
+    try:
+        res = get_json("https://query2.finance.yahoo.com/v1/finance/search?"
+                       f"q={quote(name)}&quotesCount=8&newsCount=0")
+    except Exception:  # noqa: BLE001
+        return None
+    for q in res.get("quotes", []):
+        if q.get("exchange") not in US_EXCHANGES or q.get("quoteType") not in ("EQUITY", "ETF"):
+            continue
+        try:
+            bars, meta = fetch_bars(q["symbol"], "5d", 1)
+        except Exception:  # noqa: BLE001
+            continue
+        if meta.get("currency") != "USD":
+            continue
+        ratio = eu_price / (bars[-1][4] / fx)
+        if abs(ratio - 1) <= PRICE_MATCH:
+            return q["symbol"]
+    return ""                               # gezocht, niets gevonden
+
+
+def load_listing_cache():
+    """Gevonden Amerikaanse noteringen uit de vorige run (staat al in signals.json)."""
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            old = json.load(f)
+        return {it["symbol"].upper(): {"us": it.get("pattern_symbol") or "", "checked": it.get("listing_checked")}
+                for it in old.get("items", []) + old.get("errors", []) if it.get("listing_checked")}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def to_euro(item, eu_bars, eu_meta, us_symbol):
+    """Patroon komt van de Amerikaanse notering; alle koersen omzetten naar de euro-notering.
+    Omrekening in verhouding: het doel ligt evenveel procent boven/onder de euro-koers."""
+    eu_price = eu_bars[-1][4]
+    k = eu_price / item["price"]
+    sc = lambda x: round(x * k, 4) if x is not None else None  # noqa: E731
+    for f in ("target", "support", "resistance"):
+        item[f] = sc(item[f])
+    if item.get("plan"):
+        item["plan"] = {a: sc(b) for a, b in item["plan"].items()}
+    item["spark"] = [round(x * k, 4) for x in item["spark"]]
+    for p in item["patterns"]:
+        p["detail"] = re.sub(r"neklijn (\d+(?:\.\d+)?)", lambda m: f"neklijn {float(m.group(1)) * k:.2f}", p["detail"])
+    prev = eu_bars[-2][4] if len(eu_bars) > 1 else eu_meta.get("chartPreviousClose")
+    item.update({
+        "price": round(eu_price, 4),
+        "day_pct": round((eu_price / prev - 1) * 100, 2) if prev else None,
+        "currency": eu_meta.get("currency", "EUR"),
+        "asof": datetime.fromtimestamp(eu_bars[-1][0], tz=timezone.utc).isoformat(),
+        "pattern_symbol": us_symbol,
+    })
+    return item
 
 
 # ── Indicatoren ──────────────────────────────────────────────────────────
@@ -638,17 +746,39 @@ def main():
     tickers, portfolio_version = enrich(tickers)
     print(f"{len(tickers)} tickers uit {source}")
     items, errors = [], []
+    cache = load_listing_cache()
+    week = datetime.now(timezone.utc).strftime("%Y-%W")
+    try:
+        fx = eurusd()
+    except Exception:  # noqa: BLE001
+        fx = None
+        print("  EUR/USD niet opgehaald: patronen alleen op de eigen notering")
     for tk in tickers:
         try:
-            bars, meta = fetch_bars(tk["symbol"])
-            item = analyse(tk, bars, meta)
+            eu_bars, eu_meta = fetch_bars(tk["symbol"], "2y", 2)
+            us = find_us_listing(tk, eu_bars[-1][4], fx, cache) if fx else None
+            item = None
+            if us:
+                try:
+                    us_bars, us_meta = fetch_bars(us, US_HISTORY)
+                    item = to_euro(analyse(tk, us_bars, us_meta), eu_bars, eu_meta, us)
+                except Exception as e:  # noqa: BLE001
+                    print(f"  {tk['symbol']:<10} {us} niet bruikbaar ({e}), eigen notering gebruikt")
+            if item is None:
+                if len(eu_bars) < 60:
+                    raise ValueError(f"te weinig koersdata ({len(eu_bars)} dagen)")
+                item = analyse(tk, eu_bars, eu_meta)
+                item["pattern_symbol"] = None
+            item["listing_checked"] = week if us is not None else None
             items.append(item)
             print(f"  {tk['symbol']:<10} score {item['score']:>4}  {item['direction']:<5} "
-                  f"{'' if item['projected_pct'] is None else item['projected_pct']:>6}")
+                  f"{'' if item['projected_pct'] is None else item['projected_pct']:>6}"
+                  f"{'  patroon via ' + item['pattern_symbol'] if item.get('pattern_symbol') else ''}")
         except Exception as e:  # noqa: BLE001
             errors.append({"symbol": tk["symbol"], "name": tk.get("name"), "label": tk.get("label"),
                            "category": tk.get("category"), "watch": tk.get("watch", False),
-                           "position": tk.get("position"), "error": str(e)[:200]})
+                           "position": tk.get("position"), "error": str(e)[:200],
+                           "listing_checked": week})
             print(f"  {tk['symbol']:<10} FOUT: {e}")
         time.sleep(0.4)
 

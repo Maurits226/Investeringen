@@ -23,8 +23,12 @@ import os
 import re
 import sys
 import time
+import http.cookiejar
+import urllib.request
+import xml.etree.ElementTree as ET
 from bisect import bisect_right
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -40,6 +44,21 @@ RETRACE = 0.5         # na het koersdoel: terugveer-/terugvalniveau (50% van de 
 US_HISTORY = "5y"     # patroon op de Amerikaanse notering: langere historie
 US_EXCHANGES = {"NMS", "NGM", "NCM", "NAS", "NYQ", "ASE", "PCX", "BTS"}
 PRICE_MATCH = 0.12    # euro-koers en omgerekende dollarkoers mogen max 12% verschillen
+NEWS_MAX_AGE_H = 72        # nieuws ouder dan 3 dagen telt niet mee
+NEWS_REFRESH_MIN = 60      # nieuws per stock hooguit elk uur opnieuw ophalen
+INFO_REFRESH_H = 12        # kwartaalcijfers en analisten twee keer per dag verversen
+EARNINGS_WARN_DAYS = 14    # cijfers binnen ~10 handelsdagen = binnen de planperiode
+FACTORS = [                # wereldfactoren die koersen beïnvloeden
+    ("olie", "BZ=F", "Olie (Brent)"),
+    ("nasdaq", "^NDX", "Nasdaq 100"),
+    ("chips", "^SOX", "Chipsector"),
+    ("dax", "^GDAXI", "DAX"),
+    ("vix", "^VIX", "Angstindex (VIX)"),
+    ("goud", "GC=F", "Goud"),
+    ("dollar", "EURUSD=X", "Euro/dollar"),
+    ("rente", "^TNX", "VS-rente 10 jaar"),
+]
+WORLD_NEWS_QUERIES = ["stock market", "oil prices", "war", "Federal Reserve", "tariffs", "semiconductor stocks"]
 # Handmatig vastleggen of uitsluiten, bv. {"45C.DE": "XYZ"} of {"PHAU.AS": None}
 US_LISTING_OVERRIDES = {}
 
@@ -316,6 +335,251 @@ def to_euro(item, eu_bars, eu_meta, us_symbol):
     return item
 
 
+# ── Context: wereld, nieuws, kwartaalcijfers, analisten ──────────────────
+POS_WORDS = set("""beat beats tops topped surge surges surged soar soars soared jump jumps jumped rally rallies
+rallied record upgrade upgraded upgrades raises raised boost boosts strong stronger growth grows wins win won
+approval approved partnership buyback outperform bullish higher gains gain rebound rebounds expands expansion
+profit profits exceeds exceeded optimistic breakthrough demand accelerates""".split())
+NEG_WORDS = set("""miss misses missed falls fall fell drop drops dropped plunge plunges plunged slump slumps sink
+sinks sank downgrade downgraded downgrades cut cuts lawsuit sued probe investigation recall weak weaker warning
+warns warned loss losses bearish lower tumble tumbles tumbled crash crashes sanctions tariff tariffs war attack
+strike strikes layoffs delay delays delayed fraud halt halts ban banned concerns fears slowdown recession
+selloff sell-off decline declines declined""".split())
+
+
+def sentiment(text):
+    words = re.findall(r"[a-z\-]+", (text or "").lower())
+    pos = sum(w in POS_WORDS for w in words)
+    neg = sum(w in NEG_WORDS for w in words)
+    return 0.0 if pos + neg == 0 else round((pos - neg) / (pos + neg), 2)
+
+
+def day_key(ts):
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def load_world(prev_world):
+    """Wereldfactoren (olie, indices, angstindex, goud, dollar, rente), marktklimaat en wereldnieuws."""
+    factors, closes, returns = [], {}, {}
+    for key, sym, label in FACTORS:
+        try:
+            bars, _ = fetch_bars(sym, "2y", 60)
+        except Exception as e:  # noqa: BLE001
+            print(f"  factor {sym} niet opgehaald: {e}")
+            continue
+        c = [b[4] for b in bars]
+        if len(c) < 51:
+            continue
+        dates = [day_key(b[0]) for b in bars]
+        closes[key] = dict(zip(dates, c))
+        returns[key] = {dates[j]: c[j] / c[j - 1] - 1 for j in range(1, len(c))}
+        s50 = sum(c[-50:]) / 50
+        factors.append({
+            "key": key, "symbol": sym, "label": label, "last": round(c[-1], 4),
+            "day_pct": round((c[-1] / c[-2] - 1) * 100, 2),
+            "week_pct": round((c[-1] / c[-6] - 1) * 100, 2) if len(c) > 6 else None,
+            "trend": "up" if c[-1] > s50 else "down", "date": dates[-1],
+        })
+
+    # marktklimaat per dag (ook voor de terugblik)
+    regime = {}
+    if "vix" in closes and "nasdaq" in closes:
+        nd = sorted(closes["nasdaq"].items())
+        sma = {}
+        for j in range(49, len(nd)):
+            sma[nd[j][0]] = sum(v for _, v in nd[j - 49:j + 1]) / 50
+        for d, vix in closes["vix"].items():
+            n, m = closes["nasdaq"].get(d), sma.get(d)
+            if n is None or m is None:
+                continue
+            if vix >= 25 or (n < m and vix >= 20):
+                regime[d] = "off"
+            elif vix < 18 and n > m:
+                regime[d] = "calm"
+            else:
+                regime[d] = "neutral"
+    last = regime[max(regime)] if regime else None
+    text = {"off": "Risico-uit: angstindex hoog of Nasdaq onder zijn 50-daags gemiddelde. Wees voorzichtig met kopen.",
+            "calm": "Rustige, stijgende markt: angstindex laag en Nasdaq boven zijn 50-daags gemiddelde.",
+            "neutral": "Neutrale markt: geen duidelijke risico-uit- of risico-aan-stand."}.get(last)
+
+    # wereldnieuws hooguit elk uur
+    headlines, checked = (prev_world or {}).get("headlines", []), (prev_world or {}).get("news_checked")
+    if not fresh(checked, minutes=NEWS_REFRESH_MIN):
+        got = world_headlines()
+        if got:
+            headlines, checked = got, now_iso()
+    return {"factors": factors, "regime": {"state": last, "text": text},
+            "headlines": headlines, "news_checked": checked}, regime, returns
+
+
+def now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def fresh(iso, minutes=0, hours=0):
+    if not iso:
+        return False
+    try:
+        return datetime.now(timezone.utc) - datetime.fromisoformat(iso) < timedelta(minutes=minutes, hours=hours)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def world_headlines():
+    seen, out = set(), []
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=NEWS_MAX_AGE_H)
+    for q in WORLD_NEWS_QUERIES:
+        url = f"https://news.google.com/rss/search?q={quote(q)}&hl=en-US&gl=US&ceid=US:en"
+        try:
+            with urlopen(Request(url, headers={"User-Agent": UA}), timeout=20) as r:
+                root = ET.fromstring(r.read())
+        except Exception as e:  # noqa: BLE001
+            print(f"  wereldnieuws '{q}' niet opgehaald: {e}")
+            continue
+        n = 0
+        for it in root.iter("item"):
+            title = (it.findtext("title") or "").strip()
+            src = it.find("source")
+            try:
+                when = parsedate_to_datetime(it.findtext("pubDate"))
+            except Exception:  # noqa: BLE001
+                continue
+            key = title.lower()[:60]
+            if when < cutoff or key in seen:
+                continue
+            seen.add(key)
+            out.append({"title": title, "publisher": src.text if src is not None else "",
+                        "link": it.findtext("link"), "time": when.isoformat(), "topic": q,
+                        "sent": sentiment(title)})
+            n += 1
+            if n >= 2:
+                break
+    out.sort(key=lambda x: x["time"], reverse=True)
+    return out[:10]
+
+
+def stock_news(query):
+    """Recente koppen over deze stock (Yahoo Finance)."""
+    j = get_json("https://query2.finance.yahoo.com/v1/finance/search?"
+                 f"q={quote(query)}&quotesCount=0&newsCount=8")
+    cutoff = time.time() - NEWS_MAX_AGE_H * 3600
+    out = []
+    for n in j.get("news", []):
+        t = n.get("providerPublishTime") or 0
+        if t < cutoff:
+            continue
+        out.append({"title": n.get("title", ""), "publisher": n.get("publisher", ""),
+                    "link": n.get("link", ""), "time": datetime.fromtimestamp(t, tz=timezone.utc).isoformat(),
+                    "sent": sentiment(n.get("title", ""))})
+    return out[:6]
+
+
+_session = {}
+
+
+def quote_summary(sym):
+    """Kwartaalcijfers en analisten. Yahoo vraagt hiervoor een cookie + 'crumb'."""
+    if "opener" not in _session:
+        cj = http.cookiejar.CookieJar()
+        op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        op.addheaders = [("User-Agent", UA)]
+        try:
+            op.open("https://fc.yahoo.com", timeout=15)
+        except Exception:  # noqa: BLE001
+            pass                                  # geeft een foutcode, maar zet wel de cookie
+        _session["crumb"] = op.open("https://query2.finance.yahoo.com/v1/test/getcrumb", timeout=15).read().decode().strip()
+        _session["opener"] = op
+    url = (f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{quote(sym)}"
+           f"?modules=calendarEvents,financialData&crumb={quote(_session['crumb'])}")
+    with _session["opener"].open(url, timeout=20) as r:
+        res = json.load(r)["quoteSummary"]["result"][0]
+    raw = lambda d, k: (d.get(k) or {}).get("raw") if isinstance(d.get(k), dict) else None  # noqa: E731
+    info = {}
+    ed = ((res.get("calendarEvents") or {}).get("earnings") or {}).get("earningsDate") or []
+    if ed and ed[0].get("raw"):
+        info["earnings"] = datetime.fromtimestamp(ed[0]["raw"], tz=timezone.utc).date().isoformat()
+    fd = res.get("financialData") or {}
+    tgt, cur, n = raw(fd, "targetMeanPrice"), raw(fd, "currentPrice"), raw(fd, "numberOfAnalystOpinions")
+    if tgt and cur and n:
+        info["analysts"] = {"upside_pct": round((tgt / cur - 1) * 100, 1), "n": int(n),
+                            "rating": fd.get("recommendationKey")}
+    return info
+
+
+def sensitivities(S, returns, factors):
+    """Hoe sterk bewoog deze koers mee met elke wereldfactor (afgelopen jaar)?"""
+    out = []
+    dates = [day_key(t) for t in S.t]
+    stock = {dates[j]: S.c[j] / S.c[j - 1] - 1 for j in range(max(1, len(dates) - 250), len(dates))}
+    today = {f["key"]: f for f in factors}
+    for key, rets in returns.items():
+        pairs = [(stock[d], rets[d]) for d in stock if d in rets]
+        if len(pairs) < 120:
+            continue
+        xs, ys = [b for _, b in pairs], [a for a, _ in pairs]
+        mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+        vx = sum((x - mx) ** 2 for x in xs)
+        vy = sum((y - my) ** 2 for y in ys)
+        if not vx or not vy:
+            continue
+        cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+        beta, corr = cov / vx, cov / math.sqrt(vx * vy)
+        f = today.get(key)
+        if abs(corr) < 0.3 or not f:
+            continue
+        out.append({"key": key, "label": f["label"], "beta": round(beta, 2), "corr": round(corr, 2),
+                    "today_pct": f["day_pct"], "impact_pct": round(beta * f["day_pct"], 2)})
+    out.sort(key=lambda x: -abs(x["impact_pct"]))
+    return out
+
+
+def stock_context(tk, us, prev):
+    """Nieuws (elk uur) en kwartaalcijfers/analisten (twee keer per dag), met hergebruik van de vorige run."""
+    ctx = {k: prev.get(k) for k in ("news", "news_checked", "earnings", "analysts", "info_checked") if prev.get(k) is not None}
+    query = us or tk["symbol"]
+    if not fresh(ctx.get("news_checked"), minutes=NEWS_REFRESH_MIN):
+        try:
+            ctx["news"], ctx["news_checked"] = stock_news(query), now_iso()
+        except Exception as e:  # noqa: BLE001
+            print(f"  {tk['symbol']:<10} nieuws niet opgehaald: {e}")
+    if not fresh(ctx.get("info_checked"), hours=INFO_REFRESH_H):
+        try:
+            info = quote_summary(query)
+            ctx["earnings"] = {"date": info["earnings"]} if info.get("earnings") else None
+            ctx["analysts"] = info.get("analysts")
+            ctx["info_checked"] = now_iso()
+        except Exception as e:  # noqa: BLE001
+            print(f"  {tk['symbol']:<10} cijfers/analisten niet opgehaald: {e}")
+    e = ctx.get("earnings")
+    if e and e.get("date"):
+        e["days"] = (datetime.fromisoformat(e["date"]).date() - datetime.now(timezone.utc).date()).days
+    return ctx
+
+
+def context_patterns(ctx):
+    """Patronen van buitenaf die alleen vandaag meetellen (niet terug te testen)."""
+    P = []
+    for sn in ctx.get("sens", []):
+        if abs(sn["impact_pct"]) >= 1.0:
+            w = max(-1.0, min(1.0, sn["impact_pct"] / 3))
+            nl = lambda x, d=1: f"{x:+.{d}f}".replace(".", ",")  # noqa: E731
+            P.append({"label": f"{sn['label']} {nl(sn['today_pct'])}% vandaag", "dir": "up" if w > 0 else "down",
+                      "w": round(w, 2), "detail": f"beweegt gemiddeld {nl(sn['beta'], 2)}% per 1%: invloed {nl(sn['impact_pct'])}%"})
+    news = ctx.get("news") or []
+    scored = [n["sent"] for n in news if n["sent"]]
+    if len(scored) >= 2:
+        avg = sum(scored) / len(scored)
+        if abs(avg) >= 0.3:
+            P.append({"label": f"Nieuws overwegend {'positief' if avg > 0 else 'negatief'}", "dir": "up" if avg > 0 else "down",
+                      "w": round(max(-1.0, min(1.0, avg)), 2), "detail": f"{len(scored)} recente koppen"})
+    e = ctx.get("earnings")
+    if e and e.get("days") is not None and 0 <= e["days"] <= EARNINGS_WARN_DAYS:
+        P.append({"label": "Kwartaalcijfers binnen de planperiode", "dir": "info", "w": 0,
+                  "detail": f"cijfers op {e['date']}: koers kan hard springen"})
+    return P
+
+
 # ── Indicatoren ──────────────────────────────────────────────────────────
 def sma(a, n):
     out, s = [None] * len(a), 0.0
@@ -438,6 +702,15 @@ def evaluate(S, i):
                   "w": round(w, 2), "detail": detail})
 
     price = c[i]
+
+    # Marktklimaat (angstindex + Nasdaq-trend) op die dag
+    reg = getattr(S, "regime", None)
+    if reg:
+        st = reg.get(day_key(S.t[i]))
+        if st == "off":
+            add("Markt in risico-uit-stand", -1.0, "angstindex hoog of Nasdaq onder 50-daags gemiddelde")
+        elif st == "calm":
+            add("Rustige, stijgende markt", 0.5, "angstindex laag, Nasdaq boven 50-daags gemiddelde")
 
     # Trend
     if S.sma200[i]:
@@ -682,10 +955,16 @@ def backtest(S, start):
 
 
 # ── Hoofdprogramma ───────────────────────────────────────────────────────
-def analyse(tk, bars, meta):
+def analyse(tk, bars, meta, world=None):
     S = Series(bars)
+    world = world or {}
+    S.regime = world.get("regime")
     i = len(S.c) - 1
     P, targets = evaluate(S, i)
+    ctx = dict(world.get("stock_ctx") or {})
+    if world.get("returns"):
+        ctx["sens"] = sensitivities(S, world["returns"], world.get("factors", []))
+    P = P + context_patterns(ctx)
     score = score_of(P)
     direction = "down" if score <= -SIGNAL_SCORE else "up" if score >= SIGNAL_SCORE else "flat"
     target, sup, res, sig = project(S, i, score, targets)
@@ -733,6 +1012,7 @@ def analyse(tk, bars, meta):
         "resistance": r2(res),
         "plan": plan,
         "new_signal": new_signal,
+        "context": ctx,
         "prev_signal": prev_signal,
         "rsi": round(S.rsi[i], 1) if S.rsi[i] is not None else None,
         "patterns": P,
@@ -747,6 +1027,19 @@ def main():
     print(f"{len(tickers)} tickers uit {source}")
     items, errors = [], []
     cache = load_listing_cache()
+    prev = {}
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            prev = json.load(f)
+    except Exception:  # noqa: BLE001
+        pass
+    prev_ctx = {it["symbol"]: it.get("context") or {} for it in prev.get("items", [])}
+    try:
+        world, regime, returns = load_world(prev.get("world"))
+    except Exception as e:  # noqa: BLE001  – context mag de radar nooit laten vastlopen
+        print(f"  wereldcontext niet beschikbaar: {e}")
+        world, regime, returns = {"factors": [], "regime": {"state": None, "text": None}, "headlines": []}, {}, {}
+    print(f"  wereld: {len(world['factors'])} factoren, klimaat {world['regime']['state']}, {len(world['headlines'])} koppen")
     week = datetime.now(timezone.utc).strftime("%Y-%W")
     try:
         fx = eurusd()
@@ -757,17 +1050,19 @@ def main():
         try:
             eu_bars, eu_meta = fetch_bars(tk["symbol"], "2y", 2)
             us = find_us_listing(tk, eu_bars[-1][4], fx, cache) if fx else None
+            wctx = {"regime": regime, "returns": returns, "factors": world["factors"],
+                    "stock_ctx": stock_context(tk, us, prev_ctx.get(tk["symbol"], {}))}
             item = None
             if us:
                 try:
                     us_bars, us_meta = fetch_bars(us, US_HISTORY)
-                    item = to_euro(analyse(tk, us_bars, us_meta), eu_bars, eu_meta, us)
+                    item = to_euro(analyse(tk, us_bars, us_meta, wctx), eu_bars, eu_meta, us)
                 except Exception as e:  # noqa: BLE001
                     print(f"  {tk['symbol']:<10} {us} niet bruikbaar ({e}), eigen notering gebruikt")
             if item is None:
                 if len(eu_bars) < 60:
                     raise ValueError(f"te weinig koersdata ({len(eu_bars)} dagen)")
-                item = analyse(tk, eu_bars, eu_meta)
+                item = analyse(tk, eu_bars, eu_meta, wctx)
                 item["pattern_symbol"] = None
             item["listing_checked"] = week if us is not None else None
             items.append(item)
@@ -797,6 +1092,7 @@ def main():
                    "eval_rise_pct": EVAL_RISE_PCT, "signal_score": SIGNAL_SCORE,
                    "retrace": RETRACE},
         "stats": agg,
+        "world": world,
         "items": items,
         "errors": errors,
     }

@@ -297,8 +297,8 @@
         <option value="all">Alles</option>
         <option value="up">Koopsignaal</option>
         <option value="down">Verkoopsignaal</option>
-        <option value="flat">Geen signaal</option>
         <option value="new">Nieuw signaal</option>
+        <option value="flat">Geen signaal</option>
       </select>
     </div>
     <button id="resetFilters" class="tb-reset">Reset</button>
@@ -446,11 +446,11 @@ function card(it) {
   el.innerHTML = `
     <div class="p-name">
       <span class="p-ticker${isNew(it) ? ' is-new' : ''}"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
-      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="Koersdata opgehaald">● data</span>${isNew(it) ? ' <span class="src src-new" title="Dit signaal is er sinds de vorige handelsdag">● nieuw signaal</span>' : ''}</span>
+      <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="${it.pattern_symbol ? 'Patroon berekend op ' + esc(it.pattern_symbol) + ' (VS), koersen in euro' : 'Koersdata opgehaald'}">● data${it.pattern_symbol ? ' via ' + esc(it.pattern_symbol) : ''}</span>${isNew(it) ? ' <span class="src src-new" title="Dit signaal is er sinds de vorige handelsdag">● nieuw signaal</span>' : ''}</span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
-      <div class="v">${fmt(it.price, cur)}</div>
+      <div class="v ${it.day_pct > 0 ? 'up' : it.day_pct < 0 ? 'down' : ''}">${fmt(it.price, cur)}</div>
       <div class="drop-tag ${it.day_pct > 0 ? 'c-up' : it.day_pct < 0 ? 'c-down' : ''}">${it.day_pct == null ? '' : pct(it.day_pct, 2) + ' vandaag'}</div>
     </div>
     <div class="p-block">
@@ -508,7 +508,7 @@ function detail(it) {
         <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>
         <div class="p-block"><div class="k">Normaal ${cfg.horizon}d</div><div class="v">±${it.sigma_pct.toFixed(1).replace('.', ',')}%</div></div>
       </div>
-      <p class="note">${btText}${planText}</p>
+      <p class="note">${btText}${planText}${it.pattern_symbol ? `<br>Patroon en terugblik berekend op <b>${esc(it.pattern_symbol)}</b> (Amerikaanse notering, langere koershistorie). Koop- en verkooppunten zijn omgerekend naar ${esc(it.symbol)} in ${esc(it.currency)}.` : ''}</p>
     </div>
   </div>`;
 }
@@ -615,8 +615,8 @@ function render() {
   summary.innerHTML = `
     <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">STIJGING ≥${MOVE_MIN}%</div></div>
     <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">DALING ≥${MOVE_MIN}%</div></div>
-    <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
     <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">sinds de vorige handelsdag</div></div>
+    <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
 `;
   summary.querySelectorAll('.stat.clickable').forEach(el => {
     el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };

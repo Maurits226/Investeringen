@@ -192,14 +192,14 @@
   .bar-fill.up { left: 50%; background: linear-gradient(90deg, var(--warn), var(--up)); }
   .bar-marker { position: absolute; top: -3px; left: 50%; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
 
-  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 10px; }
   .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: grid; grid-template-columns: 94px minmax(0,1fr) auto; align-items: baseline; gap: 6px; }
   .plan-row b { font-weight: 600; }
   .plan-row b { color: var(--text); }
   .plan-row .pp { color: var(--muted); white-space: nowrap; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
-  .plan-row .real-pct { display: block; margin-top: 1px; color: var(--up); font-weight: 600; }
+  .plan-row .real-pct { grid-column: 2 / -1; margin-top: -3px; color: var(--up); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
@@ -441,7 +441,7 @@ function card(it) {
   const s = sig ? stappen(it) : null;
   const planBlock = s
     ? s.map(([cls, lbl, prijs, sub]) => cls === 'real'
-        ? `<div class="plan-row"><b>${lbl}</b><span>${fmt(prijs, cur)}<span class="pp real-pct">(voor +${Math.abs(sub).toFixed(1).replace('.', ',')}% realisatie)</span></span></div>`
+        ? `<div class="plan-row"><b>${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp"></span><span class="real-pct">(voor +${Math.abs(sub).toFixed(1).replace('.', ',')}% realisatie)</span></div>`
         : `<div class="plan-row"><b>${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
     : `<div class="next-target">Geen plan: verwachte beweging kleiner dan ${MOVE_MIN}%</div>`;
 

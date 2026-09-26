@@ -432,7 +432,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 33;
+const DEFAULT_VERSION = 34;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -962,9 +962,9 @@ async function render() {
 
   const cnt = s => (bySection[s] ? bySection[s].length : 0);
   summary.innerHTML = `
+    <div class="stat clickable" data-cat="Watchlist"><div class="label">Watchlist</div><div class="value">${cnt('Watchlist')}</div><div class="sub" style="color:var(--muted)">gevolgd</div></div>
     <div class="stat clickable" data-cat="Stocks"><div class="label">Stocks</div><div class="value">${cnt('Stocks')}</div><div class="sub" style="color:var(--muted)">aandelen</div></div>
     <div class="stat clickable" data-cat="ETF's"><div class="label">ETF's</div><div class="value">${cnt("ETF's")}</div><div class="sub" style="color:var(--muted)">fondsen</div></div>
-    <div class="stat clickable" data-cat="Watchlist"><div class="label">Watchlist</div><div class="value">${cnt('Watchlist')}</div><div class="sub" style="color:var(--muted)">gevolgd</div></div>
     <div class="stat clickable" data-cat="Gold & Silver"><div class="label">Edelmetalen</div><div class="value">${cnt('Gold & Silver')}</div><div class="sub" style="color:var(--muted)">goud &amp; zilver</div></div>`;
 
   const catSel = document.getElementById('catSel');

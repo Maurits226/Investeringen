@@ -197,6 +197,9 @@
   .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
   .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, var(--down), var(--warn), var(--up)); }
   .bar-marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .day-chg { font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin-top: 3px; }
+  .day-chg.up { color: var(--up); }
+  .day-chg.down { color: var(--down); }
   .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
@@ -429,7 +432,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 31;
+const DEFAULT_VERSION = 32;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -778,6 +781,7 @@ function positionCard(p, q, err) {
     <div class="p-block">
       <div class="k">Huidige koers</div>
       <div class="v ${isWatch ? '' : (plPct >= 0 ? 'up' : 'down')}">${fmt(q.price, cur)}</div>
+      ${q.prevClose ? `<div class="day-chg ${dayChg >= 0 ? 'up' : 'down'}">${dayChg >= 0 ? '+' : ''}${dayChg.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% vandaag</div>` : ''}
     </div>
     ${resultBlock}
     <div class="bar-wrap">

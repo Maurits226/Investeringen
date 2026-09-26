@@ -83,6 +83,34 @@
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
 
   .cards { display: flex; flex-direction: column; gap: 14px; }
+  .world { margin-bottom: 18px; }
+  .world-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .world-title { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .regime { font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .regime.off { color: var(--down); border-color: rgba(255,93,108,.4); background: rgba(255,93,108,.10); }
+  .regime.calm { color: var(--up); border-color: rgba(62,207,142,.4); background: rgba(62,207,142,.10); }
+  .factors { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .fac { padding: 9px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+  .fac-l { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fac-v { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 3px; }
+  .fac-d { font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin-top: 1px; }
+  .fac-d .w { color: var(--muted); display: block; }
+  .heads { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .heads summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; }
+  .heads summary::-webkit-details-marker { display: none; }
+  .heads ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
+  .heads li, .news li { font-size: 13px; line-height: 1.4; }
+  .heads a, .news a { color: var(--text); text-decoration: none; }
+  .heads a:hover, .news a:hover { color: var(--accent); }
+  .meta { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 6px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.warn { color: var(--warn); border-color: rgba(245,181,68,.45); }
+  .tag.pos { color: var(--up); border-color: rgba(62,207,142,.4); }
+  .tag.neg { color: var(--down); border-color: rgba(255,93,108,.4); }
+  .news { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .ctx-list { list-style: none; display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; font-size: 13px; }
+  .ctx-list small { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin-left: 4px; }
   .markets {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 10px; margin-bottom: 18px;
@@ -276,6 +304,7 @@
   <p class="hint" id="demo" hidden style="margin:-10px 0 20px">Voorbeeld met een kopie van je signals.json. Op GitHub Pages leest deze pagina je live bestand.</p>
 
   <div class="markets" id="markets"></div>
+  <div class="world" id="world"></div>
 
   <div class="summary" id="summary"></div>
 
@@ -452,6 +481,7 @@ function card(it) {
     <div class="p-name">
       <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
       <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="${it.pattern_symbol ? 'Patroon berekend op ' + esc(it.pattern_symbol) + ' (VS), koersen in euro' : 'Koersdata opgehaald'}">● data${it.pattern_symbol ? ' via ' + esc(it.pattern_symbol) : ''}</span></span>
+      ${contextTags(it)}
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -481,6 +511,79 @@ function card(it) {
     </div>
     ${open ? detail(it) : ''}`;
   return el;
+}
+
+
+// ---- Context van buitenaf: wereldfactoren, nieuws, kwartaalcijfers, analisten ----
+const TOPIC = { 'stock market': 'beurs', 'oil prices': 'olie', war: 'oorlog/conflict', 'Federal Reserve': 'rente (Fed)', tariffs: 'handelstarieven', 'semiconductor stocks': 'chips' };
+const RATING = { strong_buy: 'sterk kopen', buy: 'kopen', hold: 'houden', underperform: 'onderpresteren', sell: 'verkopen' };
+function geleden(iso) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+  return m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' uur' : Math.round(m / 1440) + ' d';
+}
+function fmtFactor(f) {
+  const nl = (x, d) => x.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+  if (f.key === 'dollar') return nl(f.last, 4);
+  if (f.key === 'rente') return nl(f.last, 2) + '%';
+  if (f.key === 'vix') return nl(f.last, 1);
+  return f.last >= 1000 ? nl(f.last, 0) : nl(f.last, 2);
+}
+function renderWorld() {
+  const box = document.getElementById('world');
+  const w = data && data.world;
+  if (!box) return;
+  if (!w || !(w.factors || []).length) { box.innerHTML = ''; return; }
+  const reg = w.regime || {};
+  const facs = w.factors.map(f => {
+    // stijgende angstindex of rente is slecht nieuws voor aandelen: kleur omgekeerd
+    const inv = f.key === 'vix' || f.key === 'rente';
+    const good = inv ? f.day_pct < 0 : f.day_pct > 0;
+    const col = f.day_pct === 0 ? 'var(--muted)' : good ? 'var(--up)' : 'var(--down)';
+    return `<div class="fac" title="${esc(f.symbol)}"><div class="fac-l">${esc(f.label)}</div><div class="fac-v">${fmtFactor(f)}</div>
+      <div class="fac-d"><span style="color:${col}">${pct(f.day_pct, 1)}</span>${f.week_pct != null ? `<span class="w">week ${pct(f.week_pct, 1)}</span>` : ''}</div></div>`;
+  }).join('');
+  const heads = (w.headlines || []).slice(0, 8).map(h =>
+    `<li><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
+  box.innerHTML = `
+    <div class="world-head"><span class="world-title">Wereld vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}</div>
+    <div class="factors">${facs}</div>
+    ${heads ? `<details class="heads"><summary>▸ Wereldnieuws (${(w.headlines || []).length} ${(w.headlines || []).length === 1 ? 'kop' : 'koppen'}, laatste 3 dagen)</summary><ul>${heads}</ul></details>` : ''}`;
+}
+function newsScore(it) {
+  const sc = ((it.context || {}).news || []).map(n => n.sent).filter(x => x);
+  return sc.length >= 2 ? sc.reduce((a, b) => a + b, 0) / sc.length : null;
+}
+function contextTags(it) {
+  const c = it.context || {}, t = [];
+  if (c.earnings && c.earnings.days != null && c.earnings.days >= 0 && c.earnings.days <= 14)
+    t.push(`<span class="tag warn" title="Kwartaalcijfers binnen de planperiode: koers kan hard springen">⚠ cijfers ${new Date(c.earnings.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</span>`);
+  const ns = newsScore(it);
+  if (ns != null && Math.abs(ns) >= 0.3) t.push(`<span class="tag ${ns > 0 ? 'pos' : 'neg'}">nieuws ${ns > 0 ? '+' : '−'}</span>`);
+  const big = (c.sens || []).find(x => Math.abs(x.impact_pct) >= 1);
+  if (big) t.push(`<span class="tag ${big.impact_pct > 0 ? 'pos' : 'neg'}" title="${esc(big.label)} ${pct(big.today_pct, 1)} vandaag">${esc(big.label.split(' ')[0].toLowerCase())} ${pct(big.today_pct, 1)}</span>`);
+  if (c.analysts && c.analysts.n >= 3) t.push(`<span class="tag" title="${c.analysts.n} analisten, gemiddeld koersdoel">analisten ${pct(c.analysts.upside_pct, 0)}</span>`);
+  return t.length ? `<span class="tags">${t.join('')}</span>` : '';
+}
+function contextDetail(it) {
+  const c = it.context || {}, cur = it.currency;
+  let h = '';
+  if (c.earnings && c.earnings.date) {
+    const d = new Date(c.earnings.date).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'long' });
+    h += `<div class="d-k">Kwartaalcijfers</div><p class="note" style="margin-bottom:14px">${d}${c.earnings.days != null && c.earnings.days >= 0 && c.earnings.days <= 14 ? ' <b style="color:var(--warn)">· binnen de planperiode: koers kan hard springen, plan is minder zeker</b>' : ''}</p>`;
+  }
+  if ((c.sens || []).length) {
+    h += `<div class="d-k">Invloed van buitenaf</div><ul class="ctx-list">${c.sens.slice(0, 4).map(x =>
+      `<li>${esc(x.label)}<small>beweegt ${pct(x.beta, 2)} per 1% · vandaag ${pct(x.today_pct, 1)} → ${pct(x.impact_pct, 1)}</small></li>`).join('')}</ul>`;
+  }
+  if (c.analysts && c.analysts.n) {
+    h += `<div class="d-k">Analisten</div><p class="note" style="margin-bottom:14px">${c.analysts.n} analisten, advies <b>${RATING[c.analysts.rating] || c.analysts.rating || '–'}</b>, gemiddeld koersdoel ${pct(c.analysts.upside_pct, 1)} t.o.v. de koers nu.</p>`;
+  }
+  const news = c.news || [];
+  if (news.length) {
+    h += `<div class="d-k">Nieuws</div><ul class="news">${news.map(n =>
+      `<li><span class="c-${n.sent > 0 ? 'up' : n.sent < 0 ? 'down' : 'info'}">${n.sent > 0 ? '▲' : n.sent < 0 ? '▼' : '•'}</span> <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a><span class="meta">${esc(n.publisher || '')} · ${geleden(n.time)}</span></li>`).join('')}</ul>`;
+  }
+  return h;
 }
 
 function detail(it) {
@@ -514,6 +617,7 @@ function detail(it) {
         <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>
         <div class="p-block"><div class="k">Normaal ${cfg.horizon}d</div><div class="v">±${it.sigma_pct.toFixed(1).replace('.', ',')}%</div></div>
       </div>
+      ${contextDetail(it)}
       <p class="note">${btText}${planText}${it.pattern_symbol ? `<br>Patroon en terugblik berekend op <b>${esc(it.pattern_symbol)}</b> (Amerikaanse notering, langere koershistorie). Koop- en verkooppunten zijn omgerekend naar ${esc(it.symbol)} in ${esc(it.currency)}.` : ''}</p>
     </div>
   </div>`;
@@ -631,6 +735,7 @@ function render() {
   const d = new Date(data.generated);
   document.getElementById('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   renderMarkets();
+  renderWorld();
   window.scrollTo(0, scrollY);
 }
 

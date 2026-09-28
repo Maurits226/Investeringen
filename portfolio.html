@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Investeringen</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #141517;
+    --panel: #1a1c1e;
+    --panel-2: #202224;
+    --line: #2a2c2f;
+    --muted: #83888d;
+    --text: #eceef0;
+    --up: #3ecf8e;
+    --down: #f0595f;
+    --warn: #f5b544;
+    --accent: #4f8ff0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%),
+      var(--ink);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 28px 18px 60px;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  header.top {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    flex-wrap: wrap; gap: 16px; margin-bottom: 26px;
+  }
+  .title-block h1 {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .pulse {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--up);
+    box-shadow: 0 0 0 0 rgba(55,211,154,.55);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(55,211,154,.5); }
+    70% { box-shadow: 0 0 0 10px rgba(55,211,154,0); }
+    100% { box-shadow: 0 0 0 0 rgba(55,211,154,0); }
+  }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 9px 15px;
+    border-radius: 10px; font-size: 13px; font-weight: 500; transition: .15s;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+  .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  #interval {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 9px 12px;
+    border-radius: 10px; font-size: 13px;
+  }
+  #interval:hover { border-color: var(--accent); }
+  .countdown { color: var(--accent); }
+
+  .summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px;
+  }
+  .stat {
+    background: linear-gradient(180deg, var(--panel), var(--ink));
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+  }
+  .stat.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
+  .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat.clickable:active { transform: translateY(0); }
+  .stat.clickable.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
+  .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+  .markets {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px; margin-bottom: 18px;
+  }
+  .mkt {
+    display: flex; flex-direction: column; gap: 4px; padding: 11px 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    min-width: 0;
+  }
+  .mkt-top { display: flex; align-items: center; gap: 8px; }
+  .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .mkt.open .mkt-dot { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+  .mkt.closed .mkt-dot { background: var(--down); }
+  .mkt-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
+  .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
+  .mkt-count { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .mkt-foot {
+    font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+    margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--line);
+  }
+  .mkt-city { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+  .exch-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 8px; vertical-align: middle; position: relative; top: -2px;
+    background: var(--line);
+  }
+  .exch-dot.open { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+  .exch-dot.closed { background: var(--down); }
+  .toolbar {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    margin-bottom: 20px; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .toolbar select {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); padding: 7px 11px;
+    border-radius: 9px; font-size: 13px;
+  }
+  .toolbar select:hover { border-color: var(--accent); }
+  .tb-count { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; }
+  .tb-reset {
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--muted); padding: 7px 12px;
+    border-radius: 9px; font-size: 13px;
+  }
+  .tb-reset:hover { border-color: var(--accent); color: var(--text); }
+  .sync-btn {
+    font-family: inherit; cursor: pointer; font-weight: 500; font-size: 13px;
+    padding: 9px 15px; border-radius: 10px; transition: .15s;
+    color: var(--down); background: rgba(255,93,108,.12); border: 1px solid rgba(255,93,108,.45);
+  }
+  .sync-btn:hover { filter: brightness(1.15); }
+  .sync-btn.synced {
+    color: var(--up); background: rgba(62,207,142,.12); border-color: rgba(62,207,142,.45);
+  }
+  .sync-btn.error { color: var(--down); background: rgba(255,93,108,.18); border-color: rgba(255,93,108,.6); }
+  .sync-btn.syncing { color: var(--warn); background: rgba(245,181,68,.12); border-color: rgba(245,181,68,.45); }
+  .section-header {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
+    margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px;
+    scroll-margin-top: 16px;
+  }
+  .section-header:first-child { margin-top: 0; }
+  .section-header::before {
+    content: ''; width: 4px; height: 18px; border-radius: 2px; background: var(--accent);
+  }
+
+  .position {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1.6fr 1.3fr auto; gap: 18px; align-items: center;
+    position: relative; overflow: hidden; transition: .2s;
+  }
+  .position::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line);
+  }
+  .position.alert::before { background: var(--down); }
+  .position.alert {
+    border-color: rgba(255,93,108,.5);
+    box-shadow: 0 0 0 1px rgba(255,93,108,.25), 0 8px 30px -12px rgba(255,93,108,.4);
+  }
+  .position.sell-alert::before { background: var(--up); }
+  .position.sell-alert {
+    border-color: rgba(62,207,142,.5);
+    box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4);
+  }
+
+  .p-name { display: flex; flex-direction: column; gap: 4px; }
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
+  .p-company { font-size: 12px; color: var(--muted); max-width: 200px; }
+  .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; display: inline-block; }
+  .src-live { color: var(--up); }
+  .src-proxy { color: var(--warn); }
+
+  .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
+  .v.up { color: var(--up); } .v.down { color: var(--down); }
+
+  .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
+  .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
+  .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, var(--down), var(--warn), var(--up)); }
+  .bar-marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .day-chg { font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin-top: 3px; }
+  .day-chg.up { color: var(--up); }
+  .day-chg.down { color: var(--down); }
+  .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+
+  .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
+  .badge.sell { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
+  .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
+  .remove { background: none; border: none; color: var(--muted); font-size: 12px; padding: 2px; cursor: pointer; }
+  .remove:hover { color: var(--down); }
+  .edit-cost { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .edit-cost:hover { border-color: var(--accent); color: var(--text); }
+
+  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+  .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .sells { display: flex; flex-direction: column; gap: 3px; }
+  .sell-row { font-size: 11px; color: var(--up); font-family: 'IBM Plex Mono', monospace; display: flex; align-items: center; gap: 4px; }
+  .sell-row.reopened { color: var(--warn); }
+  .sell-date { color: var(--muted); margin-left: 2px; }
+  .undo-sell { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0 2px; margin-left: auto; opacity: .5; }
+  .undo-sell:hover { color: var(--down); opacity: 1; }
+  .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .realise {
+    background: rgba(55,211,154,.15); border: 1px solid rgba(55,211,154,.45); color: var(--up);
+    font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    text-align: left; line-height: 1.3;
+  }
+  .realise:hover { background: rgba(55,211,154,.28); }
+
+  .state { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .err { color: var(--warn); }
+
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 16px; padding: 24px; width: min(420px, 92vw);
+  }
+  dialog::backdrop { background: rgba(4,8,18,.7); }
+  dialog h3 { margin-bottom: 16px; font-size: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--text);
+    padding: 10px 12px; border-radius: 9px; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
+  .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  @media (max-width: 860px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .position { grid-template-columns: 1fr 1fr; }
+    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    .bar-wrap { grid-column: span 2; }
+    .profit-block { grid-column: span 2; }
+  }
+  @media (max-width: 520px) {
+    .markets { grid-template-columns: repeat(2, 1fr); }
+    .mkt-top { flex-wrap: wrap; }
+    body { padding: 18px 12px 40px; }
+    header.top { flex-direction: column; align-items: stretch; }
+    .controls { justify-content: space-between; }
+    .summary { gap: 10px; }
+    .stat { padding: 12px 14px; }
+    .stat .value { font-size: 20px; }
+    .position { grid-template-columns: 1fr 1fr; padding: 16px; gap: 14px; }
+    .p-name { grid-column: span 2; }
+    .p-ticker { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="pulse"></span>Investeringen</h1>
+      <p>Live koersen via Yahoo Finance</p>
+    </div>
+    <div class="controls">
+      <span class="updated" id="updated">laden…</span>
+      <button id="syncBtn" class="sync-btn" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
+      <button class="primary" id="add">+ Positie</button>
+    </div>
+  </header>
+
+  <div class="markets" id="markets"></div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="toolbar">
+    <div class="tb-group">
+      <span class="tb-label">Sorteer</span>
+      <select id="sortSel">
+        <option value="section">Categorie (standaard)</option>
+        <option value="name">Naam (A-Z)</option>
+        <option value="result">Resultaat (hoog-laag)</option>
+        <option value="signal">Dichtst bij koopsignaal</option>
+        <option value="sellsignal">Dichtst bij verkoopsignaal</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Categorie</span>
+      <select id="catSel">
+        <option value="all">Alle</option>
+        <option value="Watchlist">Watchlist</option>
+        <option value="Stocks">Stocks</option>
+        <option value="ETF's">ETF's</option>
+        <option value="Gold & Silver">Edelmetalen</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Status</span>
+      <select id="statusSel">
+        <option value="all">Alles</option>
+        <option value="signals">Koopsignalen</option>
+        <option value="open">Openstaande verkoop</option>
+      </select>
+    </div>
+    <button id="resetFilters" class="tb-reset">Reset</button>
+    <span class="tb-count" id="tbCount"></span>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+</div>
+
+<dialog id="dlg">
+  <h3>Positie toevoegen</h3>
+  <div class="field">
+    <label>Ticker (Yahoo-symbool — beurs bepaalt de valuta)</label>
+    <input id="f-ticker" placeholder="1YD.DE" autocomplete="off">
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">
+      Xetra = <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px">.DE</code> (EUR) ·
+      Amsterdam = <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px">.AS</code> ·
+      NASDAQ = geen achtervoegsel (USD)
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Categorie</label>
+      <select id="f-section">
+        <option value="Stocks" selected>Stocks</option>
+        <option value="ETF's">ETF's</option>
+        <option value="Gold &amp; Silver">Gold &amp; Silver</option>
+        <option value="Watchlist">Watchlist (alleen volgen)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Aankoopprijs</label>
+      <input id="f-cost" type="number" step="0.01" placeholder="281.19">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Aantal</label>
+      <input id="f-qty" type="number" step="0.0001" placeholder="1">
+    </div>
+    <div class="field">
+      <label>Waarschuwing bij daling t.o.v. top</label>
+      <select id="f-thresh">
+        <option value="10">10%</option>
+        <option value="15">15%</option>
+        <option value="20" selected>20%</option>
+        <option value="25">25%</option>
+        <option value="30">30%</option>
+      </select>
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Aankoopvaluta (weergave)</label>
+      <select id="f-cur">
+        <option value="native" selected>zoals genoteerd</option>
+        <option value="EUR">EUR</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+    <div class="field"></div>
+  </div>
+  <div class="dialog-actions">
+    <button id="f-cancel">Annuleren</button>
+    <button class="primary" id="f-save">Opslaan</button>
+  </div>
+</dialog>
+
+<script>
+const DEFAULT = [
+  // Watchlist: geen aankoopprijs, alleen volgen
+  { ticker: 'SPX.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
+
+  // Stocks
+  { ticker: 'AMD.DE',  section: 'Stocks', cost: 397.10, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '1YD.DE',  section: 'Stocks', cost: 281.19, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'MTE.DE',  section: 'Stocks', cost: 593.70, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '1ZB.DE',  section: 'Stocks', cost: 105.06, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'TL0.DE',  section: 'Stocks', cost: 302.67, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '49V.DE',  section: 'Stocks', cost: 166.72, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'E7S.DE',  section: 'Stocks', cost: 229.79, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'AMZ.DE',  section: 'Stocks', cost: 173.11, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ENR.DE',  section: 'Stocks', cost: 147.74, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'LAR0.DE', section: 'Stocks', cost: 268.90, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ZETA',    section: 'Stocks', cost: 21.43,  qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ABEA.DE', section: 'Stocks', cost: 156.05, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'AP2.DE',  section: 'Stocks', cost: 170.29, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ANET',    section: 'Stocks', cost: 126.74, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: '45C.DE',  section: 'Stocks', cost: 89.44,  qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'GOS.DE',  section: 'Stocks', cost: 739.00, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'CMC.DE',  section: 'Stocks', cost: 255.59, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'DWD.DE',  section: 'Stocks', cost: 147.57, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'NVD.DE',  section: 'Stocks', cost: 87.76,  qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'PTX.DE',  section: 'Stocks', cost: 123.29, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'TSFA.DU', section: 'Stocks', cost: 313.50, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'ASML.AS', section: 'Stocks', cost: 704.60, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'UU2.DE',  section: 'Stocks', cost: 853.60, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'MSF.DE',  section: 'Stocks', cost: 353.15, qty: 1, thresh: 20, cur: 'native' },
+
+  // ETF's
+  { ticker: 'QDVE.DE', section: "ETF's", label: 'S&P 500 Information Technology', cost: 29.983, qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'VHYL.MI', section: "ETF's", label: 'Vanguard High Dividend', cost: 81.669, qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'VUAA.MI', section: "ETF's", label: 'S&P 500', cost: 93.02,  qty: 1, thresh: 10, cur: 'native' },
+
+  // Gold & Silver
+  { ticker: 'WSLV.MI', section: 'Gold & Silver', label: 'Silver', cost: 64.32,  qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'PHAU.AS', section: 'Gold & Silver', label: 'Gold', cost: 364.33, qty: 1, thresh: 10, cur: 'native' }
+];
+
+// Volgorde waarin de secties getoond worden
+const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
+
+// Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
+// opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
+// (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
+const DEFAULT_VERSION = 34;
+
+// Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
+// positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
+function posId(p) { return (p.section || 'X') + '|' + p.ticker; }
+
+// Gebruikersstate per positie-id: { cost, sells: [{level, pct, date}] }
+// Wordt lokaal bewaard (localStorage) EN, als een token is ingevoerd,
+// gesynchroniseerd met state.json in de GitHub-repository zodat het op
+// elk apparaat gelijk is.
+const GH_OWNER = 'Maurits226';
+const GH_REPO = 'Investeringen';
+const GH_BRANCH = 'main';
+const GH_STATE_FILE = 'state.json';
+
+function getToken() {
+  try { return localStorage.getItem('gh_token') || ''; } catch (e) { return ''; }
+}
+function setToken(t) {
+  try {
+    if (t) localStorage.setItem('gh_token', t);
+    else localStorage.removeItem('gh_token');
+  } catch (e) {}
+}
+
+function loadStateLocal() {
+  try {
+    const s = localStorage.getItem('portfolio_state');
+    if (s) return JSON.parse(s);
+  } catch (e) {}
+  return {};
+}
+function saveStateLocal() {
+  try { localStorage.setItem('portfolio_state', JSON.stringify(userState)); } catch (e) {}
+}
+
+let userState = loadStateLocal();
+let stateSha = null;          // sha van state.json op GitHub (nodig om te schrijven)
+let syncStatus = 'local';     // 'local' | 'synced' | 'error' | 'syncing'
+
+// Lees state.json van GitHub (werkt ook zonder token, want repo is public)
+async function loadStateFromGitHub() {
+  try {
+    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`;
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    const token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const r = await fetch(url, { headers });
+    if (r.status === 404) { stateSha = null; return null; } // bestaat nog niet
+    if (!r.ok) throw new Error('kon state niet laden');
+    const j = await r.json();
+    stateSha = j.sha;
+    // base64 -> UTF-8 tekst (robuust met €, accenten)
+    const bin = atob(j.content.replace(/\n/g, ''));
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    const text = new TextDecoder('utf-8').decode(bytes);
+    return JSON.parse(text);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Schrijf userState naar GitHub (vereist token)
+async function saveStateToGitHub() {
+  const token = getToken();
+  if (!token) return false;
+  try {
+    syncStatus = 'syncing'; updateSyncBadge();
+    // Haal eerst de laatste sha op (kan gewijzigd zijn op ander apparaat)
+    await loadStateFromGitHub();
+    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}`;
+    // UTF-8 tekst -> base64 (robuust met €, accenten)
+    const text = JSON.stringify(userState, null, 2);
+    const bytes = new TextEncoder().encode(text);
+    let bin = '';
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    const body = {
+      message: 'Update portfolio state ' + new Date().toISOString(),
+      content: btoa(bin),
+      branch: GH_BRANCH
+    };
+    if (stateSha) body.sha = stateSha;
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('schrijven mislukt (' + r.status + ')');
+    const j = await r.json();
+    stateSha = j.content.sha;
+    syncStatus = 'synced'; updateSyncBadge();
+    return true;
+  } catch (e) {
+    syncStatus = 'error'; updateSyncBadge();
+    return false;
+  }
+}
+
+// Sla op: altijd lokaal, en naar GitHub als er een token is
+function saveState() {
+  saveStateLocal();
+  if (getToken()) saveStateToGitHub();
+}
+
+function loadPositions() {
+  let base;
+  try {
+    const savedVer = parseInt(localStorage.getItem('portfolio_version') || '0');
+    const saved = localStorage.getItem('portfolio_positions');
+    if (saved && savedVer >= DEFAULT_VERSION) {
+      base = JSON.parse(saved);
+    }
+  } catch (e) {}
+  if (!base) {
+    base = DEFAULT.map(p => ({ ...p }));
+    try {
+      localStorage.setItem('portfolio_positions', JSON.stringify(base));
+      localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
+    } catch (e) {}
+  }
+  // Pas opgeslagen aangepaste aankoopprijzen toe
+  base.forEach(p => {
+    const st = userState[posId(p)];
+    if (st && st.cost != null) p.cost = st.cost;
+  });
+  return base;
+}
+function savePositions() {
+  try {
+    localStorage.setItem('portfolio_positions', JSON.stringify(positions));
+    localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
+  } catch (e) {}
+}
+
+let positions = loadPositions();
+
+// Winst-cyclus: elke +50% een trede. Trede 1,4,7.. = 10%, trede 2,5,8.. = 20%,
+// trede 3,6,9.. = 30% van de winst verkopen.
+function sellPctForStep(step) {
+  const mod = ((step - 1) % 3);
+  return mod === 0 ? 10 : (mod === 1 ? 20 : 30);
+}
+// Hoeveel treden zijn bereikt bij een bepaald winstpercentage (elke 50%)
+function stepsReached(plPct) {
+  if (plPct < 50) return 0;
+  return Math.floor(plPct / 50);
+}
+
+// Kerngetallen per positie, gebruikt voor sorteren en filteren
+function metrics(p, q) {
+  if (!q) return { plPct: -Infinity, drop: -Infinity, alert: false, openSell: false };
+  const isWatch = p.watch || p.cost == null;
+  const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
+  const drop = q.high52 ? ((q.high52 - q.price) / q.high52) * 100 : 0;
+  const alert = drop >= p.thresh;
+  // Openstaande verkoop? (winsttrede bereikt en nog niet/again te realiseren)
+  let openSell = false;
+  if (!isWatch) {
+    const st = userState[posId(p)] || {};
+    const sells = st.sells || [];
+    const reached = stepsReached(plPct);
+    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+    // heropend?
+    let heropend = false;
+    for (let step = 1; step <= maxDone; step++) {
+      const opStap = sells.filter(s => s.level === step);
+      const v = opStap.length ? opStap[opStap.length - 1] : null;
+      if (v && v.price != null && step <= reached && q.price <= v.price * 0.75) { heropend = true; break; }
+    }
+    openSell = heropend || (reached >= maxDone + 1);
+  }
+  // Afstand tot volgende winsttrede (voor 'dichtst bij verkoopsignaal').
+  // 0 = precies op een trede of eroverheen (verkoopsignaal actief).
+  let toSell = Infinity;
+  if (!isWatch && q) {
+    if (openSell) {
+      toSell = 0;
+    } else {
+      // volgende trede die nog niet is afgevinkt
+      const st = userState[posId(p)] || {};
+      const sells = st.sells || [];
+      const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+      const nextTargetPct = (maxDone + 1) * 50;
+      toSell = nextTargetPct - plPct;   // hoeveel % winst nog te gaan
+    }
+  }
+  return { plPct, drop, alert, openSell, toSell };
+}
+
+const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
+  style: 'currency', currency: cur || 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
+}).format(n);
+const pct = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+
+// De data komt uit data.json, dat GitHub Actions elke 15 min bijwerkt.
+// Geen CORS, geen proxy — het dashboard leest gewoon zijn eigen bestand.
+let dataCache = null;
+let dataUpdated = null;
+
+async function loadData() {
+  // cache-buster zodat de browser niet een oude versie vasthoudt
+  const r = await fetch('data.json?t=' + Date.now());
+  if (!r.ok) throw new Error('data.json niet gevonden');
+  const j = await r.json();
+  dataCache = j.quotes || {};
+  dataUpdated = j.updated || null;
+}
+
+function getQuote(ticker) {
+  const q = dataCache && dataCache[ticker.toUpperCase()];
+  if (!q || q.price == null) return null;
+  return {
+    price: q.price,
+    prevClose: q.prevClose,
+    currency: q.currency || 'USD',
+    name: q.name || ticker,
+    high52: q.high52,
+    low52: q.low52,
+    source: 'github'
+  };
+}
+
+function positionCard(p, q, err) {
+  const el = document.createElement('div');
+  el.className = 'position';
+  if (err || !q) {
+    el.innerHTML = `
+      <div class="p-name"><span class="p-ticker">${p.ticker}</span>
+        <span class="p-company err">Koers niet geladen — bronnen geblokkeerd</span></div>
+      <div style="grid-column: span 3; font-size:12px; color:var(--muted); line-height:1.5">
+        Nog geen data voor deze ticker. Staat hij in <code>tickers.txt</code>? Draai anders
+        de GitHub Action één keer handmatig (tab <strong>Actions</strong> → <strong>Run workflow</strong>)
+        en ververs daarna.
+      </div>
+      <div class="p-actions"><button class="remove" data-t="${p.ticker}">verwijder</button></div>`;
+    el.querySelector('.remove').onclick = () => removePosition(p.ticker);
+    return el;
+  }
+
+  const cur = p.cur === 'native' ? q.currency : p.cur;
+  const dayChg = q.prevClose ? ((q.price - q.prevClose) / q.prevClose) * 100 : 0;
+  const fromHigh = ((q.price - q.high52) / q.high52) * 100; // negatief = onder top
+  const dropFromHigh = -fromHigh;
+  const isWatch = p.watch || p.cost == null;
+  const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
+  const plAbs = isWatch ? 0 : (q.price - p.cost) * (p.qty || 1);
+  const alert = dropFromHigh >= p.thresh;
+  const rangePos = Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100));
+
+  if (alert) {
+    el.classList.add('alert');
+  } else if (!isWatch) {
+    const m = metrics(p, q);
+    if (m.openSell) el.classList.add('sell-alert');
+  }
+
+  const id = posId(p);
+  const st = userState[id] || {};
+  const sells = st.sells || [];
+
+  const resultBlock = isWatch
+    ? `<div class="p-block">
+         <div class="k">Op watchlist</div>
+         <div class="v" style="color:var(--muted)">volgen</div>
+         <div class="drop-tag" style="color:var(--muted)">geen positie</div>
+       </div>`
+    : `<div class="p-block">
+         <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
+         <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
+       </div>`;
+
+  // Winstniveau-blok (niet voor watchlist)
+  let profitBlock = '';
+  if (!isWatch) {
+    const reached = stepsReached(plPct);   // hoogste bereikte trede op basis van huidige winst
+
+    // Voor elke trede: is hij al gerealiseerd en nog "geldig"?
+    // Een verkoop op een trede vervalt (trede weer beschikbaar) zodra de koers
+    // 25% of meer onder de verkoopkoers van die verkoop is gezakt (optie B),
+    // MAAR alleen zolang je nog boven dat winstniveau zit.
+    const REOPEN_DROP = 0.25;
+    function laatsteVerkoop(step) {
+      const opStap = sells.filter(s => s.level === step);
+      return opStap.length ? opStap[opStap.length - 1] : null;
+    }
+    // Is een reeds afgevinkte trede vervallen (dus opnieuw te realiseren)?
+    function tredeVervallen(step) {
+      const v = laatsteVerkoop(step);
+      if (!v || v.price == null) return false;
+      if (step > reached) return false;           // je zit niet meer op dit winstniveau
+      return q.price <= v.price * (1 - REOPEN_DROP);
+    }
+
+    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+
+    // Zoek de laagste AFGEVINKTE trede die is vervallen (heropend)
+    let openStep = null;
+    for (let step = 1; step <= maxDone; step++) {
+      if (laatsteVerkoop(step) && tredeVervallen(step)) { openStep = step; break; }
+    }
+    // Geen heropende trede? Dan is de eerstvolgende trede maxDone+1,
+    // en die is realiseerbaar zodra hij bereikt is.
+    const isHeropend = openStep != null;
+    const nextStep = isHeropend ? openStep : (maxDone + 1);
+    const nextTargetPct = nextStep * 50;
+    const nextSellPct = sellPctForStep(nextStep);
+    const canRealise = isHeropend || (reached >= nextStep);
+
+    // Lijst van gerealiseerde verkopen
+    let sellsHtml = '';
+    if (sells.length) {
+      sellsHtml = '<div class="sells">' + sells
+        .map((s, i) => ({ s, i }))
+        .sort((a,b)=>a.s.level-b.s.level)
+        .map(({ s, i }) => {
+          const heropend = laatsteVerkoop(s.level) === s && tredeVervallen(s.level);
+          const cls = heropend ? 'sell-row reopened' : 'sell-row';
+          const mark = heropend ? '↻' : '✓';
+          return `<div class="${cls}">${mark} +${s.level*50}% → ${s.pct}% verkocht <span class="sell-date">${s.date}</span> <button class="undo-sell" data-id="${id}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
+        })
+        .join('') + '</div>';
+    }
+
+    const btnHtml = canRealise
+      ? `<button class="realise" data-id="${id}" data-step="${nextStep}" data-pct="${nextSellPct}">
+           ${isHeropend ? 'Opnieuw realiseren' : 'Realiseer'} +${nextTargetPct}% (verkoop ${nextSellPct}%)
+         </button>`
+      : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
+
+    profitBlock = `
+      <div class="profit-block">
+        <div class="k">Winst nemen</div>
+        ${sellsHtml}
+        ${btnHtml}
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="p-name">
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(p.ticker) || ''}"></span>${p.label || q.name}</span>
+      <span class="p-company">(${p.ticker})${(() => { const k = exchangeKeyOf(p.ticker); return k && EXCHANGES[k] ? ' · ' + EXCHANGES[k].name : ''; })()} <span class="src src-live">● data</span></span>
+    </div>
+    <div class="p-block">
+      <div class="k">Huidige koers</div>
+      <div class="v ${q.prevClose ? (dayChg >= 0 ? 'up' : 'down') : ''}">${fmt(q.price, cur)}</div>
+      ${q.prevClose ? `<div class="day-chg ${dayChg >= 0 ? 'up' : 'down'}">${dayChg >= 0 ? '+' : ''}${dayChg.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% vandaag</div>` : ''}
+    </div>
+    ${resultBlock}
+    <div class="bar-wrap">
+      <div class="bar-labels"><span>${fmt(q.low52, cur)}</span><span>52-wk range</span><span>${fmt(q.high52, cur)}</span></div>
+      <div class="bar">
+        <div class="bar-fill" style="width:100%"></div>
+        <div class="bar-marker" style="left:${rangePos}%"></div>
+      </div>
+      <div class="drop-tag" style="color:${alert?'var(--down)':'var(--muted)'}">
+        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${p.thresh}%
+      </div>
+    </div>
+    ${profitBlock}
+    <div class="p-actions">
+      ${(() => {
+        const m = metrics(p, q);
+        if (m.alert) return '<span class="badge buy">KOOPSIGNAAL</span>';
+        if (!isWatch && m.openSell) return '<span class="badge sell">VERKOOPSIGNAAL</span>';
+        return '<span class="badge hold">geen actie</span>';
+      })()}
+      ${isWatch ? '' : `<button class="edit-cost" data-id="${id}">Aankoopprijs aanpassen</button>`}
+      <button class="remove" data-id="${id}">verwijder</button>
+    </div>`;
+
+  // Knop: verwijderen
+  el.querySelector('.remove').onclick = () => removePosition(id);
+
+  // Knop: aankoopprijs aanpassen
+  const editBtn = el.querySelector('.edit-cost');
+  if (editBtn) editBtn.onclick = () => {
+    const huidige = p.cost;
+    const invoer = prompt(
+      `Nieuwe gemiddelde aankoopprijs voor ${p.label || p.ticker} (in ${cur}):\n` +
+      `Huidig: ${huidige}`, huidige);
+    if (invoer == null) return;
+    const nieuw = parseFloat(invoer.replace(',', '.'));
+    if (!isFinite(nieuw) || nieuw <= 0) { alert('Ongeldig bedrag'); return; }
+    userState[id] = userState[id] || {};
+    userState[id].cost = nieuw;
+    p.cost = nieuw;
+    saveState(); savePositions(); render();
+  };
+
+  // Knop: verkoop realiseren
+  const realBtn = el.querySelector('.realise');
+  if (realBtn) realBtn.onclick = () => {
+    const step = parseInt(realBtn.dataset.step);
+    const sellPct = parseInt(realBtn.dataset.pct);
+    const today = new Date().toLocaleDateString('nl-NL');
+    userState[id] = userState[id] || {};
+    userState[id].sells = userState[id].sells || [];
+    // Sla de koers op het verkoopmoment op, zodat we een 25% koersdaling
+    // kunnen detecteren die dit niveau opnieuw vrijgeeft (optie B).
+    userState[id].sells.push({ level: step, pct: sellPct, date: today, price: q.price });
+    saveState(); render();
+  };
+
+  // Knoppen: verkoopregistratie verwijderen
+  el.querySelectorAll('.undo-sell').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      if (userState[id] && userState[id].sells) {
+        userState[id].sells.splice(idx, 1);
+        saveState(); render();
+      }
+    };
+  });
+
+  return el;
+}
+
+let firstRender = true;
+async function render() {
+  const cards = document.getElementById('cards');
+  const summary = document.getElementById('summary');
+  // Bewaar scrollpositie zodat de pagina niet terugspringt bij verversen
+  const scrollY = window.scrollY;
+  if (firstRender) cards.innerHTML = '<div class="state">Koersen laden…</div>';
+
+  let loadError = false;
+  try {
+    await loadData();
+  } catch (e) {
+    loadError = true;
+  }
+
+  const results = positions.map(p => {
+    const q = getQuote(p.ticker);
+    return { p, q, err: !q };
+  });
+
+  cards.innerHTML = '';
+  let totalValue = 0, totalCost = 0, alerts = 0, loaded = 0;
+
+  // Tel eerst alle totalen/signalen over ALLE posities (los van filter)
+  results.forEach(({ p, q }) => {
+    if (q && !p.watch) {
+      loaded++;
+      totalValue += q.price * (p.qty || 1);
+      totalCost += p.cost * (p.qty || 1);
+      const m = metrics(p, q);
+      if (m.alert) alerts++;
+    } else if (q && p.watch) {
+      loaded++;
+    }
+  });
+
+  // Groepeer per sectie (voor tellers)
+  const bySection = {};
+  results.forEach(r => {
+    const sec = r.p.section || 'Overig';
+    (bySection[sec] = bySection[sec] || []).push(r);
+  });
+
+  // Huidige sorteer- en filterkeuzes
+  const sortBy = document.getElementById('sortSel').value;
+  const catBy = document.getElementById('catSel').value;
+  const statusBy = document.getElementById('statusSel').value;
+
+  // Filter toepassen: categorie EN status samen
+  function passesFilter(r) {
+    if (catBy !== 'all' && (r.p.section || 'Overig') !== catBy) return false;
+    if (statusBy !== 'all') {
+      const m = metrics(r.p, r.q);
+      if (statusBy === 'signals' && !m.alert) return false;
+      if (statusBy === 'open' && !m.openSell) return false;
+    }
+    return true;
+  }
+  const filtered = results.filter(passesFilter);
+
+  // Naam-helper
+  const naam = r => (r.p.label || (r.q && r.q.name) || r.p.ticker).toLowerCase();
+
+  // Toon in secties (sorteren op categorie én geen status-filter) of platte lijst
+  const useSections = (sortBy === 'section') && (statusBy === 'all');
+
+  function renderCard(r) {
+    cards.appendChild(positionCard(r.p, r.q, r.err));
+  }
+
+  if (useSections) {
+    const sections = [...SECTION_ORDER.filter(s => bySection[s]),
+                      ...Object.keys(bySection).filter(s => !SECTION_ORDER.includes(s))];
+    sections.forEach(sec => {
+      const inSec = filtered.filter(r => (r.p.section || 'Overig') === sec);
+      if (!inSec.length) return;
+      const header = document.createElement('div');
+      header.className = 'section-header';
+      header.id = 'sec-' + sec.replace(/[^a-zA-Z]/g, '');
+      header.textContent = sec;
+      cards.appendChild(header);
+      inSec.slice().sort((a, b) => naam(a).localeCompare(naam(b), 'nl')).forEach(renderCard);
+    });
+  } else {
+    // Platte, gesorteerde lijst
+    const sorted = filtered.slice().sort((a, b) => {
+      if (sortBy === 'name') return naam(a).localeCompare(naam(b), 'nl');
+      if (sortBy === 'result') return metrics(b.p, b.q).plPct - metrics(a.p, a.q).plPct;
+      if (sortBy === 'signal') return metrics(b.p, b.q).drop - metrics(a.p, a.q).drop;
+      if (sortBy === 'sellsignal') return metrics(a.p, a.q).toSell - metrics(b.p, b.q).toSell;
+      return naam(a).localeCompare(naam(b), 'nl');
+    });
+    sorted.forEach(renderCard);
+  }
+
+  // Teller: hoeveel getoond
+  const tbCount = document.getElementById('tbCount');
+  if (tbCount) {
+    tbCount.textContent = filtered.length === results.length
+      ? `${results.length} posities`
+      : `${filtered.length} van ${results.length} getoond`;
+  }
+
+  const totalPl = totalValue - totalCost;
+  const totalPlPct = totalCost ? (totalPl / totalCost) * 100 : 0;
+
+  const cnt = s => (bySection[s] ? bySection[s].length : 0);
+  summary.innerHTML = `
+    <div class="stat clickable" data-cat="Watchlist"><div class="label">Watchlist</div><div class="value">${cnt('Watchlist')}</div><div class="sub" style="color:var(--muted)">gevolgd</div></div>
+    <div class="stat clickable" data-cat="Stocks"><div class="label">Stocks</div><div class="value">${cnt('Stocks')}</div><div class="sub" style="color:var(--muted)">aandelen</div></div>
+    <div class="stat clickable" data-cat="ETF's"><div class="label">ETF's</div><div class="value">${cnt("ETF's")}</div><div class="sub" style="color:var(--muted)">fondsen</div></div>
+    <div class="stat clickable" data-cat="Gold & Silver"><div class="label">Edelmetalen</div><div class="value">${cnt('Gold & Silver')}</div><div class="sub" style="color:var(--muted)">goud &amp; zilver</div></div>`;
+
+  const catSel = document.getElementById('catSel');
+  summary.querySelectorAll('.stat.clickable').forEach(el => {
+    const cat = el.dataset.cat;
+    if (catSel.value === cat) el.classList.add('active');
+    el.onclick = () => {
+      // Klik op actieve categorie = terug naar alle; anders filter op die categorie
+      catSel.value = (catSel.value === cat) ? 'all' : cat;
+      render();
+    };
+  });
+
+  let base;
+  if (dataUpdated) {
+    const d = new Date(dataUpdated);
+    base = 'data van ' + d.toLocaleString('nl-NL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  } else {
+    base = 'bijgewerkt ' + new Date().toLocaleTimeString('nl-NL');
+  }
+  const upd = document.getElementById('updated');
+  upd.dataset.base = base;
+  upd.textContent = base;
+
+  // Herstel de scrollpositie (behalve bij de allereerste render)
+  if (!firstRender) window.scrollTo(0, scrollY);
+  firstRender = false;
+  renderMarkets();
+}
+
+function removePosition(id) {
+  positions = positions.filter(p => posId(p) !== id);
+  savePositions();
+  render();
+}
+
+// Dialog
+const dlg = document.getElementById('dlg');
+document.getElementById('add').onclick = () => dlg.showModal();
+document.getElementById('f-cancel').onclick = () => dlg.close();
+document.getElementById('f-save').onclick = () => {
+  const t = document.getElementById('f-ticker').value.trim().toUpperCase();
+  if (!t) return;
+  const section = document.getElementById('f-section').value;
+  const isWatch = section === 'Watchlist';
+  const costVal = parseFloat(document.getElementById('f-cost').value);
+  positions.push({
+    ticker: t,
+    section: section,
+    watch: isWatch,
+    cost: isWatch ? null : (costVal || 0),
+    qty: parseFloat(document.getElementById('f-qty').value) || 1,
+    thresh: parseInt(document.getElementById('f-thresh').value),
+    cur: document.getElementById('f-cur').value
+  });
+  ['f-ticker','f-cost','f-qty'].forEach(id => document.getElementById(id).value = '');
+  dlg.close();
+  savePositions();
+  render();
+};
+
+// Automatisch verversen: de pagina haalt elke 5 minuten data.json opnieuw op.
+// GitHub werkt data.json elke 15 min bij, dus nieuwe koersen komen vanzelf binnen.
+// ---- Beursstatus: open/dicht per handelsplaats in je portefeuille ----
+const EXCHANGES = {
+  XETRA:  { name: 'Xetra',              city: 'Frankfurt',  tz: 'Europe/Berlin',    open: [9, 0],  close: [17, 30] },
+  DUS:    { name: 'Börse Düsseldorf',   city: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
+  AMS:    { name: 'Euronext Amsterdam', city: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
+  MIL:    { name: 'Borsa Italiana',     city: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
+  NYSE:   { name: 'NYSE',               city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
+  NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
+  US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
+};
+const EXCHANGE_ORDER = ['XETRA', 'DUS', 'AMS', 'MIL', 'NYSE', 'NASDAQ', 'US'];
+
+// Yahoo-beurscodes -> onze sleutels
+const YAHOO_EXCHANGE = {
+  GER: 'XETRA', DUS: 'DUS', AMS: 'AMS', MIL: 'MIL',
+  NYQ: 'NYSE', ASE: 'NYSE', PCX: 'NYSE',
+  NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ'
+};
+// Terugval op het achtervoegsel van de ticker (als de data nog geen beurscode heeft)
+const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL' };
+
+function exchangeKeyOf(ticker) {
+  const q = dataCache && dataCache[ticker.toUpperCase()];
+  if (q && q.exchange && YAHOO_EXCHANGE[q.exchange]) return YAHOO_EXCHANGE[q.exchange];
+  const m = ticker.match(/\.([A-Z]+)$/);
+  if (m) return SUFFIX_EXCHANGE[m[1]] || null;
+  return 'US';
+}
+
+// Datum/tijd-onderdelen van een moment in een bepaalde tijdzone
+function tzParts(date, tz) {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const o = {};
+  f.formatToParts(date).forEach(p => { o[p.type] = p.value; });
+  return { y: +o.year, m: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute };
+}
+// Het echte moment (Date) van een lokale beurstijd y-m-d h:mi in tijdzone tz
+function tzDate(tz, y, m, d, h, mi) {
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  const p = tzParts(new Date(guess), tz);
+  const offset = Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi) - guess;
+  return new Date(guess - offset);
+}
+
+function marketStatus(ex, now) {
+  const p = tzParts(now, ex.tz);
+  for (let k = 0; k < 8; k++) {
+    const day = new Date(Date.UTC(p.y, p.m - 1, p.d + k));
+    const wd = day.getUTCDay();
+    if (wd === 0 || wd === 6) continue;            // weekend
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, d = day.getUTCDate();
+    const openAt = tzDate(ex.tz, y, m, d, ex.open[0], ex.open[1]);
+    const closeAt = tzDate(ex.tz, y, m, d, ex.close[0], ex.close[1]);
+    if (now >= openAt && now < closeAt) return { open: true, at: closeAt };
+    if (now < openAt) return { open: false, at: openAt };
+  }
+  return { open: false, at: null };
+}
+
+function fmtMoment(date, now) {
+  const tijd = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  const zelfdeDag = date.toDateString() === now.toDateString();
+  if (zelfdeDag) return tijd;
+  const morgen = new Date(now); morgen.setDate(now.getDate() + 1);
+  if (date.toDateString() === morgen.toDateString()) return 'morgen ' + tijd;
+  return date.toLocaleDateString('nl-NL', { weekday: 'short' }) + ' ' + tijd;
+}
+
+function renderMarkets() {
+  const box = document.getElementById('markets');
+  if (!box) return;
+  const counts = {};
+  positions.forEach(p => {
+    const key = exchangeKeyOf(p.ticker);
+    if (key && EXCHANGES[key]) counts[key] = (counts[key] || 0) + 1;
+  });
+  const now = new Date();
+  const status = {};
+  Object.keys(EXCHANGES).forEach(k => { status[k] = marketStatus(EXCHANGES[k], now); });
+
+  // Handelstijden van vandaag in lokale tijd, voor weergave én sortering
+  function lokaleTijden(ex) {
+    const p = tzParts(now, ex.tz);
+    const o = tzDate(ex.tz, p.y, p.m, p.d, ex.open[0], ex.open[1]);
+    const c = tzDate(ex.tz, p.y, p.m, p.d, ex.close[0], ex.close[1]);
+    const hm = d => d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    return {
+      openMin: o.getHours() * 60 + o.getMinutes(),
+      closeMin: c.getHours() * 60 + c.getMinutes(),
+      label: hm(o) + '–' + hm(c)
+    };
+  }
+
+  const keys = Object.keys(counts).filter(k => EXCHANGES[k]);
+  const tijden = {};
+  keys.forEach(k => { tijden[k] = lokaleTijden(EXCHANGES[k]); });
+  keys.sort((a, b) =>
+    tijden[a].openMin - tijden[b].openMin ||
+    tijden[a].closeMin - tijden[b].closeMin ||
+    EXCHANGES[a].name.localeCompare(EXCHANGES[b].name));
+
+  box.innerHTML = keys.map(key => {
+    const ex = EXCHANGES[key];
+    const st = status[key];
+    const tekst = st.open
+      ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
+      : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
+    return `<div class="mkt ${st.open ? 'open' : 'closed'}">
+      <div class="mkt-top">
+        <span class="mkt-dot"></span>
+        <span class="mkt-name">${ex.name}</span>
+      </div>
+      <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
+      <div class="mkt-state">${tekst}</div>
+      <div class="mkt-foot">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</div>
+    </div>`;
+  }).join('');
+
+  // Bolletjes op de kaarten bijwerken
+  document.querySelectorAll('.exch-dot').forEach(el => {
+    const key = el.dataset.exch;
+    const ex = EXCHANGES[key];
+    if (!ex) { el.className = 'exch-dot'; return; }
+    const st = status[key];
+    el.className = 'exch-dot ' + (st.open ? 'open' : 'closed');
+    el.title = `${ex.name}: ${st.open ? 'open, sluit ' : 'gesloten, opent '}${st.at ? fmtMoment(st.at, now) : ''}`;
+  });
+}
+
+renderMarkets();
+setInterval(renderMarkets, 60 * 1000);
+
+setInterval(render, 5 * 60 * 1000);
+
+// Ook verversen zodra je terugkeert naar het tabblad
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) render();
+});
+
+// Sorteren en filteren: opnieuw renderen bij wijziging
+document.getElementById('sortSel').onchange = render;
+document.getElementById('catSel').onchange = render;
+document.getElementById('statusSel').onchange = render;
+
+// Toon de synchronisatiestatus
+function updateSyncBadge() {
+  const btn = document.getElementById('syncBtn');
+  if (!btn) return;
+  const map = {
+    synced:  { cls: 'sync-btn synced',  txt: '✓ Gesynct',  title: 'Gesynchroniseerd met GitHub — klik om te wijzigen' },
+    local:   { cls: 'sync-btn',         txt: '⟳ Sync uit',  title: 'Synchronisatie met GitHub instellen' },
+    error:   { cls: 'sync-btn error',   txt: '⚠ Sync-fout', title: 'Synchronisatie mislukt — klik om opnieuw te proberen' },
+    syncing: { cls: 'sync-btn syncing', txt: '⟳ Bezig…',   title: 'Bezig met synchroniseren' }
+  };
+  const s = map[syncStatus] || map.local;
+  btn.className = s.cls;
+  btn.textContent = s.txt;
+  btn.title = s.title;
+}
+
+// Token instellen / wijzigen / verwijderen
+document.getElementById('syncBtn').onclick = async () => {
+  const huidige = getToken();
+  if (huidige) {
+    const keuze = confirm('Synchronisatie is actief op dit apparaat.\n\nOK = token vervangen\nAnnuleren = token verwijderen (terug naar alleen dit apparaat)');
+    if (keuze) {
+      const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...):', '');
+      if (nieuw) { setToken(nieuw.trim()); await saveStateToGitHub(); alert('Token opgeslagen en gesynchroniseerd.'); }
+    } else {
+      setToken('');
+      syncStatus = 'local'; updateSyncBadge();
+      alert('Token verwijderd van dit apparaat. Je gegevens blijven lokaal bewaard.');
+    }
+    return;
+  }
+  const t = prompt('Plak je GitHub-token (github_pat_...) om je gegevens tussen apparaten te synchroniseren.\n\nDe token wordt alleen op dit apparaat bewaard, niet in de code.', '');
+  if (t) {
+    setToken(t.trim());
+    syncStatus = 'syncing'; updateSyncBadge();
+    // Bij het aanzetten: haal eerst remote op, en als die er niet is, push de lokale
+    const remote = await loadStateFromGitHub();
+    if (remote && typeof remote === 'object') {
+      userState = remote; saveStateLocal();
+      positions.forEach(p => { const st = userState[posId(p)]; if (st && st.cost != null) p.cost = st.cost; });
+      render();
+    }
+    const ok = await saveStateToGitHub();
+    alert(ok ? 'Synchronisatie ingesteld. Je gegevens staan nu ook op GitHub.' : 'Kon niet naar GitHub schrijven — controleer de token.');
+  }
+};
+
+// Reset alle filters naar standaard
+document.getElementById('resetFilters').onclick = () => {
+  document.getElementById('sortSel').value = 'section';
+  document.getElementById('catSel').value = 'all';
+  document.getElementById('statusSel').value = 'all';
+  render();
+};
+
+// Bij opstart: probeer de state van GitHub te halen (bron van waarheid bij
+// meerdere apparaten). Lukt dat, gebruik die; anders val terug op lokaal.
+async function initSync() {
+  const remote = await loadStateFromGitHub();
+  if (remote && typeof remote === 'object') {
+    userState = remote;
+    saveStateLocal();
+    positions.forEach(p => {
+      const st = userState[posId(p)];
+      if (st && st.cost != null) p.cost = st.cost;
+    });
+    syncStatus = getToken() ? 'synced' : 'local';
+  }
+  updateSyncBadge();
+  render();
+}
+
+initSync();
+</script>
+</body>
+</html>

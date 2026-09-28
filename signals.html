@@ -261,6 +261,39 @@
   .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
   .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
+  /* ---- advies sinds / opgevolgd ---- */
+  .since { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; white-space: nowrap; }
+  .badge.followed { background: rgba(79,143,240,.15); color: var(--accent); border: 1px solid rgba(79,143,240,.45); }
+  .toggle.follow { color: var(--accent); border-color: rgba(79,143,240,.45); }
+  .entry { font-size: 11px; font-weight: 700; letter-spacing: .3px; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+  .entry.in { color: var(--up); border: 1px dashed rgba(62,207,142,.6); }
+  .entry.in.down { color: var(--down); border-color: rgba(255,93,108,.6); }
+  .entry.out { color: var(--warn); border: 1px solid rgba(245,181,68,.5); background: rgba(245,181,68,.08); }
+  .position.late { border-color: rgba(245,181,68,.45) !important; box-shadow: none !important; }
+  .position.late::before { background: var(--warn) !important; }
+
+  .trade {
+    background: var(--panel); border: 1px solid rgba(79,143,240,.45); border-radius: 16px; padding: 18px 20px;
+    display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,2fr) auto;
+    gap: 18px; align-items: center; position: relative; overflow: hidden;
+  }
+  .trade::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+  .trade.go { border-color: rgba(62,207,142,.6); box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4); }
+  .trade.go::before { background: var(--up); }
+  .trade.stop { border-color: rgba(240,89,95,.6); box-shadow: 0 0 0 1px rgba(240,89,95,.25), 0 8px 30px -12px rgba(240,89,95,.4); }
+  .trade.stop::before { background: var(--down); }
+  .t-action { font-size: 13px; line-height: 1.5; }
+  .t-action b { font-weight: 700; }
+  .t-action .sub { display: block; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 3px; }
+  .t-warn { display: block; font-size: 11px; color: var(--warn); margin-top: 4px; }
+  .t-btns { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  .t-range { height: 6px; background: var(--panel-2); border-radius: 6px; position: relative; margin-top: 8px; }
+  .t-range .dot { position: absolute; top: -4px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .t-range-l { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 5px; }
+
+  #pinned:not(:empty) { margin-bottom: 26px; }
+  .sync-note { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
   @media (max-width: 1040px) {
     .position { grid-template-columns: 1fr 1fr; }
     .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
@@ -268,6 +301,8 @@
     .profit-block { grid-column: span 2; }
   }
   @media (max-width: 860px) {
+    .trade { grid-template-columns: 1fr 1fr; }
+    .trade .t-action, .trade .t-btns { grid-column: span 2; }
     .summary { grid-template-columns: repeat(2, 1fr); }
     .stat .label { min-height: 2.8em; }
     .position { grid-template-columns: 1fr 1fr; }
@@ -288,6 +323,8 @@
     .position { grid-template-columns: 1fr 1fr; padding: 16px; gap: 14px; }
     .p-name { grid-column: span 2; }
     .p-ticker { font-size: 22px; }
+    .trade { padding: 16px; gap: 14px; }
+    .trade .t-name { grid-column: span 2; }
   }
 </style>
 </head>
@@ -298,6 +335,7 @@
       <h1><span class="pulse"></span>Patroonradar</h1>
     </div>
     <div class="controls">
+      <span class="sync-note" id="syncNote"></span>
       <span class="updated" id="updated">laden…</span>
     </div>
   </header>
@@ -339,6 +377,7 @@
     <span class="tb-count" id="tbCount"></span>
   </div>
 
+  <div class="cards" id="pinned"></div>
   <div class="cards" id="cards"></div>
 
 </div>
@@ -387,12 +426,14 @@ function prep(raw) {
     return { ...it, flag, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: false };
   };
   const keep = it => !SKIP_CATEGORIES.includes(it.category);
-  const items = raw.items.map(one).filter(keep);
+  const all = raw.items.map(one);
+  const items = all.filter(keep);
+  const skipped = new Set(all.filter(x => !keep(x)).map(x => x.symbol));
   // trefkans opnieuw optellen zonder de weggelaten posities
   const leeg = () => ({ n: 0, hits: 0, base_n: 0, base_hits: 0, plan_n: 0, wins: 0, losses: 0, ret_sum: 0 });
   const stats = { down: leeg(), up: leeg() };
   items.forEach(it => ['down', 'up'].forEach(d => Object.keys(stats[d]).forEach(k => { stats[d][k] += (it.backtest?.[d]?.[k] || 0); })));
-  return { ...raw, stats, items, errors: (raw.errors || []).map(one).filter(keep) };
+  return { ...raw, stats, items, skipped, history: raw.history || [], errors: (raw.errors || []).map(one).filter(keep) };
 }
 
 async function load() {
@@ -474,6 +515,18 @@ function card(it) {
         : `<div class="plan-row"><b>${lbl}</b><span>${fmt(prijs, cur)}</span><span class="pp">${sub}</span></div>`).join('')
     : `<div class="next-target">Geen plan: verwachte beweging kleiner dan ${MOVE_MIN}%</div>`;
 
+  const ei = entryInfo(it), ep = ei && ei.ep;
+  if (ei && ei.kind === 'out') el.classList.add('late');
+  const since = ep ? `<span class="since" title="Advies voor het eerst getoond">${ep.bootstrap ? 'al vóór ' + dag(ep.start) : 'sinds ' + dagTijd(ep.start)}</span>` : '';
+  const entry = !ei ? ''
+    : ei.kind === 'in'
+      ? `<span class="entry in ${ei.up ? '' : 'down'}" title="Tot deze koers blijft er minstens ${MOVE_MIN}% over tot het doel van het advies">✓ ${ei.up ? 'INSTAPPEN tot' : 'VERKOPEN boven'} ${fmt(ei.grens, cur)}</span>`
+      : `<span class="entry out" title="Het advies is verlopen voor nieuwe instappers; wie al instapte volgt het plan">✕ ${ei.up ? 'NIET MEER INSTAPPEN' : 'NIET MEER VERKOPEN'}</span>
+         <span class="since">${ei.reason}</span>`;
+  const tr = tradeFor(it.symbol);
+  const followBtn = tr ? `<span class="badge followed" title="Je hebt dit advies opgevolgd: zie bovenaan">OPGEVOLGD</span>`
+    : sig && ei && ei.kind === 'in' ? `<button class="toggle follow" data-follow="${esc(it.symbol)}" title="Heb je dit advies uitgevoerd? Dan blijft het bovenaan staan">✓ Opgevolgd</button>` : '';
+
   const badge = !sig ? `<span class="badge hold">geen actie</span>`
     : d === 'down' ? `<span class="badge down">VERKOOPSIGNAAL</span>` : `<span class="badge up">KOOPSIGNAAL</span>`;
 
@@ -507,6 +560,9 @@ function card(it) {
     <div class="p-actions">
       ${isNew(it) ? '<span class="badge new" title="Dit signaal is er sinds de vorige handelsdag">NIEUW SIGNAAL</span>' : ''}
       ${badge}
+      ${entry}
+      ${since}
+      ${followBtn}
       <button class="toggle" data-sym="${esc(it.symbol)}">${open ? 'Minder' : 'Details'}</button>
     </div>
     ${open ? detail(it) : ''}`;
@@ -736,8 +792,203 @@ function render() {
   document.getElementById('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   renderMarkets();
   renderWorld();
+  renderPinned();
   window.scrollTo(0, scrollY);
 }
+
+
+// ---- Datums ----
+function toDate(iso) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+  return new Date(iso);
+}
+const dag = iso => iso ? toDate(iso).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }) : '–';
+const dagTijd = iso => iso ? dag(iso) + ' ' + toDate(iso).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '–';
+const numIn = n => n == null ? '' : n.toFixed(2).replace('.', ',');
+function parsePrice(str) {
+  if (str == null) return null;
+  const v = parseFloat(String(str).replace(/[€\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+  return isFinite(v) && v > 0 ? v : null;
+}
+
+// ---- Geschiedenis van adviezen (uit signals.json, bijgehouden door de workflow) ----
+const itemOf = sym => data && data.items.find(i => i.symbol === sym);
+const activeEpisode = (sym, dir) => (data?.history || []).find(h => h.symbol === sym && !h.end && (!dir || h.dir === dir));
+const episodeById = id => (data?.history || []).find(h => h.id === id);
+const grensOf = (dir, target) => dir === 'up' ? target / (1 + MOVE_MIN / 100) : target / (1 - MOVE_MIN / 100);
+// Instappen of niet: op basis van het advies zoals het gegeven is (vast doel), met de koers van nu.
+function entryInfo(it) {
+  const ep = activeEpisode(it.symbol);
+  if (!ep || (it.flag && ep.dir !== it.direction)) {
+    return it.flag && it.plan ? { kind: 'in', up: it.direction === 'up', grens: grensOf(it.direction, it.plan.target), ep: null } : null;
+  }
+  const up = ep.dir === 'up', grens = ep.instap_grens ?? grensOf(ep.dir, ep.plan.target);
+  const base = { up, grens, ep };
+  if (!it.flag) return { ...base, kind: 'out', reason: 'signaal vervallen' };
+  if (up ? it.price > grens : it.price < grens) {
+    // minder dan 5% over tot het doel: dit advies vervalt; de radar ziet nog ≥5%, dus er start een nieuw advies
+    return { kind: 'in', up: it.direction === 'up', grens: grensOf(it.direction, it.plan.target), ep: null };
+  }
+  return { ...base, kind: 'in' };
+}
+
+// ---- Opgevolgde adviezen: lokaal bewaard én in radar.json op GitHub (zelfde token als Sync bij Investeringen) ----
+const GH_OWNER = 'Maurits226', GH_REPO = 'Investeringen', GH_BRANCH = 'main', GH_TRADES_FILE = 'radar.json';
+const TRADES_KEY = 'radar_trades';
+let trades = (() => { try { const t = JSON.parse(localStorage.getItem(TRADES_KEY) || '[]'); return Array.isArray(t) ? t : []; } catch (e) { return []; } })();
+let tradesSha = null, syncState = '';
+const saveTradesLocal = () => { try { localStorage.setItem(TRADES_KEY, JSON.stringify(trades)); } catch (e) {} };
+const ghToken = () => { try { return localStorage.getItem('gh_token') || ''; } catch (e) { return ''; } };
+const openTrades = () => trades.filter(t => !t.deleted && t.status === 'open');
+const tradeFor = sym => openTrades().find(t => t.symbol === sym);
+
+function mergeTrades(a, b) {
+  const m = {};
+  [...a, ...b].forEach(t => { if (t && t.id && (!m[t.id] || (t.updated || '') > (m[t.id].updated || ''))) m[t.id] = t; });
+  return Object.values(m).sort((x, y) => x.id.localeCompare(y.id));
+}
+async function fetchRemoteTrades() {
+  const headers = { Accept: 'application/vnd.github+json' };
+  if (ghToken()) headers.Authorization = 'Bearer ' + ghToken();
+  const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_TRADES_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`, { headers, cache: 'no-store' });
+  if (r.status === 404) { tradesSha = null; return []; }
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  tradesSha = j.sha;
+  const bin = atob(j.content.replace(/\n/g, ''));
+  const parsed = JSON.parse(new TextDecoder('utf-8').decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+  return Array.isArray(parsed.trades) ? parsed.trades : [];
+}
+async function pushTrades() {
+  const bytes = new TextEncoder().encode(JSON.stringify({ trades }, null, 2));
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  const body = { message: 'Patroonradar: opgevolgde adviezen bijgewerkt', content: btoa(bin), branch: GH_BRANCH };
+  if (tradesSha) body.sha = tradesSha;
+  const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_TRADES_FILE}`, {
+    method: 'PUT', body: JSON.stringify(body),
+    headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + ghToken(), 'Content-Type': 'application/json' }
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  tradesSha = (await r.json()).content.sha;
+}
+let syncBusy = false;
+async function syncTrades() {
+  if (DEMO || syncBusy) return;
+  syncBusy = true;
+  try {
+    for (let poging = 0; poging < 2; poging++) {
+      const remote = await fetchRemoteTrades();
+      const merged = mergeTrades(remote, trades);
+      const changed = JSON.stringify(merged) !== JSON.stringify(mergeTrades(remote, []));
+      trades = merged; saveTradesLocal();
+      if (!changed || !ghToken()) break;
+      try { await pushTrades(); break; } catch (e) { if (poging) throw e; }   // tegelijk gewijzigd op ander apparaat: opnieuw
+    }
+    syncState = ghToken() ? 'ok' : 'local';
+  } catch (e) { syncState = 'error'; }
+  syncBusy = false;
+  showSync(); render();
+}
+function showSync() {
+  const el = document.getElementById('syncNote');
+  const n = trades.some(t => !t.deleted);
+  el.textContent = syncState === 'error' ? '☁ sync mislukt' : syncState === 'ok' && n ? '☁ gesynchroniseerd' : syncState === 'local' && n ? '☁ alleen op dit apparaat' : '';
+  el.title = syncState === 'local' ? 'Stel Sync in op het tabblad Investeringen om opgevolgde adviezen op al je apparaten te zien' : '';
+  el.style.color = syncState === 'error' ? 'var(--warn)' : '';
+}
+function touch(t) { t.updated = new Date().toISOString(); saveTradesLocal(); render(); syncTrades(); }
+
+function followAdvice(sym) {
+  const it = itemOf(sym);
+  if (!it || !it.flag || !it.plan) return;
+  const name = it.label || it.name || sym;
+  const ans = prompt(`Tegen welke koers heb je ${name} ${it.direction === 'up' ? 'gekocht' : 'verkocht'}?`, numIn(it.price));
+  if (ans === null) return;
+  const px = parsePrice(ans);
+  if (!px) { alert('Dat is geen geldige koers.'); return; }
+  const ep = activeEpisode(sym, it.direction), now = new Date().toISOString();
+  const t = { id: sym + '|' + now, symbol: sym, name, dir: it.direction, date: now, price: px, currency: it.currency || 'EUR',
+    plan: { target: it.plan.target, next: it.plan.next, stop: it.plan.stop }, episode: ep ? ep.id : null, status: 'open' };
+  trades.push(t); touch(t);
+}
+function closeTrade(id) {
+  const t = trades.find(x => x.id === id); if (!t) return;
+  const it = itemOf(t.symbol);
+  const ans = prompt(`Tegen welke koers heb je ${t.name} ${t.dir === 'up' ? 'verkocht' : 'teruggekocht'}?`, numIn(it ? it.price : t.price));
+  if (ans === null) return;
+  const px = parsePrice(ans);
+  if (!px) { alert('Dat is geen geldige koers.'); return; }
+  Object.assign(t, { status: 'closed', close_price: px, closed_at: new Date().toISOString() }); touch(t);
+}
+function deleteTrade(id) {
+  const t = trades.find(x => x.id === id); if (!t) return;
+  if (!confirm(`${t.name} verwijderen uit je opgevolgde adviezen? Gebruik "Afronden" als je de positie hebt gesloten.`)) return;
+  t.deleted = true; touch(t);
+}
+const tradeResult = (t, px) => t.dir === 'up' ? (px / t.price - 1) * 100 : (1 - px / t.price) * 100;
+
+function tradeState(t) {
+  const it = itemOf(t.symbol), px = it ? it.price : null, up = t.dir === 'up', p = t.plan;
+  const ep = t.episode ? episodeById(t.episode) : null;
+  const naTrade = ep && ep.outcome_at && ep.outcome_at >= t.date.slice(0, 10);
+  const doel = (px != null && (up ? px >= p.target : px <= p.target)) || (naTrade && ep.outcome === 'doel');
+  const stop = !doel && ((px != null && (up ? px <= p.stop : px >= p.stop)) || (naTrade && ep.outcome === 'stop'));
+  return { it, px, up, p, ep, naTrade, state: doel ? 'go' : stop ? 'stop' : 'wait' };
+}
+
+function tradeCard(t) {
+  const { it, px, up, p, ep, naTrade, state } = tradeState(t), cur = t.currency;
+  const res = px != null ? tradeResult(t, px) : null;
+  const geraakt = naTrade && ep.outcome !== 'open' ? ` · geraakt op ${dag(ep.outcome_at)}` : '';
+  const action = state === 'go'
+    ? `<b class="c-up">Doel bereikt: ${up ? 'verkopen' : 'terugkopen'}</b><span class="sub">doel ${fmt(p.target, cur)}${geraakt} · daarna ${up ? 'terugkopen' : 'weer verkopen'} bij ${fmt(p.next, cur)}</span>`
+    : state === 'stop'
+      ? `<b class="c-down">Stop geraakt: ${up ? 'verkopen' : 'terugkopen'}</b><span class="sub">koers ${up ? 'onder' : 'boven'} ${fmt(p.stop, cur)}${geraakt} · ${up ? 'verlies beperken' : 'daling zette niet door'}</span>`
+      : `<b>${up ? 'Vasthouden' : 'Wachten met terugkopen'}</b><span class="sub">${up ? 'verkopen' : 'terugkopen'} bij ${fmt(p.target, cur)} · stop ${fmt(p.stop, cur)}</span>`;
+  const warn = it && it.flag && it.direction !== t.dir ? `<span class="t-warn">⚠ Radar geeft nu een ${it.direction === 'up' ? 'koop' : 'verkoop'}signaal</span>` : '';
+  const pos = px == null ? null : Math.max(0, Math.min(1, (px - p.stop) / (p.target - p.stop)));
+  const el = document.createElement('div');
+  el.className = 'trade' + (state === 'go' ? ' go' : state === 'stop' ? ' stop' : '');
+  el.innerHTML = `
+    <div class="p-name t-name">
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(t.symbol) || ''}"></span>${esc((it && (it.label || it.name)) || t.name)}</span>
+      <span class="p-company">(${esc(t.symbol)}) · ${up ? 'gekocht' : 'verkocht'} ${dag(t.date)} à ${fmt(t.price, cur)}</span>
+    </div>
+    <div class="p-block"><div class="k">Koers nu</div><div class="v">${fmt(px, cur)}</div></div>
+    <div class="p-block"><div class="k">${up ? 'Resultaat' : 'Voordeel'}</div>
+      <div class="v ${res == null ? '' : res >= 0 ? 'up' : 'down'}">${res == null ? '–' : pct(res)}</div>
+      <div class="drop-tag">${up ? 'sinds aankoop' : 't.o.v. je verkoop'}</div></div>
+    <div class="t-action">${action}${warn}
+      ${pos == null ? '' : `<div class="t-range"><span class="dot" style="left:${(pos * 100).toFixed(1)}%"></span></div>
+      <div class="t-range-l"><span>stop ${fmt(p.stop, cur)}</span><span>doel ${fmt(p.target, cur)}</span></div>`}
+    </div>
+    <div class="t-btns">
+      <button class="toggle" data-close="${esc(t.id)}" title="Positie gesloten: gaat naar het Archief">Afronden</button>
+      <button class="toggle" data-del="${esc(t.id)}" title="Verwijderen">✕</button>
+    </div>`;
+  return el;
+}
+
+function renderPinned() {
+  const el = document.getElementById('pinned');
+  el.innerHTML = '';
+  const rang = { go: 0, stop: 0, wait: 1 };
+  const list = openTrades().sort((a, b) => rang[tradeState(a).state] - rang[tradeState(b).state] || b.date.localeCompare(a.date));
+  if (!list.length) return;
+  const h = document.createElement('div');
+  h.className = 'section-header';
+  h.textContent = `Opgevolgd (${list.length})`;
+  el.appendChild(h);
+  list.forEach(t => el.appendChild(tradeCard(t)));
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-follow],[data-close],[data-del]');
+  if (!b) return;
+  if (b.dataset.follow) followAdvice(b.dataset.follow);
+  else if (b.dataset.close) closeTrade(b.dataset.close);
+  else if (b.dataset.del) deleteTrade(b.dataset.del);
+});
 
 
 // ---- Beursstatus: open/dicht per handelsplaats (zelfde regels als het portfolio) ----
@@ -850,7 +1101,7 @@ function renderMarkets() {
 setInterval(renderMarkets, 60 * 1000);
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('.toggle');
+  const t = e.target.closest('.toggle[data-sym]');
   if (!t) return;
   const sym = t.dataset.sym;
   ui.open = ui.open.includes(sym) ? ui.open.filter(x => x !== sym) : [...ui.open, sym];
@@ -861,9 +1112,9 @@ document.getElementById('catSel').onchange = e => { ui.cat = e.target.value; sav
 document.getElementById('statusSel').onchange = e => { ui.status = e.target.value; saveUI(); render(); };
 document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; ui.cat = 'all'; ui.status = 'all'; saveUI(); render(); };
 
-load();
+load().then(syncTrades);
 setInterval(load, 5 * 60 * 1000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); syncTrades(); } });
 </script>
 </body>
 </html>

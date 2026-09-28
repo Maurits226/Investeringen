@@ -41,6 +41,11 @@ SIGNAL_SCORE = 35     # |score| vanaf hier is er een richting (schaal -100..100)
 PIVOT_K = 5           # bars links/rechts voor een swing-top/-bodem
 SPARK_BARS = 120
 RETRACE = 0.5         # na het koersdoel: terugveer-/terugvalniveau (50% van de beweging)
+HIST_GRACE_H = 20     # advies telt pas als vervallen als het zo lang niet meer getoond is (geen flikkeren per kwartier)
+HIST_KEEP_DAYS = 400  # zo lang blijven afgesloten adviezen in de geschiedenis
+ARCHIVE_DIR = "archive"   # per handelsdag een momentopname: archive/JJJJ-MM-DD.json + archive/index.json
+NL_TZ = "Europe/Amsterdam"
+ARCHIVE_START = "2026-09-28"  # archief begint na vandaag; eerdere dagen worden niet aangevuld
 US_HISTORY = "5y"     # patroon op de Amerikaanse notering: langere historie
 US_EXCHANGES = {"NMS", "NGM", "NCM", "NAS", "NYQ", "ASE", "PCX", "BTS"}
 PRICE_MATCH = 0.12    # euro-koers en omgerekende dollarkoers mogen max 12% verschillen
@@ -1021,6 +1026,197 @@ def analyse(tk, bars, meta, world=None):
     }
 
 
+# ── Geschiedenis: welk advies is wanneer gegeven en hoe liep het af ──────
+def _dt(iso):
+    return datetime.fromisoformat(iso)
+
+
+def judge_outcome(h, bars, price_now, today):
+    """Volg een advies na vanaf de dag na het signaal (plus de actuele koers):
+    eerst het doel = 'doel', eerst de stop = 'stop' (raakt een dag beide, dan telt de stop),
+    na HORIZON handelsdagen zonder een van beide = 'verlopen'."""
+    p = h["plan"]
+    entry, target, stop = p["entry"], p["target"], p["stop"]
+    up = h["dir"] == "up"
+    move = lambda x: (x / entry - 1) * 100 if up else (1 - x / entry) * 100  # noqa: E731
+    start_day = _dt(h["start"]).astimezone(timezone.utc).date()
+    later = [b for b in bars if datetime.fromtimestamp(b[0], tz=timezone.utc).date() > start_day]
+    best = h.get("best_pct") or 0.0
+
+    def klaar(kind, px, day):
+        h.update({"outcome": kind, "outcome_at": day, "result_pct": round(move(px), 2)})
+
+    for b in later[:HORIZON]:
+        day = datetime.fromtimestamp(b[0], tz=timezone.utc).date().isoformat()
+        hi, lo = b[2], b[3]
+        best = max(best, move(hi) if up else move(lo))
+        if (up and lo <= stop) or (not up and hi >= stop):
+            klaar("stop", stop, day)
+            break
+        if (up and hi >= target) or (not up and lo <= target):
+            klaar("doel", target, day)
+            break
+    if h["outcome"] == "open" and price_now and len(later) < HORIZON:
+        best = max(best, move(price_now))
+        if (up and price_now <= stop) or (not up and price_now >= stop):
+            klaar("stop", stop, today)
+        elif (up and price_now >= target) or (not up and price_now <= target):
+            klaar("doel", target, today)
+    if h["outcome"] == "open" and len(later) > HORIZON:
+        b = later[HORIZON - 1]
+        klaar("verlopen", b[4], datetime.fromtimestamp(b[0], tz=timezone.utc).date().isoformat())
+    h["best_pct"] = round(best, 2)
+    if h["outcome"] == "open":
+        h["result_pct"] = round(move(price_now), 2) if price_now else h.get("result_pct")
+
+
+def instap_grens(h):
+    """Tot deze koers is instappen nog zinvol: daarna blijft er minder dan RISE_PCT/DROP_PCT over tot het doel."""
+    t = h["plan"]["target"]
+    return round(t / (1 + RISE_PCT / 100), 4) if h["dir"] == "up" else round(t / (1 - DROP_PCT / 100), 4)
+
+
+def update_history(prev_hist, items, bars_by_sym, bootstrap):
+    """Houd per advies bij: begin, status (instappen / niet meer instappen), einde en uitkomst."""
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat(timespec="seconds")
+    nl_today = datetime.now(_nl()).date().isoformat()
+    today = now.date().isoformat()
+    hist = [dict(h) for h in (prev_hist or [])]
+    prices = {it["symbol"]: it.get("price") for it in items}
+    flagged = {it["symbol"]: it for it in items if it.get("flag") and it.get("plan")}
+
+    def sluit(h, when, reason):
+        h.update({"end": when, "end_reason": reason, "closed_on": nl_today, "status": "afgelopen", "status_reason": None})
+
+    # 1) uitkomst bijwerken: doel of stop geraakt, of na HORIZON dagen verlopen
+    for h in hist:
+        if h.get("outcome") == "open" and bars_by_sym.get(h["symbol"]):
+            try:
+                judge_outcome(h, bars_by_sym[h["symbol"]], prices.get(h["symbol"]), today)
+            except Exception as e:  # noqa: BLE001  – geschiedenis mag de radar nooit laten vastlopen
+                print(f"  geschiedenis {h['symbol']}: {e}")
+
+    # 2) een actief advies vervalt (gaat naar het archief van vandaag) als het een uitkomst heeft,
+    #    of als er minder dan RISE_PCT/DROP_PCT over is tot het doel van het advies
+    active = {}
+    for h in hist:
+        if not h.get("end"):
+            px = prices.get(h["symbol"])
+            if h.get("outcome", "open") != "open":
+                sluit(h, now_iso, h["outcome"])
+            elif px and ((h["dir"] == "up" and px > instap_grens(h)) or (h["dir"] == "down" and px < instap_grens(h))):
+                sluit(h, now_iso, "rendement")        # verwacht rendement < 5%: advies vervalt, de uitkomst wordt nog gevolgd
+            else:
+                active[h["symbol"]] = h
+
+    # 3) signalen van nu: bestaand advies bijwerken, omgedraaid advies sluiten, nieuw advies openen
+    for sym, it in flagged.items():
+        h = active.get(sym)
+        if h and h["dir"] != it["direction"]:
+            sluit(h, now_iso, "omgedraaid")
+            h = None
+        if h:
+            h["last_seen"] = now_iso
+            continue
+        nid = f"{sym}|{now_iso}"
+        while any(x["id"] == nid for x in hist):     # uniek houden, ook als een advies in dezelfde run afloopt en opnieuw start
+            nid += "+"
+        h = {"id": nid, "symbol": sym, "name": it.get("label") or it.get("name") or sym,
+             "dir": it["direction"], "start": now_iso, "last_seen": now_iso, "end": None, "end_reason": None,
+             "price": it["price"], "currency": it.get("currency", "EUR"), "projected_pct": it.get("projected_pct"),
+             "score": it.get("score"), "plan": dict(it["plan"]),
+             "outcome": "open", "outcome_at": None, "result_pct": 0.0, "best_pct": 0.0}
+        if bootstrap and not it.get("new_signal"):
+            h["bootstrap"] = True                      # stond er al vóór de geschiedenis begon
+        hist.append(h)
+        active[sym] = h
+
+    # 4) niet meer getoond: na de wachttijd vervallen (de uitkomst wordt daarna nog wel gevolgd)
+    for sym, h in list(active.items()):
+        if sym not in flagged and now - _dt(h["last_seen"]) > timedelta(hours=HIST_GRACE_H):
+            sluit(h, h["last_seen"], "vervallen")
+            del active[sym]
+
+    # 5) status van de lopende adviezen
+    for sym, h in active.items():
+        h["instap_grens"] = instap_grens(h)
+        if sym not in flagged:                         # binnen de wachttijd: niet instappen, advies nog niet vervallen
+            h.update({"status": "niet_instappen", "status_reason": "signaal weg"})
+        else:
+            h.update({"status": "instappen", "status_reason": None})
+
+    cutoff = now - timedelta(days=HIST_KEEP_DAYS)
+    hist = [h for h in hist if not h.get("end") or _dt(h["end"]) >= cutoff]
+    hist.sort(key=lambda h: h["start"], reverse=True)
+    return hist
+
+
+# ── Archief: per dag een momentopname van alle patronen en adviezen ──────
+def _nl():
+    from zoneinfo import ZoneInfo
+    return ZoneInfo(NL_TZ)
+
+
+def _snap_item(it):
+    keys = ("symbol", "name", "label", "category", "currency", "price", "day_pct", "score", "direction", "flag",
+            "projected_pct", "target", "support", "resistance", "plan", "new_signal", "rsi", "sigma_pct", "pattern_symbol")
+    out = {k: it.get(k) for k in keys}
+    out["patterns"] = [{"label": p.get("label"), "dir": p.get("dir"), "detail": p.get("detail")} for p in it.get("patterns") or []]
+    return out
+
+
+_ADV_KEYS = ("id", "symbol", "name", "dir", "start", "end", "end_reason", "closed_on", "price", "currency",
+             "projected_pct", "score", "plan", "outcome", "outcome_at", "result_pct", "best_pct", "bootstrap",
+             "status", "status_reason", "instap_grens")
+
+
+def _day_advices(history, day):
+    """(lopende adviezen, adviezen die op deze dag zijn afgelopen) voor het archief van die dag."""
+    tz = _nl()
+    d0 = datetime(day.year, day.month, day.day, tzinfo=tz)
+    lopend, afgelopen = [], []
+    for h in history or []:
+        a = {k: h.get(k) for k in _ADV_KEYS}
+        a["new"] = bool(_dt(h["start"]) >= d0 and not h.get("bootstrap"))
+        if not h.get("end"):
+            lopend.append(a)
+        elif h.get("closed_on") == day.isoformat():
+            afgelopen.append(a)
+    return lopend, afgelopen
+
+
+def write_archive(sig, day, advices, expired):
+    """Schrijf de momentopname van één dag en werk archive/index.json bij."""
+    folder = os.path.join(ROOT, ARCHIVE_DIR)
+    os.makedirs(folder, exist_ok=True)
+    items = [_snap_item(it) for it in sig.get("items", [])]
+    snap = {"date": day.isoformat(), "generated": sig.get("generated"), "config": sig.get("config"),
+            "regime": (sig.get("world") or {}).get("regime"),
+            "advices": advices, "expired": expired, "items": items,
+            "errors": [{k: e.get(k) for k in ("symbol", "name", "label", "category", "error")} for e in sig.get("errors", [])]}
+    with open(os.path.join(folder, day.isoformat() + ".json"), "w", encoding="utf-8") as f:
+        json.dump(snap, f, ensure_ascii=False, separators=(",", ":"))
+    telt = [it for it in items if it.get("category") != "ETF's"]
+    entry = {"date": day.isoformat(), "generated": sig.get("generated"),
+             "up": sum(1 for it in telt if it.get("flag") and it.get("direction") == "up"),
+             "down": sum(1 for it in telt if it.get("flag") and it.get("direction") == "down"),
+             "new": sum(1 for it in telt if it.get("flag") and it.get("new_signal")),
+             "expired": len(expired),
+             "n": len(telt)}
+    idx_path = os.path.join(folder, "index.json")
+    try:
+        with open(idx_path, encoding="utf-8") as f:
+            days = json.load(f).get("days", [])
+    except Exception:  # noqa: BLE001
+        days = []
+    days = [d for d in days if d.get("date") != entry["date"]] + [entry]
+    days.sort(key=lambda d: d["date"], reverse=True)
+    with open(idx_path, "w", encoding="utf-8") as f:
+        json.dump({"days": days}, f, ensure_ascii=False, separators=(",", ":"))
+
+
+# ── Hoofdprogramma ───────────────────────────────────────────────────────
 def main():
     tickers, source = load_tickers()
     tickers, portfolio_version = enrich(tickers)
@@ -1046,9 +1242,11 @@ def main():
     except Exception:  # noqa: BLE001
         fx = None
         print("  EUR/USD niet opgehaald: patronen alleen op de eigen notering")
+    bars_by_sym = {}
     for tk in tickers:
         try:
             eu_bars, eu_meta = fetch_bars(tk["symbol"], "2y", 2)
+            bars_by_sym[tk["symbol"]] = eu_bars[-40:]
             us = find_us_listing(tk, eu_bars[-1][4], fx, cache) if fx else None
             wctx = {"regime": regime, "returns": returns, "factors": world["factors"],
                     "stock_ctx": stock_context(tk, us, prev_ctx.get(tk["symbol"], {}))}
@@ -1084,6 +1282,13 @@ def main():
             for k in agg[d]:
                 agg[d][k] += it["backtest"][d][k]
 
+    try:
+        history = update_history(prev.get("history"), items, bars_by_sym, bootstrap="history" not in prev)
+    except Exception as e:  # noqa: BLE001
+        print(f"  geschiedenis niet bijgewerkt: {e}")
+        history = prev.get("history", [])
+    print(f"  geschiedenis: {sum(1 for h in history if not h.get('end'))} actief, {len(history)} totaal")
+
     out = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": source,
@@ -1095,10 +1300,21 @@ def main():
         "world": world,
         "items": items,
         "errors": errors,
+        "history": history,
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     print(f"signals.json geschreven: {len(items)} ok, {len(errors)} fout")
+    if items:
+        try:                                           # momentopname van vandaag bijwerken (laatste run van de dag blijft staan)
+            today = datetime.now(_nl()).date()
+            if today.weekday() >= 5 or today.isoformat() < ARCHIVE_START:
+                print(f"archief: {today} overgeslagen (weekend of vóór de startdatum)")
+            else:
+                write_archive(out, today, *_day_advices(history, today))
+                print(f"archief bijgewerkt: {today}")
+        except Exception as e:  # noqa: BLE001
+            print(f"  archief niet bijgewerkt: {e}")
     if not items:
         sys.exit(1)
 

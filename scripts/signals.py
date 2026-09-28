@@ -135,8 +135,10 @@ def load_tickers():
 def portfolio_info():
     """Categorie en label per ticker uit de DEFAULT-lijst in index.html."""
     info = {}
-    path = os.path.join(ROOT, "index.html")
-    if not os.path.exists(path):
+    # het portfolio staat sinds de tabbladen in portfolio.html (vroeger index.html)
+    path = next((os.path.join(ROOT, f) for f in ("portfolio.html", "index.html")
+                 if os.path.exists(os.path.join(ROOT, f)) and "ticker:" in open(os.path.join(ROOT, f), encoding="utf-8").read()), None)
+    if not path:
         return info
     with open(path, encoding="utf-8") as f:
         html = f.read()
@@ -1042,14 +1044,20 @@ def judge_outcome(h, bars, price_now, today):
     start_day = _dt(h["start"]).astimezone(timezone.utc).date()
     later = [b for b in bars if datetime.fromtimestamp(b[0], tz=timezone.utc).date() > start_day]
     best = h.get("best_pct") or 0.0
+    worst = h.get("worst_pct") or 0.0
+    h["days"] = min(len(later), HORIZON)            # handelsdagen sinds het advies (max. de planperiode)
+    if price_now:
+        h["last_price"] = price_now
 
     def klaar(kind, px, day):
         h.update({"outcome": kind, "outcome_at": day, "result_pct": round(move(px), 2)})
 
-    for b in later[:HORIZON]:
+    for n, b in enumerate(later[:HORIZON], 1):
         day = datetime.fromtimestamp(b[0], tz=timezone.utc).date().isoformat()
         hi, lo = b[2], b[3]
         best = max(best, move(hi) if up else move(lo))
+        worst = min(worst, move(lo) if up else move(hi))
+        h["days"] = n
         if (up and lo <= stop) or (not up and hi >= stop):
             klaar("stop", stop, day)
             break
@@ -1058,6 +1066,7 @@ def judge_outcome(h, bars, price_now, today):
             break
     if h["outcome"] == "open" and price_now and len(later) < HORIZON:
         best = max(best, move(price_now))
+        worst = min(worst, move(price_now))
         if (up and price_now <= stop) or (not up and price_now >= stop):
             klaar("stop", stop, today)
         elif (up and price_now >= target) or (not up and price_now <= target):
@@ -1066,6 +1075,7 @@ def judge_outcome(h, bars, price_now, today):
         b = later[HORIZON - 1]
         klaar("verlopen", b[4], datetime.fromtimestamp(b[0], tz=timezone.utc).date().isoformat())
     h["best_pct"] = round(best, 2)
+    h["worst_pct"] = round(worst, 2)
     if h["outcome"] == "open":
         h["result_pct"] = round(move(price_now), 2) if price_now else h.get("result_pct")
 
@@ -1168,7 +1178,7 @@ def _snap_item(it):
 
 _ADV_KEYS = ("id", "symbol", "name", "dir", "start", "end", "end_reason", "closed_on", "price", "currency",
              "projected_pct", "score", "plan", "outcome", "outcome_at", "result_pct", "best_pct", "bootstrap",
-             "status", "status_reason", "instap_grens")
+             "status", "status_reason", "instap_grens", "worst_pct", "days", "last_price")
 
 
 def _day_advices(history, day):

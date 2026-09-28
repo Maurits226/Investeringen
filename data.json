@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-28T17:20:34.014224+00:00",
+  "updated": "2026-09-28T17:30:33.316605+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -124,7 +124,7 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 29.19,
+      "price": 29.085,
       "prevClose": 29.450000762939453,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
@@ -157,7 +157,7 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 206.298,
+      "price": 206.38,
       "prevClose": 206.5500030517578,
       "currency": "USD",
       "name": "Arista Networks, Inc.",

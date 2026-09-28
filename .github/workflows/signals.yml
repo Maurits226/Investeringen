@@ -39,7 +39,7 @@ jobs:
           while true; do
             git pull -q --rebase origin "${GITHUB_REF_NAME}" || true
             python3 scripts/signals.py || echo "Run mislukt, volgende poging over 15 min"
-            git add signals.json
+            git add signals.json; [ -d archive ] && git add archive
             if ! git diff --cached --quiet; then
               git commit -q -m "Patroonradar $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
               for i in 1 2 3 4 5; do

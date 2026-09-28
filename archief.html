@@ -97,7 +97,47 @@
   .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
   .err { font-size: 12px; color: var(--muted); padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px; }
 
+  .viewnav { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+  .viewnav button { flex: 1; border: 0; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; padding: 9px 12px; border-radius: 9px; }
+  .viewnav button.active { background: var(--accent); color: #0d1117; }
+  .viewnav button:hover:not(.active) { color: var(--text); }
+  .sb-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .sb-tools select { font-size: 13px; }
+  .sb-tools .cnt { margin-left: auto; font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .sb-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .sb-dir { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); line-height: 1.6; }
+  .sb-dir b { color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 13px; }
+  .sb-row {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 12px 18px; position: relative; overflow: hidden;
+    display: grid; grid-template-columns: minmax(0,1.3fr) 86px minmax(0,1.2fr) minmax(0,1.6fr) minmax(0,1.2fr); gap: 14px; align-items: center; font-size: 13px;
+  }
+  .sb-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+  .sb-row.doel::before { background: var(--up); } .sb-row.stop::before { background: var(--down); } .sb-row.verlopen::before { background: var(--muted); }
+  .sb-name { min-width: 0; }
+  .sb-name b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb-name small { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+  .sb-plan { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .sb-plan small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .track { position: relative; height: 8px; background: var(--panel-2); border-radius: 6px; margin: 6px 0 4px; }
+  .track .fill { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+  .track .fill.pos { background: var(--up); } .track .fill.neg { background: var(--down); }
+  .track .zero { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--muted); transform: translateX(-50%); }
+  .track .dot { position: absolute; top: -3px; width: 4px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .track-l { display: flex; justify-content: space-between; font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  .track-l .t { color: var(--up); } .track-l .s { color: var(--down); }
+  .sb-res { font-size: 12px; text-align: right; }
+  .sb-res .big { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; }
+  .sb-res small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .mini { display: block; margin-top: 5px; }
+  .mini .track { height: 5px; margin: 0; }
+  .mini .track .zero, .mini .track .dot { top: -2px; height: 9px; }
   @media (max-width: 860px) {
+    .sb-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px 12px; }
+    .sb-row .sb-name { grid-column: 1; }
+    .sb-row .pill { grid-column: 2; grid-row: 1; justify-self: end; }
+    .sb-row .sb-plan, .sb-row .sb-bar { grid-column: 1 / -1; }
+    .sb-row .sb-res { grid-column: 1 / -1; text-align: left; }
+    .sb-dirs { grid-template-columns: 1fr; }
     .summary { grid-template-columns: repeat(2, 1fr); }
     .h-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6px 10px; }
     .h-row .h-date { grid-column: 1; grid-row: 1; }
@@ -132,15 +172,20 @@
   </header>
 
   <div class="summary" id="summary"></div>
-
+  <div class="viewnav" role="tablist">
+    <button data-view="day" role="tab">Per dag</button>
+    <button data-view="score" role="tab">Scorebord</button>
+  </div>
+  <div id="scoreView" hidden></div>
+  <div id="dayView">
   <div class="daynav">
     <button id="prev" title="Vorige dag">◀</button>
     <select id="daySel" aria-label="Kies een dag"></select>
     <button id="next" title="Volgende dag">▶</button>
   </div>
   <div class="dayinfo" id="dayinfo"></div>
-
   <div id="day"></div>
+  </div>
 </div>
 
 <script>
@@ -163,9 +208,9 @@ const tijd = iso => iso ? toDate(iso).toLocaleTimeString('nl-NL', { hour: '2-dig
 const dagTijd = iso => iso ? dag(iso) + ' ' + tijd(iso) : '–';
 const localDay = iso => { const d = toDate(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-let ui = { show: 'signal' };
+let ui = { show: 'signal', view: 'day', sbFilter: 'all', sbSort: 'new' };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
-const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify({ show: ui.show })); } catch (e) {} };
+const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify({ show: ui.show, view: ui.view, sbFilter: ui.sbFilter, sbSort: ui.sbSort })); } catch (e) {} };
 
 let index = [], live = { history: [], items: [] }, trades = [], dayCache = {}, current = null, newestSeen = null;
 
@@ -212,6 +257,7 @@ async function load(first) {
     return;
   }
   await loadTrades();
+  setView(ui.view);
   document.querySelector('.daynav').hidden = !index.length;
   if (!index.length) return;
   const newest = index[0].date;
@@ -282,7 +328,7 @@ function expiredRow(a, snap) {
     <span class="h-name">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
     <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : 'VERKOPEN'}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}</small></span>
-    <span class="h-res"><b>${reden}</b> · ${st}<small>${extra}</small></span>
+    <span class="h-res"><b>${reden}</b> · ${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(liveEpisode(a.id) || a), true) : ''}</span>
   </div>`;
 }
 
@@ -298,7 +344,7 @@ function adviceRow(a, snap) {
     <span class="h-name">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
     <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : 'VERKOPEN'}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}${a.projected_pct != null ? ' · verwacht ' + pct(a.projected_pct) : ''}</small></span>
-    <span class="h-res">${st}<small>${extra}</small></span>
+    <span class="h-res">${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(liveEpisode(a.id) || a), true) : ''}</span>
   </div>`;
 }
 
@@ -343,6 +389,91 @@ function posCard(it, snap) {
       </div>
     </div>`;
   return el;
+}
+
+// ---- Scorebord per advies ----
+// Resultaat in % in de richting van het advies: bij kopen = koersstijging, bij verkopen = vermeden daling.
+function adviesStand(h) {
+  const p = h.plan || {}, up = h.dir === 'up';
+  const mv = x => x == null || !p.entry ? null : (up ? (x / p.entry - 1) * 100 : (1 - x / p.entry) * 100);
+  const liveItem = (live.items || []).find(i => i.symbol === h.symbol);
+  const nowPx = h.outcome === 'open' ? ((liveItem && liveItem.price) || h.last_price) : null;
+  const res = h.outcome === 'open' ? (nowPx != null ? mv(nowPx) : h.result_pct) : h.result_pct;
+  let days = h.days;
+  if (days == null && h.start) {                     // oudere adviezen zonder teller: werkdagen sinds de start
+    days = 0; const d = toDate(h.start), end = h.outcome_at ? toDate(h.outcome_at) : new Date();
+    for (const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); x <= end; x.setDate(x.getDate() + 1)) if (x.getDay() % 6) days++;
+  }
+  return { res, doelPct: mv(p.target), stopPct: mv(p.stop), days: Math.min(days ?? 0, 10), nowPx };
+}
+function trackHTML(h, st, mini) {
+  const lo = Math.min(st.stopPct ?? -5, -0.5), hi = Math.max(st.doelPct ?? 5, 0.5);
+  const pos = x => Math.max(0, Math.min(100, (x - lo) / (hi - lo) * 100));
+  const z = pos(0), r = st.res == null ? null : pos(st.res);
+  const fill = r == null ? '' : `<span class="fill ${st.res >= 0 ? 'pos' : 'neg'}" style="left:${Math.min(z, r)}%;width:${Math.abs(r - z)}%"></span>`;
+  const bar = `<div class="track">${fill}<span class="zero" style="left:${z}%"></span>${r == null ? '' : `<span class="dot" style="left:${r}%"></span>`}</div>`;
+  if (mini) return `<span class="mini" title="Van stop (links) naar doel (rechts); wit = stand nu">${bar}</span>`;
+  return `${bar}<div class="track-l"><span class="s">stop ${pct(st.stopPct)}</span><span>start</span><span class="t">doel ${pct(st.doelPct)}</span></div>`;
+}
+const UITKOMST = { open: 'loopt', doel: 'doel gehaald', stop: 'stop geraakt', verlopen: 'termijn verstreken' };
+function scoreHist() {
+  return (live.history || []).filter(h => h.plan && !skipCat(((live.items || []).find(i => i.symbol === h.symbol) || {}).category));
+}
+function renderScore() {
+  const box = document.getElementById('scoreView');
+  const all = scoreHist();
+  if (!all.length) { box.innerHTML = `<div class="empty">Nog geen adviezen. Zodra de Patroonradar een koop- of verkoopadvies geeft, verschijnt het hier en wordt het elke 15 minuten bijgewerkt.</div>`; return; }
+  const stats = list => {
+    const af = list.filter(h => h.outcome !== 'open'), lo = list.filter(h => h.outcome === 'open');
+    const gem = xs => xs.length ? xs.reduce((a, h) => a + (adviesStand(h).res || 0), 0) / xs.length : null;
+    return { n: list.length, af: af.length, doel: af.filter(h => h.outcome === 'doel').length, stop: af.filter(h => h.outcome === 'stop').length,
+             gemAf: gem(af), lopend: lo.length, gemLo: gem(lo) };
+  };
+  const dirLine = (d, naam) => {
+    const t = stats(all.filter(h => h.dir === d));
+    if (!t.n) return `<div class="sb-dir"><b>${naam}</b><br>nog geen</div>`;
+    return `<div class="sb-dir"><b>${naam}</b> · ${t.n} advies${t.n === 1 ? '' : 'en'}<br>
+      afgerond ${t.af}: <span class="c-up">${t.doel} doel</span> · <span class="c-down">${t.stop} stop</span> · ${t.af - t.doel - t.stop} verlopen${t.gemAf != null ? ` · gem. <span class="${t.gemAf >= 0 ? 'c-up' : 'c-down'}">${pct(t.gemAf)}</span>` : ''}<br>
+      lopend ${t.lopend}${t.gemLo != null ? ` · nu gem. <span class="${t.gemLo >= 0 ? 'c-up' : 'c-down'}">${pct(t.gemLo)}</span>` : ''}</div>`;
+  };
+  let list = all.filter(h => ui.sbFilter === 'all' || h.outcome === ui.sbFilter);
+  list.sort((a, b) => ui.sbSort === 'best' ? (adviesStand(b).res ?? -1e9) - (adviesStand(a).res ?? -1e9)
+    : ui.sbSort === 'worst' ? (adviesStand(a).res ?? 1e9) - (adviesStand(b).res ?? 1e9)
+    : (b.start || '').localeCompare(a.start || ''));
+  const rows = list.map(h => {
+    const st = adviesStand(h), cur = h.currency || 'EUR', p = h.plan;
+    const mine = trades.find(t => t.episode === h.id);
+    const eindeAdvies = h.end && h.outcome === 'open' ? ` · advies ${REDEN[h.end_reason] || 'afgelopen'}, uitkomst wordt nog gevolgd` : '';
+    const kop = h.outcome === 'open'
+      ? `<span style="color:var(--accent)">loopt</span> · dag ${st.days}/10`
+      : `<span class="${h.outcome === 'doel' ? 'c-up' : h.outcome === 'stop' ? 'c-down' : 'c-info'}">${UITKOMST[h.outcome]}</span> · ${dag(h.outcome_at)}`;
+    return `<div class="sb-row ${h.outcome}">
+      <div class="sb-name"><b>${esc(h.name || h.symbol)}</b><small>${esc(h.symbol)} · ${h.bootstrap ? 'al vóór ' : ''}${dagTijd(h.start)}</small></div>
+      <span class="pill ${h.dir}">${h.dir === 'up' ? 'KOPEN' : 'VERKOPEN'}</span>
+      <div class="sb-plan">${fmt(h.price, cur)} → ${fmt(p.target, cur)}<small>stop ${fmt(p.stop, cur)}${st.nowPx != null ? ` · nu ${fmt(st.nowPx, cur)}` : ''}</small></div>
+      <div class="sb-bar">${trackHTML(h, st)}</div>
+      <div class="sb-res"><span class="big ${st.res >= 0 ? 'c-up' : 'c-down'}">${pct(st.res)}</span><small>${kop}</small>
+        <small>beste ${pct(h.best_pct)} · slechtste ${pct(h.worst_pct ?? null)}${eindeAdvies}${mine ? (mine.status === 'closed' ? ` · jij ${pct(tradeResult(mine, mine.close_price))}` : ' · opgevolgd') : ''}</small></div>
+    </div>`;
+  }).join('');
+  box.innerHTML = `
+    <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}${dirLine('down', 'Verkoopadviezen')}</div>
+    <div class="sb-tools">
+      <select id="sbFilter"><option value="all">Alle adviezen</option><option value="open">Lopend</option><option value="doel">Doel gehaald</option><option value="stop">Stop geraakt</option><option value="verlopen">Termijn verstreken</option></select>
+      <select id="sbSort"><option value="new">Nieuwste eerst</option><option value="best">Beste resultaat</option><option value="worst">Slechtste resultaat</option></select>
+      <span class="cnt">${list.length} van ${all.length}</span>
+    </div>
+    <div class="h-list">${rows || '<div class="empty">Geen adviezen met dit filter.</div>'}</div>
+    <p class="note">Resultaat in de richting van het advies: bij kopen de koersstijging, bij verkopen de daling die je vermeden hebt. Een advies loopt tot eerst het doel of de stop wordt geraakt, of tot 10 handelsdagen voorbij zijn. Raakt een dag beide, dan telt de stop.</p>`;
+  document.getElementById('sbFilter').value = ui.sbFilter;
+  document.getElementById('sbSort').value = ui.sbSort;
+}
+function setView(v) {
+  ui.view = v; saveUI();
+  document.querySelectorAll('.viewnav button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  document.getElementById('dayView').hidden = v !== 'day';
+  document.getElementById('scoreView').hidden = v !== 'score';
+  if (v === 'score') renderScore();
 }
 
 async function show(date, force) {
@@ -401,10 +532,15 @@ async function show(date, force) {
 document.getElementById('daySel').onchange = e => show(e.target.value);
 document.getElementById('prev').onclick = () => { const i = index.findIndex(d => d.date === current); if (i < index.length - 1) show(index[i + 1].date); };
 document.getElementById('next').onclick = () => { const i = index.findIndex(d => d.date === current); if (i > 0) show(index[i - 1].date); };
-document.addEventListener('change', e => { if (e.target.id === 'showSel') { ui.show = e.target.value; saveUI(); show(current); } });
+document.addEventListener('change', e => {
+  if (e.target.id === 'showSel') { ui.show = e.target.value; saveUI(); show(current); }
+  if (e.target.id === 'sbFilter') { ui.sbFilter = e.target.value; saveUI(); renderScore(); }
+  if (e.target.id === 'sbSort') { ui.sbSort = e.target.value; saveUI(); renderScore(); }
+});
+document.querySelectorAll('.viewnav button').forEach(b => b.onclick = () => setView(b.dataset.view));
 
 load(true);
-setInterval(() => { if (index.length && current === index[0].date) load(); }, 5 * 60 * 1000);
+setInterval(() => { if (ui.view === 'score' || (index.length && current === index[0].date)) load(); }, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && index.length && current === index[0].date) load(); });
 </script>
 </body>

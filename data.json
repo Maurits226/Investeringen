@@ -1,9 +1,9 @@
 {
-  "updated": "2026-09-29T08:10:34.871719+00:00",
+  "updated": "2026-09-29T08:20:35.509513+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
-      "price": 539.5,
+      "price": 539.2,
       "prevClose": 551.2999877929688,
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
@@ -14,7 +14,7 @@
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
-      "price": 129.0,
+      "price": 129.3,
       "prevClose": 129.39999389648438,
       "currency": "EUR",
       "name": "Space Exploration Technologies Corp.",
@@ -25,7 +25,7 @@
     },
     "1YD.DE": {
       "ticker": "1YD.DE",
-      "price": 308.7,
+      "price": 309.25,
       "prevClose": 308.5,
       "currency": "EUR",
       "name": "Broadcom Inc.",
@@ -36,7 +36,7 @@
     },
     "MTE.DE": {
       "ticker": "MTE.DE",
-      "price": 944.4,
+      "price": 943.7,
       "prevClose": 946.2000122070312,
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
@@ -47,7 +47,7 @@
     },
     "1ZB.DE": {
       "ticker": "1ZB.DE",
-      "price": 234.0,
+      "price": 235.5,
       "prevClose": 249.5,
       "currency": "EUR",
       "name": "Bloom Energy Corporation",
@@ -58,7 +58,7 @@
     },
     "TL0.DE": {
       "ticker": "TL0.DE",
-      "price": 315.85,
+      "price": 316.25,
       "prevClose": 325.1499938964844,
       "currency": "EUR",
       "name": "Tesla, Inc.",
@@ -69,7 +69,7 @@
     },
     "49V.DE": {
       "ticker": "49V.DE",
-      "price": 215.85,
+      "price": 215.45,
       "prevClose": 219.64999389648438,
       "currency": "EUR",
       "name": "Vertiv Holdings Co",
@@ -91,7 +91,7 @@
     },
     "AMZ.DE": {
       "ticker": "AMZ.DE",
-      "price": 217.25,
+      "price": 217.15,
       "prevClose": 218.4499969482422,
       "currency": "EUR",
       "name": "Amazon.com, Inc.",
@@ -102,7 +102,7 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 142.7,
+      "price": 142.68,
       "prevClose": 142.60000610351562,
       "currency": "EUR",
       "name": "Siemens Energy AG",
@@ -113,7 +113,7 @@
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
-      "price": 276.4,
+      "price": 279.2,
       "prevClose": 272.8500061035156,
       "currency": "EUR",
       "name": "Lam Research Corporation",
@@ -135,7 +135,7 @@
     },
     "ABEA.DE": {
       "ticker": "ABEA.DE",
-      "price": 301.55,
+      "price": 301.35,
       "prevClose": 302.04998779296875,
       "currency": "EUR",
       "name": "Alphabet Inc.",
@@ -146,7 +146,7 @@
     },
     "AP2.DE": {
       "ticker": "AP2.DE",
-      "price": 431.6,
+      "price": 431.65,
       "prevClose": 420.6000061035156,
       "currency": "EUR",
       "name": "Applied Materials, Inc.",
@@ -212,7 +212,7 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 202.8,
+      "price": 203.0,
       "prevClose": 196.77999877929688,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
@@ -256,7 +256,7 @@
     },
     "UU2.DE": {
       "ticker": "UU2.DE",
-      "price": 947.6,
+      "price": 950.6,
       "prevClose": 937.5999755859375,
       "currency": "EUR",
       "name": "BlackRock, Inc.",
@@ -267,7 +267,7 @@
     },
     "MSF.DE": {
       "ticker": "MSF.DE",
-      "price": 447.8,
+      "price": 447.5,
       "prevClose": 450.95001220703125,
       "currency": "EUR",
       "name": "Microsoft Corporation",
@@ -278,7 +278,7 @@
     },
     "QDVE.DE": {
       "ticker": "QDVE.DE",
-      "price": 47.195,
+      "price": 47.21,
       "prevClose": 47.125,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
@@ -311,7 +311,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 53.42,
+      "price": 53.3,
       "prevClose": 56.119998931884766,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",

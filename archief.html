@@ -39,9 +39,31 @@
   .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
 
-  .daynav { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-  .daynav select { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; padding: 11px 13px; }
-  .daynav button { font-size: 16px; padding: 10px 14px; }
+  [hidden] { display: none !important; }
+  .daynav { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+  .daynav > button { width: 46px; height: 46px; padding: 0; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .daypick { position: relative; flex: 1; min-width: 0; }
+  #dayBtn {
+    width: 100%; height: 46px; padding: 0 44px; position: relative; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+  }
+  #dayBtn .chev { position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
+    border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s; }
+  .daypick.open #dayBtn { border-color: var(--accent); }
+  .daypick.open #dayBtn .chev { transform: rotate(-135deg); margin-top: -2px; }
+  #dayList {
+    list-style: none; position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 5px;
+    max-height: 320px; overflow-y: auto; box-shadow: 0 14px 40px -12px rgba(0,0,0,.7);
+  }
+  #dayList li {
+    display: flex; align-items: center; justify-content: center; gap: 10px; position: relative;
+    padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
+  }
+  #dayList li:hover { background: rgba(255,255,255,.05); }
+  #dayList li.active { background: rgba(79,143,240,.16); color: var(--accent); }
+  #dayList li .tag { position: absolute; right: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 2px 7px; border-radius: 999px; }
   .dayinfo { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 22px; font-family: 'IBM Plex Mono', monospace; }
   .dayinfo b { color: var(--text); font-weight: 600; }
   .dayinfo .regime-off { color: var(--down); } .dayinfo .regime-calm { color: var(--up); }
@@ -175,16 +197,20 @@
     <span class="updated" id="updated">laden…</span>
   </header>
 
-  <div class="summary" id="summary"></div>
   <div class="viewnav" role="tablist">
-    <button data-view="day" role="tab">Per dag</button>
+    <button data-view="day" role="tab">Archief per dag</button>
     <button data-view="score" role="tab">Scorebord</button>
   </div>
+  <div class="summary" id="summary" hidden></div>
   <div id="scoreView" hidden></div>
   <div id="dayView">
   <div class="daynav">
     <button id="prev" title="Vorige dag">◀</button>
-    <select id="daySel" aria-label="Kies een dag"></select>
+    <select id="daySel" aria-label="Kies een dag" hidden></select>
+    <div class="daypick" id="dayPick">
+      <button id="dayBtn" type="button" aria-haspopup="listbox" aria-expanded="false"><span id="dayLbl">–</span><i class="chev"></i></button>
+      <ul id="dayList" role="listbox" hidden></ul>
+    </div>
     <button id="next" title="Volgende dag">▶</button>
   </div>
   <div class="dayinfo" id="dayinfo"></div>
@@ -296,6 +322,23 @@ function fillSelect() {
   const sel = document.getElementById('daySel');
   sel.innerHTML = index.map(d => `<option value="${d.date}">${dag(d.date)}${d.date === localDay(new Date().toISOString()) ? ' (vandaag)' : ''}</option>`).join('');
   sel.value = current;
+  syncPicker();
+}
+
+// Eigen keuzelijst voor de dag (mooier dan de standaard-dropdown), gekoppeld aan de verborgen select
+function syncPicker() {
+  const today = localDay(new Date().toISOString());
+  document.getElementById('dayLbl').textContent = current ? dag(current) + (current === today ? ' (vandaag)' : '') : '–';
+  document.getElementById('dayList').innerHTML = index.map(d =>
+    `<li role="option" data-date="${d.date}" class="${d.date === current ? 'active' : ''}" aria-selected="${d.date === current}">
+       ${dag(d.date)}${d.date === today ? '<span class="tag">vandaag</span>' : ''}</li>`).join('');
+}
+function togglePicker(open) {
+  const pick = document.getElementById('dayPick'), list = document.getElementById('dayList');
+  const on = open ?? list.hidden;
+  list.hidden = !on; pick.classList.toggle('open', on);
+  document.getElementById('dayBtn').setAttribute('aria-expanded', on);
+  if (on) { const a = list.querySelector('.active'); if (a) a.scrollIntoView({ block: 'nearest' }); }
 }
 
 function renderSummary() {
@@ -349,19 +392,38 @@ function expiredRow(a, snap) {
   </div>`;
 }
 
-function adviceRow(a, snap) {
+function adviceRow(a, snap, isToday) {
   const cfg = snap.config || { horizon: 10 }, cur = a.currency || 'EUR';
   const mine = trades.find(t => a.id && t.episode === a.id);
-  const { st, sub } = outcomeHTML(a, cfg);
-  const extra = [statusHTML(a), sub, mine ? (mine.status === 'closed' ? `✓ jij ${pct(tradeResult(mine, mine.close_price))}` : '✓ opgevolgd') : ''].filter(Boolean).join(' · ');
-  const wanneer = a.new ? `<span class="nw">NIEUW</span>${a.start ? ' ' + tijd(a.start) : ''}`
+  const live = liveEpisode(a.id);
+  let { st, sub } = outcomeHTML(a, cfg);
+  let status = statusHTML(a);
+  if (!isToday) {
+    // Een eerdere dag: laat zien hoe het advies daarna verliep, niet de stand van toen
+    const weg = live && !live.end && live.status === 'niet_instappen';   // oude data: signaal al weg
+    if (live && !live.end && !weg) {
+      status = `<span class="st-in">▶ nog actief · staat vandaag op de radar</span>`;
+    } else if (live && (live.end || weg)) {
+      status = `<span class="st-out">✕ ${REDEN[live.end_reason] || 'signaal vervallen'}${live.end ? ' op ' + dagTijd(live.end) : ''}</span>`;
+      if (live.outcome === 'open') {
+        st = `<span class="c-info">vervallen</span>`;
+        sub = `uitkomst wordt nog gevolgd: nu ${pct(live.result_pct || 0)}`;
+      }
+    } else if (!live) {
+      status = `<span class="st-out">✕ advies afgelopen</span>`;
+    }
+  }
+  const extra = [status, sub, mine ? (mine.status === 'closed' ? `✓ jij ${pct(tradeResult(mine, mine.close_price))}` : '✓ opgevolgd') : ''].filter(Boolean).join(' · ');
+  const nieuw = a.new && isToday;
+  const wanneer = nieuw ? `<span class="nw">NIEUW</span>${a.start ? ' ' + tijd(a.start) : ''}`
+    : a.new && a.start ? 'gestart ' + tijd(a.start)
     : a.start ? (a.bootstrap ? 'al vóór ' + dag(a.start) : 'sinds ' + dag(a.start)) : 'actief';
-  return `<div class="h-row${a.new ? ' new' : ''}">
+  return `<div class="h-row${nieuw ? ' new' : ''}">
     <span class="h-date">${wanneer}</span>
     <span class="h-name">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
     <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}${a.projected_pct != null ? ' · verwacht ' + pct(a.projected_pct) : ''}</small></span>
-    <span class="h-res">${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(liveEpisode(a.id) || a), true) : ''}</span>
+    <span class="h-res">${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(live || a), true) : ''}</span>
   </div>`;
 }
 
@@ -492,6 +554,7 @@ function setView(v) {
   document.querySelectorAll('.viewnav button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
   document.getElementById('dayView').hidden = v !== 'day';
   document.getElementById('scoreView').hidden = v !== 'score';
+  document.getElementById('summary').hidden = v !== 'score';
   if (v === 'score') renderScore();
   if (index.length) renderSummary();
 }
@@ -499,6 +562,7 @@ function setView(v) {
 async function show(date, force) {
   current = date;
   const sel = document.getElementById('daySel'); sel.value = date;
+  syncPicker();
   const i = index.findIndex(d => d.date === date);
   document.getElementById('prev').disabled = i >= index.length - 1;
   document.getElementById('next').disabled = i <= 0;
@@ -524,8 +588,11 @@ async function show(date, force) {
 
   box.innerHTML = '';
   const add = html => box.insertAdjacentHTML('beforeend', html);
-  add(`<div class="section-header">Lopende adviezen (${advices.length})</div>`);
-  add(advices.length ? `<div class="h-list">${advices.map(a => adviceRow(a, snap)).join('')}</div>` : `<div class="empty">Geen lopend koop- of verkoopadvies aan het eind van deze dag.</div>`);
+  add(isToday
+    ? `<div class="section-header">Lopende adviezen (${advices.length})</div>`
+    : `<div class="section-header">Actief aan het eind van deze dag (${advices.length})</div>
+       ${advices.length ? '<p class="note" style="margin:-4px 0 10px">Rechts zie je hoe elk advies daarna verliep: loopt het nog, of is het inmiddels vervallen.</p>' : ''}`);
+  add(advices.length ? `<div class="h-list">${advices.map(a => adviceRow(a, snap, isToday)).join('')}</div>` : `<div class="empty">Geen actief koop- of verkoopadvies aan het eind van deze dag.</div>`);
   const expired = [...(snap.expired || []).filter(a => keep.has(a.symbol)), ...gone].sort((a, b) => (b.end || '').localeCompare(a.end || ''));
   if (expired.length) {
     add(`<div class="section-header">Afgelopen deze dag (${expired.length})</div>`);
@@ -567,8 +634,14 @@ document.getElementById('summary').addEventListener('click', e => {
   const f = t.dataset.f;
   ui.sbFilter = (ui.view === 'score' && ui.sbFilter === f) ? 'all' : f;
   saveUI(); setView('score');
-  document.querySelector('.viewnav').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+document.getElementById('dayBtn').onclick = e => { e.stopPropagation(); togglePicker(); };
+document.getElementById('dayList').onclick = e => {
+  const li = e.target.closest('li[data-date]'); if (!li) return;
+  togglePicker(false); show(li.dataset.date);
+};
+document.addEventListener('click', e => { if (!e.target.closest('#dayPick')) togglePicker(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') togglePicker(false); });
 
 load(true);
 setInterval(() => { if (ui.view === 'score' || (index.length && current === index[0].date)) load(); }, 5 * 60 * 1000);

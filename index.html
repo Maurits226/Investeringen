@@ -58,7 +58,7 @@
     <div class="navwrap">
       <div class="seg world" role="tablist" aria-label="Portefeuille">
         <button role="tab" data-world="inv">Mijn investeringen</button>
-        <button role="tab" data-world="top">Top 250</button>
+        <button role="tab" data-world="top">Kansen portefeuille</button>
       </div>
       <div class="seg view" role="tablist" aria-label="Scherm">
         <button role="tab" data-view="overzicht">Overzicht</button>
@@ -71,9 +71,9 @@
     <iframe id="inv-overzicht" title="Investeringen" src="portfolio.html"></iframe>
     <iframe id="inv-radar" title="Patroonradar · Investeringen" data-src="signals.html"></iframe>
     <iframe id="inv-archief" title="Archief · Investeringen" data-src="archief.html"></iframe>
-    <iframe id="top-overzicht" title="Top 250" data-src="screener.html"></iframe>
-    <iframe id="top-radar" title="Patroonradar · Top 250" data-src="signals.html?set=top250"></iframe>
-    <iframe id="top-archief" title="Archief · Top 250" data-src="archief.html?set=top250"></iframe>
+    <iframe id="top-overzicht" title="Kansen portefeuille" data-src="screener.html"></iframe>
+    <iframe id="top-radar" title="Patroonradar · Kansen portefeuille" data-src="signals.html?set=top250"></iframe>
+    <iframe id="top-archief" title="Archief · Kansen portefeuille" data-src="archief.html?set=top250"></iframe>
   </main>
 <script>
   // Twee niveaus: wereld (je eigen investeringen of de Top 250) × scherm (overzicht, radar, archief)
@@ -86,7 +86,7 @@
   FROM_HASH.signalen = 'inv-radar';
   const TITLE = {
     'inv-overzicht': 'Investeringen', 'inv-radar': 'Patroonradar · Investeringen', 'inv-archief': 'Archief · Investeringen',
-    'top-overzicht': 'Top 250', 'top-radar': 'Patroonradar · Top 250', 'top-archief': 'Archief · Top 250'
+    'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille'
   };
   let world = 'inv', view = 'overzicht';
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Top 250</title>
+<title>Kansen portefeuille</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -34,7 +34,7 @@
   .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
   .scan-chip { font-size: 11px; font-family: var(--mono); color: var(--warn); border: 1px solid rgba(245,181,68,.45); background: rgba(245,181,68,.08); padding: 5px 10px; border-radius: 999px; }
 
-  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
   .stat {
     background: linear-gradient(180deg, var(--panel), var(--ink));
     border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
@@ -175,8 +175,12 @@
     .detail { grid-template-columns: 1fr; }
     .howto-body { grid-template-columns: 1fr; gap: 10px; }
   }
-  @media (max-width: 860px) {
-    .summary { grid-template-columns: repeat(2, 1fr); }
+  .crit-v small { font-size: 11px; color: var(--muted); }
+  @media (max-width: 560px) {
+    .summary { gap: 8px; }
+    .summary .stat { padding: 11px 11px; }
+    .summary .stat .label { font-size: 9.5px; letter-spacing: .6px; }
+    .summary .stat .sub { font-size: 10.5px; }
   }
   @media (max-width: 560px) {
     .howto .h-sub { display: none; }
@@ -203,8 +207,8 @@
 <div class="wrap">
   <header class="top">
     <div class="title-block">
-      <h1><span class="pulse"></span>Top 250</h1>
-      <p>Kansen buiten je portefeuille · formuleblad + moat, CEO &amp; recessiebestendigheid</p>
+      <h1><span class="pulse"></span>Kansen portefeuille</h1>
+      <p>De 250 sterkste aandelen die je nog niet hebt</p>
     </div>
     <div class="controls">
       <span class="scan-chip" id="scanChip" hidden></span>
@@ -229,7 +233,7 @@
       </div>
       <div>
         <h4>Kwaliteit · 25%</h4>
-        Stap 5 t/m 7 van het whiteboard: <b>moat</b>, <b>CEO-kwaliteit</b> en <b>recessiebestendig</b>, elk 0–10.
+        Drie van de 7 kerncriteria: <b>moat</b> (concurrentievoordeel), <b>CEO-kwaliteit</b> en <b>recessiebestendig</b>, elk 0–10.
         Voor de bekendste bedrijven is dit een oordeel uit <code>kwaliteit.json</code> (daar pas je het aan).
         Anders een schatting uit de cijfers (marges, rendement op eigen vermogen, insiderbezit, groei, sector, beta),
         herkenbaar aan de gestreepte balk.
@@ -237,8 +241,7 @@
       <div>
         <h4>Verwacht rendement · 12 mnd</h4>
         Gemiddeld <b>koersdoel van analisten</b> (minstens 3) plus dividendrendement. Zonder analisten een
-        schatting op basis van de omzetgroei. Amerikaanse bedrijven: cijfers van de dollarnotering, koers en
-        koersdoel op de euro-notering. Valutaschommelingen zitten er niet in. Dit is geen koopadvies.
+        schatting op basis van de omzetgroei. Amerikaanse bedrijven staan in dollars, eurozone-bedrijven in euro's. Dit is geen koopadvies.
       </div>
     </div>
   </details>
@@ -249,11 +252,9 @@
       <select id="sortSel">
         <option value="score">Totaalscore (hoog → laag)</option>
         <option value="exp">Verwacht rendement (hoog → laag)</option>
-        <option value="name">Naam (A → Z)</option>
         <option value="formule">Formuleblad (hoog → laag)</option>
         <option value="kwal">Kwaliteit (hoog → laag)</option>
-        <option value="steps">Meeste stappen</option>
-        <option value="pe">K/W (laag → hoog)</option>
+        <option value="name">Naam (A → Z)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -261,11 +262,11 @@
       <select id="sectorSel"><option value="all">Alle</option></select>
     </div>
     <div class="tb-group">
-      <span class="tb-label">Herkomst</span>
+      <span class="tb-label">Valuta</span>
       <select id="regionSel">
         <option value="all">Alle</option>
-        <option value="EU">Eurozone</option>
-        <option value="VS">VS (via €-notering)</option>
+        <option value="EU">Euro (€)</option>
+        <option value="VS">Dollar ($)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -285,7 +286,7 @@
     <span class="tb-count" id="tbCount"></span>
   </div>
 
-  <div class="cards" id="cards"><div class="state">Top 250 laden…</div></div>
+  <div class="cards" id="cards"><div class="state">Kansen laden…</div></div>
 
   <p class="foot">
     Eigen posities worden automatisch verborgen; stocks op je watchlist krijgen een label.
@@ -327,9 +328,11 @@ const nf = (v, d = 2) => v == null ? '—' : v.toLocaleString('nl-NL', { minimum
 const eur = v => v == null ? '—' : '€ ' + nf(v, v >= 1000 ? 0 : 2);
 // Geen euro-notering? Dan tonen we de dollarnotering zoals hij is, zonder omrekenen.
 const usd = v => v == null ? '—' : '$ ' + nf(v, v >= 1000 ? 0 : 2);
-const toNative = it => (it.approx && it.price && it.native) ? it.native / it.price : 1;
-const money = (it, v) => v == null ? '—' : it.approx ? usd(v * toNative(it)) : eur(v);
-const bn = (it, v) => v == null ? '—' : (it.approx ? '$ ' : '€ ') + nf(v * toNative(it), v * toNative(it) >= 100 ? 0 : 1) + ' mld';
+// Amerikaanse bedrijven tonen we in dollars (hun eigen notering), eurozone-bedrijven in euro's
+const isUSD = it => it.region === 'VS';
+const toNative = it => (isUSD(it) && it.price && it.native) ? it.native / it.price : 1;
+const money = (it, v) => v == null ? '—' : isUSD(it) ? usd(v * toNative(it)) : eur(v);
+const bn = (it, v) => v == null ? '—' : (isUSD(it) ? '$ ' : '€ ') + nf(v * toNative(it), v * toNative(it) >= 100 ? 0 : 1) + ' mld';
 const expOf = it => (it.exp && it.exp.pct != null) ? it.exp.pct : -1e9;
 // Standaardvolgorde: totaalscore hoog → laag, dan verwacht rendement hoog → laag, dan naam
 const byDefault = (a, b) => b.score - a.score || expOf(b) - expOf(a) || a.name.localeCompare(b.name, 'nl');
@@ -360,7 +363,7 @@ async function load() {
   } catch (e) {
     if (!DATA) {
       $('cards').innerHTML = `<div class="empty">Nog geen data. Zet <code>scripts/screener.py</code> en de workflow
-        <code>.github/workflows/screener.yml</code> in je repository en start <b>Actions → Top 250 → Run workflow</b>.
+        <code>.github/workflows/screener.yml</code> in je repository en start <b>Actions → Top 250 → Run workflow</b> (zo heet de workflow).
         De eerste scan duurt ongeveer een uur (verdeeld over 1–2 runs).</div>`;
       $('updated').textContent = 'geen data';
       $('summary').innerHTML = '';
@@ -389,10 +392,9 @@ function fillSectors() {
 }
 
 const QUICK = {
-  strong: { label: 'Topscore ≥ 80', sub: 'formule én kwaliteit', test: it => it.score >= 80 },
-  steps:  { label: '6+ van 7 stappen', sub: 'whiteboard-checklist', test: it => stepsOk(it) >= 6 },
-  exp:    { label: 'Verwacht ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 },
-  eu:     { label: 'Eurozone', sub: 'Europese bedrijven', test: it => it.region === 'EU' }
+  strong: { label: 'Topscore ≥ 80', sub: 'sterke cijfers én een sterk bedrijf', test: it => it.score >= 80 },
+  steps:  { label: '6+ van 7 stappen', sub: 'voldoet aan bijna alle kerncriteria', test: it => stepsOk(it) >= 6 },
+  exp:    { label: 'Verwacht ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
 };
 
 function render() {
@@ -482,18 +484,18 @@ function ring(score) {
 function card(it) {
   const open = openSet.has(it.sym);
   const e = it.exp || {};
-  const tick = it.eu || it.sym;
+  const tick = isUSD(it) ? it.sym : (it.eu || it.sym);
+  const beurs = isUSD(it) ? (it.us_exch || 'VS-beurs') : it.exch;
   const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
   const tags = [
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
-    it.approx ? '<span class="tag warn">in dollars · geen €-notering</span>' : '',
-    it.region === 'VS' ? `<span class="tag">VS · ${esc(it.sym)}</span>` : ''
+    isUSD(it) && it.eu && !it.approx ? `<span class="tag">€-notering: ${esc(it.eu)}</span>` : ''
   ].join('');
   return `<div class="stock ${tier(it.score)} ${open ? 'open' : ''}" data-sym="${esc(it.sym)}">
     <div class="rank ${it.pos <= 10 ? 'top' : ''}">#${it.pos}</div>
     <div class="s-name">
       <div class="s-title" title="${esc(it.name)}">${esc(it.name)}</div>
-      <div class="s-sub">${esc(tick)}${it.exch ? ' · ' + esc(it.exch) : ''} · ${esc(SECTOR_NL[it.sector] || it.sector || '—')}</div>
+      <div class="s-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[it.sector] || it.sector || '—')}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ''}
     </div>
     <div>${ring(it.score)}<div class="ring-sub">F${Math.round(it.formule)} · K${it.kwal}</div></div>
@@ -509,8 +511,17 @@ function card(it) {
   </div>`;
 }
 
-function critValue(c) {
-  if (c.p == null) return 'geen data';
+// Waarom een criterium soms geen waarde heeft (geen fout in de formule, maar het cijfer bestaat niet)
+function noData(c, it) {
+  const fin = it.sector === 'Financial Services';
+  if (c.k === 'short' && it.region === 'EU') return 'niet openbaar in EU';
+  if ((c.k === 'current' || c.k === 'schaal' || c.k === 'marge') && fin) return 'n.v.t. bij financials';
+  if (c.k === 'omzetgroei' || c.k === 'cashgroei' || c.k === 'schaal') return 'te weinig jaarcijfers';
+  if (c.k === 'cashschuld') return 'geen kwartaalcijfers';
+  return 'niet gepubliceerd';
+}
+function critValue(c, it) {
+  if (c.p == null) return `<small>${noData(c, it)}</small>`;
   switch (c.k) {
     case 'current': return nf(c.v, 2);
     case 'cashschuld': return c.v == null ? 'geen schuld' : pct(c.v) + (c.ratio != null ? ` <small>(${nf(c.ratio, 0)}%)</small>` : '');
@@ -529,7 +540,7 @@ function detail(it) {
       <div class="q-bar ${o.src === 'oordeel' ? '' : 'est'}"><i style="width:${o.s * 10}%"></i></div><div class="q-val">${o.s}/10</div></div>` : '';
   const crit = it.crit.map(c => `<div class="crit ${c.p == null ? 'na' : ''}">
       <div class="crit-n">${CRIT[c.k][0]}<small>${CRIT[c.k][1]}</small></div>
-      <div class="crit-v">${critValue(c)}</div>
+      <div class="crit-v">${critValue(c, it)}</div>
       <div class="pips ${c.p == null ? '' : 'p' + c.p}"><i></i><i></i><i></i></div>
       <div class="crit-p">${c.p == null ? '–' : c.p}</div>
     </div>`).join('');
@@ -542,7 +553,7 @@ function detail(it) {
       ? `Te weinig analisten; schatting uit de omzetgroei (${pct(e.growth)})${e.div ? ` plus ${nf(e.div, 1)}% dividend` : ''}.`
       : e.src === 'dividend' ? `Alleen dividendrendement bekend (${nf(e.div, 1)}%).` : 'Onvoldoende gegevens voor een verwachting.';
   const cd = it.cashdebt || [];
-  const tick = it.eu || it.sym;
+  const tick = isUSD(it) ? it.sym : (it.eu || it.sym);
   return `<div class="detail">
     <div>
       <div class="d-k">Formuleblad <span>${Math.round(it.formule)}/100 · ${it.n_crit}/10 criteria met data</span></div>
@@ -563,8 +574,8 @@ function detail(it) {
       </div>
       ${range}
       <p class="note" style="margin-top:12px">${esc(it.industry || '')}${it.country ? ' · ' + esc(it.country) : ''}${it.region === 'VS'
-        ? ` · cijfers via ${esc(it.sym)}${it.approx ? '; geen euro-notering gevonden, daarom in dollars' : ` ($ ${nf(it.native)})`}` : ''}</p>
-      <div class="d-actions"><button class="toggle" data-copy="${esc(tick)}">Kopieer ${esc(tick)}</button></div>
+        ? ` · cijfers en koers via ${esc(it.sym)}${it.us_exch ? ' (' + esc(it.us_exch) + ')' : ''} in dollars${it.eu && !it.approx ? `; in euro's te koop als ${esc(it.eu)}${it.exch ? ' op ' + esc(it.exch) : ''} (€ ${nf(it.price)})` : ''}` : ''}</p>
+      <div class="d-actions"><button class="toggle" data-copy="${esc(tick)}">Kopieer ${esc(tick)}</button>${isUSD(it) && it.eu && !it.approx ? `<button class="toggle" data-copy="${esc(it.eu)}">Kopieer ${esc(it.eu)}</button>` : ''}</div>
     </div>
   </div>`;
 }

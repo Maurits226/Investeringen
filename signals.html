@@ -421,8 +421,8 @@
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
         <option value="section">Categorie (standaard)</option>
-        <option value="name">Naam (A-Z)</option>
-        <option value="result">Resultaat (hoog-laag)</option>
+        <option value="result">Resultaat (hoog → laag)</option>
+        <option value="name">Naam (A → Z)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -464,7 +464,7 @@ const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top2
 const SETS = {
   investeringen: { title: 'Patroonradar · Investeringen', sub: 'Patronen en adviezen voor je eigen posities',
                    file: 'signals.json', ui: 'signals_ui', noun: ['positie', 'posities'], workflow: 'Patroonradar investeringen' },
-  top250:        { title: 'Patroonradar · Top 250', sub: 'Instapmomenten voor de Top 250 — stocks die je nog niet hebt',
+  top250:        { title: 'Patroonradar · Kansen portefeuille', sub: 'Instapmomenten voor stocks die je nog niet hebt',
                    file: 'signals_top250.json', ui: 'signals_ui_top250', noun: ['stock', 'stocks'], workflow: 'Patroonradar top 250' }
 };
 const CFG = SETS[SET];
@@ -631,7 +631,7 @@ function card(it) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${it.rank ? `<span class="rank-tag" title="Plaats in de Top 250">#${it.rank}</span>` : ''}${esc(title)}</span>
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${it.rank ? `<span class="rank-tag" title="Plaats in Kansen portefeuille">#${it.rank}</span>` : ''}${esc(title)}</span>
       <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="${it.pattern_symbol ? 'Patroon berekend op ' + esc(it.pattern_symbol) + ' (VS), koersen in euro' : 'Koersdata opgehaald'}">● data${it.pattern_symbol ? ' via ' + esc(it.pattern_symbol) : ''}</span></span>
       ${contextTags(it)}
     </div>
@@ -758,10 +758,10 @@ function climateCards(reg, byKey, wk) {
   const week = `<div class="cc wk ${wk.cls === 'pos' ? 'good' : wk.cls === 'neg' ? 'bad' : 'mid'}">
       <div class="cc-k"><i></i>Beursklimaat deze week</div>
       <div class="cc-main"><span class="cc-verdict">${wk.word[0].toUpperCase() + wk.word.slice(1)}</span><span class="cc-num">${pct(wk.avg, 1)}</span></div>
-      <div class="cc-sub">Verwacht gemiddeld resultaat van ${SET === 'investeringen' ? 'je stocks' : 'de Top 250'} over 5 handelsdagen</div>
+      <div class="cc-sub">Verwacht gemiddeld resultaat van ${SET === 'investeringen' ? 'je stocks' : 'deze kansen'} over 5 handelsdagen</div>
       <div class="dist">${wk.up ? `<span class="u" style="width:${w(wk.up)}"></span>` : ''}${flat ? `<span class="f" style="width:${w(flat)}"></span>` : ''}${wk.down ? `<span class="d" style="width:${w(wk.down)}"></span>` : ''}</div>
       <div class="dist-l"><em class="u">${wk.up} omhoog</em><em class="f">${flat} vlak</em><em class="d">${wk.down} omlaag</em></div>
-      <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'stocks uit de Top 250'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'}</div>
+      <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'kansen'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'}</div>
     </div>`;
   return `<div class="clim">${today}${week}</div>`;
 }
@@ -785,7 +785,7 @@ function weekOutlook() {
   const avg = sm / sw;
   const cls = avg >= 0.5 ? 'pos' : avg <= -0.5 ? 'neg' : '';
   const word = cls === 'pos' ? 'positief' : cls === 'neg' ? 'negatief' : 'neutraal';
-  const why = `Gemiddelde verwachte beweging van ${n} ${SET === 'investeringen' ? 'stocks in je portefeuille, gewogen naar positiewaarde' : 'stocks uit de Top 250'}, `
+  const why = `Gemiddelde verwachte beweging van ${n} ${SET === 'investeringen' ? 'stocks in je portefeuille, gewogen naar positiewaarde' : 'kansen'}, `
     + `teruggerekend van ${horizon} naar 5 handelsdagen. Stocks zonder duidelijk patroon tellen als 0%. Vanaf +0,5% positief, vanaf -0,5% negatief. Edelmetalen tellen niet mee.`;
   return { avg, cls, word, up, down, n, why };
 }
@@ -1354,8 +1354,8 @@ document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; u
 document.getElementById('pageTitle').textContent = CFG.title;
 document.getElementById('pageSub').textContent = CFG.sub;
 if (SET === 'top250') {
-  const o = document.createElement('option'); o.value = 'rank'; o.textContent = 'Top 250-positie';
-  document.getElementById('sortSel').appendChild(o);
+  const o = document.createElement('option'); o.value = 'rank'; o.textContent = 'Plaats in kansenlijst (hoog → laag)';
+  document.getElementById('sortSel').insertBefore(o, document.querySelector('#sortSel option[value="name"]'));
   document.querySelector('#sortSel option[value="section"]').textContent = 'Sector (standaard)';
   document.querySelector('#catSel').previousElementSibling.textContent = 'Sector';
 }

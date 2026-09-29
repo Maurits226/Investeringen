@@ -246,7 +246,7 @@ const CFG = {
   investeringen: { title: 'Archief · Investeringen', sub: 'Per handelsdag de patronen en adviezen voor je eigen posities',
                    dir: 'archive', file: 'signals.json', ui: 'archive_ui', start: 'maandag 28 september', every: 'elke 15 minuten',
                    one: 'positie', many: 'posities', Many: 'Posities' },
-  top250:        { title: 'Archief · Top 250', sub: 'Per handelsdag de patronen en adviezen voor de Top 250',
+  top250:        { title: 'Archief · Kansen portefeuille', sub: 'Per handelsdag de patronen en adviezen voor je kansen',
                    dir: 'archive_top250', file: 'signals_top250.json', ui: 'archive_ui_top250', start: 'woensdag 30 september', every: 'elk uur',
                    one: 'stock', many: 'stocks', Many: 'Stocks' }
 }[SET];
@@ -573,7 +573,7 @@ function renderScore() {
     <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}${dirLine('down', SET === 'top250' ? 'Nog-niet-kopen-adviezen' : 'Verkoopadviezen')}</div>
     <div class="sb-tools">
       <select id="sbFilter"><option value="all">Alle adviezen</option><option value="open">Lopend</option><option value="doel">Doel gehaald</option><option value="stop">Stop geraakt</option><option value="verlopen">Termijn verstreken</option><option value="mine">Door jou opgevolgd</option></select>
-      <select id="sbSort"><option value="new">Nieuwste eerst</option><option value="best">Beste resultaat</option><option value="worst">Slechtste resultaat</option></select>
+      <select id="sbSort"><option value="new">Datum (nieuw → oud)</option><option value="best">Resultaat (hoog → laag)</option><option value="worst">Resultaat (laag → hoog)</option></select>
       <span class="cnt">${list.length} van ${all.length}</span>
     </div>
     <div class="h-list">${rows || '<div class="empty">Geen adviezen met dit filter.</div>'}</div>`;

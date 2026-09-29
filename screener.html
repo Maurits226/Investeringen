@@ -48,12 +48,18 @@
   .stat .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: var(--mono); color: var(--muted); }
 
-  .howto { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 11px 16px; margin-bottom: 18px; }
-  .howto summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 8px; }
+  .howto { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; transition: border-color .15s; }
+  .howto:hover, .howto[open] { border-color: rgba(79,143,240,.5); }
+  .howto summary { cursor: pointer; font-size: 13px; color: var(--text); list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
   .howto summary::-webkit-details-marker { display: none; }
-  .howto summary::before { content: '▸'; transition: transform .15s; }
-  .howto[open] summary::before { transform: rotate(90deg); }
-  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .howto .h-sub { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .howto .h-btn { margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .howto .h-btn::after { content: ' ▾'; }
+  .howto[open] .h-btn::after { content: ' ▴'; }
+  .howto .h-less { display: none; }
+  .howto[open] .h-more { display: none; }
+  .howto[open] .h-less { display: inline; }
+  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 2px 16px 14px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
   .howto-body b { color: var(--text); font-weight: 600; }
   .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
 
@@ -173,6 +179,7 @@
     .summary { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 560px) {
+    .howto .h-sub { display: none; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
     .summary { gap: 10px; }
@@ -209,7 +216,9 @@
   <div class="summary" id="summary"></div>
 
   <details class="howto">
-    <summary>Hoe komt de score tot stand?</summary>
+    <summary>🧮 Hoe komt de score tot stand?
+      <span class="h-sub">formuleblad · kwaliteit · verwacht rendement</span>
+      <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
     <div class="howto-body">
       <div>
         <h4>Formuleblad · 75%</h4>
@@ -238,13 +247,13 @@
     <div class="tb-group">
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
-        <option value="score">Totaalscore</option>
-        <option value="formule">Formuleblad</option>
-        <option value="kwal">Kwaliteit</option>
-        <option value="exp">Verwacht rendement</option>
+        <option value="score">Totaalscore (hoog → laag)</option>
+        <option value="exp">Verwacht rendement (hoog → laag)</option>
+        <option value="name">Naam (A → Z)</option>
+        <option value="formule">Formuleblad (hoog → laag)</option>
+        <option value="kwal">Kwaliteit (hoog → laag)</option>
         <option value="steps">Meeste stappen</option>
-        <option value="pe">K/W (laag-hoog)</option>
-        <option value="name">Naam (A-Z)</option>
+        <option value="pe">K/W (laag → hoog)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -316,6 +325,14 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (v, d = 2) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const eur = v => v == null ? '—' : '€ ' + nf(v, v >= 1000 ? 0 : 2);
+// Geen euro-notering? Dan tonen we de dollarnotering zoals hij is, zonder omrekenen.
+const usd = v => v == null ? '—' : '$ ' + nf(v, v >= 1000 ? 0 : 2);
+const toNative = it => (it.approx && it.price && it.native) ? it.native / it.price : 1;
+const money = (it, v) => v == null ? '—' : it.approx ? usd(v * toNative(it)) : eur(v);
+const bn = (it, v) => v == null ? '—' : (it.approx ? '$ ' : '€ ') + nf(v * toNative(it), v * toNative(it) >= 100 ? 0 : 1) + ' mld';
+const expOf = it => (it.exp && it.exp.pct != null) ? it.exp.pct : -1e9;
+// Standaardvolgorde: totaalscore hoog → laag, dan verwacht rendement hoog → laag, dan naam
+const byDefault = (a, b) => b.score - a.score || expOf(b) - expOf(a) || a.name.localeCompare(b.name, 'nl');
 const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
 const tier = s => s >= 80 ? 't1' : s >= 65 ? 't2' : s >= 50 ? 't3' : '';
@@ -357,7 +374,7 @@ async function load() {
 function pool() {
   const pf = portfolio();
   const items = (DATA.items || []).filter(it => !pf.own.has((it.eu || '').toUpperCase()) && !pf.own.has(it.sym.toUpperCase()));
-  return items.slice(0, LIMIT).map((it, i) => Object.assign({}, it, {
+  return items.slice().sort(byDefault).slice(0, LIMIT).map((it, i) => Object.assign({}, it, {
     pos: i + 1,
     watch: it.watch || pf.watch.has((it.eu || '').toUpperCase()) || pf.watch.has(it.sym.toUpperCase())
   }));
@@ -410,12 +427,12 @@ function render() {
 
   const pe = it => { const c = it.crit.find(x => x.k === 'kw'); return c && c.v != null ? c.v : 1e9; };
   const sorters = {
-    score: (a, b) => b.score - a.score,
-    formule: (a, b) => b.formule - a.formule || b.score - a.score,
-    kwal: (a, b) => b.kwal - a.kwal || b.score - a.score,
-    exp: (a, b) => ((b.exp && b.exp.pct) ?? -1e9) - ((a.exp && a.exp.pct) ?? -1e9),
-    steps: (a, b) => stepsOk(b) - stepsOk(a) || b.score - a.score,
-    pe: (a, b) => pe(a) - pe(b),
+    score: byDefault,
+    formule: (a, b) => b.formule - a.formule || byDefault(a, b),
+    kwal: (a, b) => b.kwal - a.kwal || byDefault(a, b),
+    exp: (a, b) => expOf(b) - expOf(a) || byDefault(a, b),
+    steps: (a, b) => stepsOk(b) - stepsOk(a) || byDefault(a, b),
+    pe: (a, b) => pe(a) - pe(b) || byDefault(a, b),
     name: (a, b) => a.name.localeCompare(b.name, 'nl')
   };
   list.sort(sorters[sortBy] || sorters.score);
@@ -469,7 +486,7 @@ function card(it) {
   const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
   const tags = [
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
-    it.approx ? '<span class="tag warn">≈ omgerekend</span>' : '',
+    it.approx ? '<span class="tag warn">in dollars · geen €-notering</span>' : '',
     it.region === 'VS' ? `<span class="tag">VS · ${esc(it.sym)}</span>` : ''
   ].join('');
   return `<div class="stock ${tier(it.score)} ${open ? 'open' : ''}" data-sym="${esc(it.sym)}">
@@ -481,7 +498,7 @@ function card(it) {
     </div>
     <div>${ring(it.score)}<div class="ring-sub">F${Math.round(it.formule)} · K${it.kwal}</div></div>
     <div class="row2">
-      <div class="blk"><div class="k">Koers</div><div class="v">${it.approx ? '≈ ' : ''}${eur(it.price)}</div>
+      <div class="blk"><div class="k">Koers</div><div class="v">${money(it, it.price)}</div>
         <div class="s ${cls(it.day)}">${it.day == null ? '&nbsp;' : pct(it.day, 2) + ' vandaag'}</div></div>
       <div class="blk"><div class="k">Verwacht 12 mnd</div><div class="v ${cls(e.pct)}">${pct(e.pct)}</div><div class="s">${expSrc}</div></div>
       <div class="blk steps-blk"><div class="k">${stepsOk(it)}/7 stappen</div>
@@ -518,9 +535,9 @@ function detail(it) {
     </div>`).join('');
   const range = (it.hi52 && it.lo52 && it.hi52 > it.lo52)
     ? `<div class="range"><div class="dot" style="left:${Math.max(0, Math.min(100, (it.price - it.lo52) / (it.hi52 - it.lo52) * 100)).toFixed(1)}%"></div></div>
-       <div class="range-l"><span>${eur(it.lo52)}</span><span>52 weken</span><span>${eur(it.hi52)}</span></div>` : '';
+       <div class="range-l"><span>${money(it, it.lo52)}</span><span>52 weken</span><span>${money(it, it.hi52)}</span></div>` : '';
   const expTxt = e.src === 'analisten'
-    ? `Koersdoel <b>${eur(e.tgt_eur)}</b> (${pct(e.upside)}) volgens ${e.n} analisten, advies <b>${RATING_NL[e.rating] || e.rating || '—'}</b>${e.div ? `, plus ${nf(e.div, 1)}% dividend` : ''}.`
+    ? `Koersdoel <b>${money(it, e.tgt_eur)}</b> (${pct(e.upside)}) volgens ${e.n} analisten, advies <b>${RATING_NL[e.rating] || e.rating || '—'}</b>${e.div ? `, plus ${nf(e.div, 1)}% dividend` : ''}.`
     : e.src === 'schatting'
       ? `Te weinig analisten; schatting uit de omzetgroei (${pct(e.growth)})${e.div ? ` plus ${nf(e.div, 1)}% dividend` : ''}.`
       : e.src === 'dividend' ? `Alleen dividendrendement bekend (${nf(e.div, 1)}%).` : 'Onvoldoende gegevens voor een verwachting.';
@@ -540,13 +557,13 @@ function detail(it) {
       <div class="d-k">Verwacht rendement <span class="${cls(e.pct)}">${pct(e.pct)}</span></div>
       <p class="note" style="margin-bottom:14px">${expTxt}</p>
       <div class="facts">
-        <div><div class="k">Marktwaarde</div><div class="v">${it.mcap ? '€ ' + nf(it.mcap, it.mcap >= 100 ? 0 : 1) + ' mld' : '—'}</div></div>
-        <div><div class="k">Cash</div><div class="v">${cd[0] == null ? '—' : '€ ' + nf(cd[0], 1) + ' mld'}</div></div>
-        <div><div class="k">Schuld</div><div class="v">${cd[1] == null ? '—' : '€ ' + nf(cd[1], 1) + ' mld'}</div></div>
+        <div><div class="k">Marktwaarde</div><div class="v">${it.mcap ? bn(it, it.mcap) : '—'}</div></div>
+        <div><div class="k">Cash</div><div class="v">${bn(it, cd[0])}</div></div>
+        <div><div class="k">Schuld</div><div class="v">${bn(it, cd[1])}</div></div>
       </div>
       ${range}
       <p class="note" style="margin-top:12px">${esc(it.industry || '')}${it.country ? ' · ' + esc(it.country) : ''}${it.region === 'VS'
-        ? ` · cijfers via ${esc(it.sym)} ($ ${nf(it.native)})${it.approx ? '; geen euro-notering gevonden, koers omgerekend tegen ' + nf(DATA.fx, 4) : ''}` : ''}</p>
+        ? ` · cijfers via ${esc(it.sym)}${it.approx ? '; geen euro-notering gevonden, daarom in dollars' : ` ($ ${nf(it.native)})`}` : ''}</p>
       <div class="d-actions"><button class="toggle" data-copy="${esc(tick)}">Kopieer ${esc(tick)}</button></div>
     </div>
   </div>`;

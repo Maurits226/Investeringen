@@ -520,7 +520,14 @@ function rate(a, b) { return b ? Math.round(100 * a / b) : null; }
 
 // het realisatiepercentage dat in het plan groen staat (null = geen signaal)
 // signaal vandaag gekregen dat er gisteren nog niet was
-function isNew(it) { return !!(it.flag && it.new_signal); }
+// Nieuw = het advies is in het afgelopen uur ontstaan (moment dat de radar het signaal voor het eerst zag)
+const NEW_MIN = 60;
+function isNew(it) {
+  if (!it.flag) return false;
+  const ep = activeEpisode(it.symbol, it.direction);
+  if (!ep || ep.bootstrap || !ep.start) return false;
+  return Date.now() - new Date(ep.start).getTime() < NEW_MIN * 60 * 1000;
+}
 
 function realPct(it) {
   if (!it.flag || !it.plan) return null;
@@ -604,7 +611,7 @@ function card(it) {
       ${planBlock}
     </div>
     <div class="p-actions">
-      ${isNew(it) ? '<span class="badge new" title="Dit signaal is er sinds de vorige handelsdag">NIEUW SIGNAAL</span>' : ''}
+      ${isNew(it) ? '<span class="badge new" title="Dit signaal is in het afgelopen uur ontstaan">NIEUW SIGNAAL</span>' : ''}
       ${badge}
       ${entry}
       ${since}
@@ -867,7 +874,7 @@ function render() {
   summary.innerHTML = `
     <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omhoog</div></div>
     <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omlaag</div></div>
-    <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">sinds de vorige handelsdag</div></div>
+    <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">in het afgelopen uur</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
 `;
   summary.querySelectorAll('.stat.clickable').forEach(el => {

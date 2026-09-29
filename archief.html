@@ -30,7 +30,11 @@
   button:disabled { opacity: .35; cursor: default; border-color: var(--line); }
 
   .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px; }
-  .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+          cursor: pointer; transition: border-color .15s, transform .15s; }
+  .stat:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat:active { transform: translateY(0); }
+  .stat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
   .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
@@ -290,7 +294,7 @@ const tradeResult = (t, px) => t.dir === 'up' ? (px / t.price - 1) * 100 : (1 - 
 
 function fillSelect() {
   const sel = document.getElementById('daySel');
-  sel.innerHTML = index.map(d => `<option value="${d.date}">${dag(d.date)}${d.date === localDay(new Date().toISOString()) ? ' (vandaag)' : ''} · ▲${d.up} ▼${d.down}${d.new ? ` · ${d.new} nieuw` : ''}${d.expired ? ` · ${d.expired} af` : ''}</option>`).join('');
+  sel.innerHTML = index.map(d => `<option value="${d.date}">${dag(d.date)}${d.date === localDay(new Date().toISOString()) ? ' (vandaag)' : ''}</option>`).join('');
   sel.value = current;
 }
 
@@ -300,11 +304,12 @@ function renderSummary() {
   const klaar = n('doel') + n('stop') + n('verlopen');
   const closed = trades.filter(t => t.status === 'closed');
   const gem = closed.length ? closed.reduce((s, t) => s + tradeResult(t, t.close_price), 0) / closed.length : null;
+  const on = f => ui.view === 'score' && ui.sbFilter === f ? ' active' : '';
   document.getElementById('summary').innerHTML = `
-    <div class="stat"><div class="label">Adviezen gegeven</div><div class="value">${hist.length}</div><div class="sub">${hist.length ? 'sinds ' + dag(hist[hist.length - 1].start) : 'nog geen'}</div></div>
-    <div class="stat"><div class="label">Doel gehaald</div><div class="value" style="color:var(--up)">${n('doel')}</div><div class="sub">${klaar ? Math.round(100 * n('doel') / klaar) + '% van afgelopen' : n('open') + ' lopen nog'}</div></div>
-    <div class="stat"><div class="label">Stop geraakt</div><div class="value" style="color:var(--down)">${n('stop')}</div><div class="sub">${n('verlopen')} zonder doel of stop</div></div>
-    <div class="stat"><div class="label">Jouw resultaat</div><div class="value" style="color:${gem == null ? 'var(--muted)' : gem >= 0 ? 'var(--up)' : 'var(--down)'}">${gem == null ? '–' : pct(gem)}</div><div class="sub">${closed.length} afgerond, gemiddeld</div></div>`;
+    <div class="stat${on('all')}" data-f="all" title="Toon alle adviezen in het scorebord"><div class="label">Adviezen gegeven</div><div class="value">${hist.length}</div><div class="sub">${hist.length ? 'sinds ' + dag(hist[hist.length - 1].start) : 'nog geen'}</div></div>
+    <div class="stat${on('doel')}" data-f="doel" title="Toon de adviezen die hun doel haalden"><div class="label">Doel gehaald</div><div class="value" style="color:var(--up)">${n('doel')}</div><div class="sub">${klaar ? Math.round(100 * n('doel') / klaar) + '% van afgelopen' : n('open') + ' lopen nog'}</div></div>
+    <div class="stat${on('stop')}" data-f="stop" title="Toon de adviezen die hun stop raakten"><div class="label">Stop geraakt</div><div class="value" style="color:var(--down)">${n('stop')}</div><div class="sub">${n('verlopen')} zonder doel of stop</div></div>
+    <div class="stat${on('mine')}" data-f="mine" title="Toon de adviezen die jij hebt opgevolgd"><div class="label">Jouw resultaat</div><div class="value" style="color:${gem == null ? 'var(--muted)' : gem >= 0 ? 'var(--up)' : 'var(--down)'}">${gem == null ? '–' : pct(gem)}</div><div class="sub">${closed.length} afgerond, gemiddeld</div></div>`;
 }
 
 function outcomeHTML(a, cfg) {
@@ -450,7 +455,7 @@ function renderScore() {
       afgerond ${t.af}: <span class="c-up">${t.doel} doel</span> · <span class="c-down">${t.stop} stop</span> · ${t.af - t.doel - t.stop} verlopen${t.gemAf != null ? ` · gem. <span class="${t.gemAf >= 0 ? 'c-up' : 'c-down'}">${pct(t.gemAf)}</span>` : ''}<br>
       lopend ${t.lopend}${t.gemLo != null ? ` · nu gem. <span class="${t.gemLo >= 0 ? 'c-up' : 'c-down'}">${pct(t.gemLo)}</span>` : ''}</div>`;
   };
-  let list = all.filter(h => ui.sbFilter === 'all' || h.outcome === ui.sbFilter);
+  let list = all.filter(h => ui.sbFilter === 'all' || (ui.sbFilter === 'mine' ? trades.some(t => t.episode === h.id) : h.outcome === ui.sbFilter));
   list.sort((a, b) => ui.sbSort === 'best' ? (adviesStand(b).res ?? -1e9) - (adviesStand(a).res ?? -1e9)
     : ui.sbSort === 'worst' ? (adviesStand(a).res ?? 1e9) - (adviesStand(b).res ?? 1e9)
     : (b.start || '').localeCompare(a.start || ''));
@@ -471,9 +476,9 @@ function renderScore() {
     </div>`;
   }).join('');
   box.innerHTML = `
-    <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}${dirLine('down', 'Verkoopadviezen')}</div>
+    <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}${dirLine('down', SET === 'top250' ? 'Nog-niet-kopen-adviezen' : 'Verkoopadviezen')}</div>
     <div class="sb-tools">
-      <select id="sbFilter"><option value="all">Alle adviezen</option><option value="open">Lopend</option><option value="doel">Doel gehaald</option><option value="stop">Stop geraakt</option><option value="verlopen">Termijn verstreken</option></select>
+      <select id="sbFilter"><option value="all">Alle adviezen</option><option value="open">Lopend</option><option value="doel">Doel gehaald</option><option value="stop">Stop geraakt</option><option value="verlopen">Termijn verstreken</option><option value="mine">Door jou opgevolgd</option></select>
       <select id="sbSort"><option value="new">Nieuwste eerst</option><option value="best">Beste resultaat</option><option value="worst">Slechtste resultaat</option></select>
       <span class="cnt">${list.length} van ${all.length}</span>
     </div>
@@ -488,6 +493,7 @@ function setView(v) {
   document.getElementById('dayView').hidden = v !== 'day';
   document.getElementById('scoreView').hidden = v !== 'score';
   if (v === 'score') renderScore();
+  if (index.length) renderSummary();
 }
 
 async function show(date, force) {
@@ -504,20 +510,23 @@ async function show(date, force) {
 
   const items = (snap.items || []).filter(it => !skipCat(it.category)).map(it => ({ ...it, category: catOf(it) }));
   const keep = new Set(items.map(it => it.symbol));
-  const advices = (snap.advices || []).filter(a => keep.has(a.symbol))
+  // Een advies zonder signaal meer ("signaal weg") telt als vervallen, niet als lopend
+  const gone = (snap.advices || []).filter(a => keep.has(a.symbol) && a.status === 'niet_instappen')
+    .map(a => ({ ...a, end: a.end || snap.generated, end_reason: 'vervallen' }));
+  const advices = (snap.advices || []).filter(a => keep.has(a.symbol) && a.status !== 'niet_instappen')
     .sort((a, b) => (b.new - a.new) || (b.start || '').localeCompare(a.start || ''));
   const nUp = items.filter(it => it.flag && it.direction === 'up').length;
   const nDown = items.filter(it => it.flag && it.direction === 'down').length;
   const reg = snap.regime && snap.regime.text ? ` · <span class="regime-${snap.regime.state || ''}">${esc(snap.regime.text)}</span>` : '';
   const isToday = date === localDay(new Date().toISOString());
   document.getElementById('dayinfo').innerHTML = `<b>${dagLang(date)}</b> · ${isToday ? 'stand van' : 'slotstand'} ${tijd(snap.generated)}${reg}<br>
-    <span class="c-up">${nUp} koopsignaal</span> · <span class="c-down">${nDown} verkoopsignaal</span> · ${items.length - nUp - nDown} zonder signaal${(snap.expired || []).length ? ` · ${(snap.expired || []).filter(a => keep.has(a.symbol)).length} advies afgelopen` : ''}`;
+    <span class="c-up">${nUp} koopsignaal</span> · <span class="c-down">${nDown} verkoopsignaal</span> · ${items.length - nUp - nDown} zonder signaal${(snap.expired || []).length + gone.length ? ` · ${(snap.expired || []).filter(a => keep.has(a.symbol)).length + gone.length} advies afgelopen` : ''}`;
 
   box.innerHTML = '';
   const add = html => box.insertAdjacentHTML('beforeend', html);
   add(`<div class="section-header">Lopende adviezen (${advices.length})</div>`);
   add(advices.length ? `<div class="h-list">${advices.map(a => adviceRow(a, snap)).join('')}</div>` : `<div class="empty">Geen lopend koop- of verkoopadvies aan het eind van deze dag.</div>`);
-  const expired = (snap.expired || []).filter(a => keep.has(a.symbol)).sort((a, b) => (b.end || '').localeCompare(a.end || ''));
+  const expired = [...(snap.expired || []).filter(a => keep.has(a.symbol)), ...gone].sort((a, b) => (b.end || '').localeCompare(a.end || ''));
   if (expired.length) {
     add(`<div class="section-header">Afgelopen deze dag (${expired.length})</div>`);
     add(`<div class="h-list">${expired.map(a => expiredRow(a, snap)).join('')}</div>`);
@@ -548,10 +557,18 @@ document.getElementById('prev').onclick = () => { const i = index.findIndex(d =>
 document.getElementById('next').onclick = () => { const i = index.findIndex(d => d.date === current); if (i > 0) show(index[i - 1].date); };
 document.addEventListener('change', e => {
   if (e.target.id === 'showSel') { ui.show = e.target.value; saveUI(); show(current); }
-  if (e.target.id === 'sbFilter') { ui.sbFilter = e.target.value; saveUI(); renderScore(); }
+  if (e.target.id === 'sbFilter') { ui.sbFilter = e.target.value; saveUI(); renderScore(); renderSummary(); }
   if (e.target.id === 'sbSort') { ui.sbSort = e.target.value; saveUI(); renderScore(); }
 });
 document.querySelectorAll('.viewnav button').forEach(b => b.onclick = () => setView(b.dataset.view));
+// Tegels bovenaan = snelkoppeling naar het scorebord met dat filter (nog eens klikken = alle adviezen)
+document.getElementById('summary').addEventListener('click', e => {
+  const t = e.target.closest('.stat[data-f]'); if (!t) return;
+  const f = t.dataset.f;
+  ui.sbFilter = (ui.view === 'score' && ui.sbFilter === f) ? 'all' : f;
+  saveUI(); setView('score');
+  document.querySelector('.viewnav').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 load(true);
 setInterval(() => { if (ui.view === 'score' || (index.length && current === index[0].date)) load(); }, 5 * 60 * 1000);

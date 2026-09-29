@@ -64,7 +64,15 @@ EXCH_NAME = {
     "BRU": "Euronext Brussel", "HEL": "Nasdaq Helsinki", "ISE": "Euronext Dublin",
     "VIE": "Wiener Börse", "LIS": "Euronext Lissabon", "STU": "Stuttgart", "MUN": "München",
 }
-EU_LISTING_PREF = ["GER", "FRA", "DUS"]     # euro-notering voor VS-bedrijven, in deze volgorde
+EU_LISTING_PREF = ["GER", "FRA", "DUS"]
+CACHE_V = 2                                 # v2: sector ook uit summaryProfile
+# S&P 500-lijst (GICS) -> Yahoo-sectornamen, als Yahoo zelf geen sector geeft
+GICS_TO_YAHOO = {
+    "Information Technology": "Technology", "Health Care": "Healthcare", "Financials": "Financial Services",
+    "Consumer Discretionary": "Consumer Cyclical", "Consumer Staples": "Consumer Defensive",
+    "Industrials": "Industrials", "Communication Services": "Communication Services", "Energy": "Energy",
+    "Utilities": "Utilities", "Real Estate": "Real Estate", "Materials": "Basic Materials",
+}     # euro-notering voor VS-bedrijven, in deze volgorde
 
 # Sector -> basispunten recessiebestendigheid (schatting als er geen handmatig oordeel is)
 SECTOR_DEFENSIVE = {
@@ -217,7 +225,7 @@ def timeseries(y, sym):
 
 def summary(y, sym):
     """Kerngegevens, eigendom, analisten en profiel."""
-    mods = "price,summaryDetail,defaultKeyStatistics,financialData,assetProfile"
+    mods = "price,summaryDetail,defaultKeyStatistics,financialData,assetProfile,summaryProfile"
     j = y.get(f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{quote(sym)}"
               f"?modules={mods}", crumb=True)
     r = j["quoteSummary"]["result"][0]
@@ -227,7 +235,7 @@ def summary(y, sym):
         return v.get("raw") if isinstance(v, dict) else (v if isinstance(v, (int, float, str)) else None)
 
     pr = r.get("price") or {}
-    ap = r.get("assetProfile") or {}
+    ap = dict(r.get("summaryProfile") or {}, **{k: v for k, v in (r.get("assetProfile") or {}).items() if v})
     return {
         "name": pr.get("longName") or pr.get("shortName") or sym,
         "cur": pr.get("currency"),
@@ -325,7 +333,8 @@ def load_universe(cache):
                                     timeout=30) as r:
             for row in csv.DictReader(io.StringIO(r.read().decode("utf-8"))):
                 s = row["Symbol"].strip().upper().replace(".", "-")
-                uni[s] = {"region": "VS", "src": "S&P 500", "name": row.get("Security")}
+                uni[s] = {"region": "VS", "src": "S&P 500", "name": row.get("Security"),
+                          "gics": GICS_TO_YAHOO.get((row.get("GICS Sector") or "").strip())}
         print(f"S&P 500: {len(uni)} bedrijven")
     except Exception as e:  # noqa: BLE001
         print(f"S&P 500-lijst niet opgehaald ({e}); vorige lijst uit de cache gebruikt")
@@ -415,6 +424,8 @@ def needs_refresh(c, region):
         return not c or age_h(c.get("err_at")) > ERROR_RETRY_H
     if age_h(c["f"]) > FUND_REFRESH_DAYS * 24:
         return True
+    if not c.get("sector") and not c.get("skip") and c.get("v", 1) < CACHE_V:
+        return True                               # sector ontbrak: eenmalig opnieuw ophalen
     if region == "VS" and not (c.get("eu") or {}).get("sym") \
             and age_h((c.get("eu") or {}).get("checked")) > LISTING_RETRY_DAYS * 24:
         return True
@@ -449,6 +460,7 @@ def fetch_stock(y, sym, meta, old, fx):
             eu = dict(hit or {}, checked=iso())
         c["eu"] = eu
     c["f"] = iso()
+    c["v"] = CACHE_V
     return c
 
 
@@ -641,7 +653,7 @@ def expected(c, price_native, extra):
 
 
 # ── Samenvoegen ──────────────────────────────────────────────────────────
-def build_item(sym, c, prices, fx, curated, own):
+def build_item(sym, c, prices, fx, curated, own, gics=None):
     region = c.get("region")
     q = prices.get(sym, {})
     price_native = q.get("price") or c.get("price")
@@ -649,6 +661,8 @@ def build_item(sym, c, prices, fx, curated, own):
         return None
     if q.get("pe"):
         c = dict(c, pe=q["pe"])
+    if not c.get("sector") and gics:
+        c = dict(c, sector=gics)
     score_f, crit, n_crit, extra = formula(c, price_native)
     if score_f is None:
         return None
@@ -684,7 +698,7 @@ def build_item(sym, c, prices, fx, curated, own):
     nm = norm_name(c.get("name"))
     return {
         "sym": sym, "eu": eu_sym, "exch": exch, "name": c.get("name") or sym,
-        "region": region, "country": c.get("country"), "sector": c.get("sector"),
+        "region": region, "country": c.get("country"), "sector": c.get("sector") or gics,
         "industry": c.get("industry"),
         "price": rnd(price_eur, 2), "approx": approx,
         "native": rnd(price_native, 2), "cur": "USD" if region == "VS" else "EUR",
@@ -758,7 +772,8 @@ def main():
     for sym in ready:
         try:
             it = build_item(sym, cache[sym], prices, fx, quality_map.get(sym)
-                            or quality_map.get((cache[sym].get("eu") or {}).get("sym") or ""), own)
+                            or quality_map.get((cache[sym].get("eu") or {}).get("sym") or ""), own,
+                            uni[sym].get("gics"))
         except Exception as e:  # noqa: BLE001
             print(f"  {sym:<10} score mislukt: {e}")
             continue

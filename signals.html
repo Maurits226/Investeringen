@@ -95,8 +95,28 @@
   .fac-v { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 3px; }
   .fac-d { font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin-top: 1px; }
   .fac-d .w { color: var(--muted); display: block; }
-  .heads { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
-  .heads summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; }
+  .heads { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0; transition: border-color .15s; }
+  .heads:hover, .heads[open] { border-color: rgba(79,143,240,.5); }
+  .heads summary {
+    cursor: pointer; font-size: 13px; color: var(--text); list-style: none; padding: 11px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .heads summary .h-sub { color: var(--muted); font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  .heads summary .h-btn {
+    margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45);
+    padding: 4px 10px; border-radius: 8px; white-space: nowrap;
+  }
+  .heads summary .h-btn::after { content: ' ▾'; }
+  .heads[open] summary .h-btn::after { content: ' ▴'; }
+  .heads .h-show-less { display: none; }
+  .heads[open] .h-show-more { display: none; }
+  .heads[open] .h-show-less { display: inline; }
+  .heads ul { padding: 0 14px 12px; }
+  .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; position: relative; top: -1px; background: var(--line); }
+  .h-dot.pos { background: var(--up); } .h-dot.neg { background: var(--down); }
+  .regime-why { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin: -2px 0 10px; line-height: 1.5; }
+  .regime-why b { color: var(--text); font-weight: 500; }
+  .fac.key { box-shadow: inset 0 2px 0 var(--accent); }
   .heads summary::-webkit-details-marker { display: none; }
   .heads ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
   .heads li, .news li { font-size: 13px; line-height: 1.4; }
@@ -120,6 +140,13 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     min-width: 0;
   }
+  .mkt { cursor: pointer; transition: border-color .15s, transform .15s, opacity .15s; }
+  .mkt:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .mkt:active { transform: translateY(0); }
+  .mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mkt.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .markets.filtering .mkt:not(.active) { opacity: .5; }
+  .markets.filtering .mkt:not(.active):hover { opacity: 1; }
   .mkt-top { display: flex; align-items: center; gap: 8px; }
   .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
@@ -364,6 +391,12 @@
       </select>
     </div>
     <div class="tb-group">
+      <span class="tb-label">Beurs</span>
+      <select id="mktSel">
+        <option value="all">Alle</option>
+      </select>
+    </div>
+    <div class="tb-group">
       <span class="tb-label">Status</span>
       <select id="statusSel">
         <option value="all">Alles</option>
@@ -398,7 +431,7 @@ const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') +
 const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
 let data = null;
-let ui = { sort: 'section', cat: 'all', status: 'all', open: [] };
+let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 if (!['all', 'Stocks', 'Gold & Silver'].includes(ui.cat)) ui.cat = 'all';
 if (!['section', 'name', 'result'].includes(ui.sort)) ui.sort = 'section';
@@ -590,20 +623,47 @@ function renderWorld() {
   if (!box) return;
   if (!w || !(w.factors || []).length) { box.innerHTML = ''; return; }
   const reg = w.regime || {};
-  const facs = w.factors.map(f => {
+  // Volgorde: eerst wat het beursklimaat bepaalt, dan de markten, dan macro
+  const ORDER = ['vix', 'nasdaq', 'dax', 'chips', 'rente', 'dollar', 'olie', 'goud'];
+  const WHY = {
+    vix: 'Angstindex: verwachte beweeglijkheid van de S&P 500. Onder 18 = rustig, vanaf 25 = paniek. Bepaalt mee het beursklimaat.',
+    nasdaq: 'Nasdaq 100: graadmeter voor tech. Boven of onder zijn 50-daags gemiddelde bepaalt mee het beursklimaat.',
+    dax: 'DAX: graadmeter voor de Duitse/Europese beurs, waar de meeste van je euro-noteringen handelen.',
+    chips: 'Chipsector (SOX): veel van je posities zijn chipbedrijven; deze index laat zien hoe de sector als geheel ervoor staat.',
+    rente: 'Amerikaanse 10-jaarsrente: stijgende rente drukt vooral op groei- en techaandelen.',
+    dollar: 'Euro/dollar: stijgt de euro, dan zijn je dollarbedrijven in euro minder waard (en omgekeerd).',
+    olie: 'Olieprijs (Brent): hoge olie jaagt inflatie aan en raakt transport en industrie.',
+    goud: 'Goud: vluchthaven; sterk stijgend goud wijst vaak op onrust. Ook relevant voor je goudpositie.'
+  };
+  const rank = k => { const i = ORDER.indexOf(k); return i < 0 ? 99 : i; };
+  const sorted = w.factors.slice().sort((a, b) => rank(a.key) - rank(b.key));
+  const byKey = Object.fromEntries(w.factors.map(f => [f.key, f]));
+  const facs = sorted.map(f => {
     // stijgende angstindex of rente is slecht nieuws voor aandelen: kleur omgekeerd
     const inv = f.key === 'vix' || f.key === 'rente';
     const good = inv ? f.day_pct < 0 : f.day_pct > 0;
     const col = f.day_pct === 0 ? 'var(--muted)' : good ? 'var(--up)' : 'var(--down)';
-    return `<div class="fac" title="${esc(f.symbol)}"><div class="fac-l">${esc(f.label)}</div><div class="fac-v">${fmtFactor(f)}</div>
+    const key = f.key === 'vix' || f.key === 'nasdaq';
+    return `<div class="fac ${key ? 'key' : ''}" title="${esc(WHY[f.key] || f.symbol)}"><div class="fac-l">${esc(f.label)}</div><div class="fac-v">${fmtFactor(f)}</div>
       <div class="fac-d"><span style="color:${col}">${pct(f.day_pct, 1)}</span>${f.week_pct != null ? `<span class="w">week ${pct(f.week_pct, 1)}</span>` : ''}</div></div>`;
   }).join('');
-  const heads = (w.headlines || []).slice(0, 8).map(h =>
-    `<li><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
+  const hl = w.headlines || [];
+  const heads = hl.map(h =>
+    `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
+  // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
+  const vix = byKey.vix, nd = byKey.nasdaq;
+  const why = (vix && nd) ? `<div class="regime-why">Gebaseerd op <b>angstindex ${fmtFactor(vix)}</b>
+      (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100 ${nd.trend === 'up' ? 'boven' : 'onder'}</b> zijn 50-daags gemiddelde
+      <span style="color:var(--accent)">(blauw gemarkeerd)</span> · telt mee in elk advies</div>` : '';
+  const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
   box.innerHTML = `
-    <div class="world-head"><span class="world-title">Wereld vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}</div>
+    <div class="world-head"><span class="world-title">Beursklimaat vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}</div>
+    ${why}
     <div class="factors">${facs}</div>
-    ${heads ? `<details class="heads"><summary>▸ Wereldnieuws (${(w.headlines || []).length} ${(w.headlines || []).length === 1 ? 'kop' : 'koppen'}, laatste 3 dagen)</summary><ul>${heads}</ul></details>` : ''}`;
+    ${heads ? `<details class="heads"${open ? ' open' : ''}><summary>📰 Wereldnieuws
+        <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>
+        <span class="h-btn"><span class="h-show-more">tonen</span><span class="h-show-less">verbergen</span></span></summary>
+        <ul>${heads}</ul></details>` : ''}`;
 }
 function newsScore(it) {
   const sc = ((it.context || {}).news || []).map(n => n.sent).filter(x => x);
@@ -723,8 +783,10 @@ function render() {
   document.getElementById('statusSel').value = ui.status;
 
   const items = data.items, errors = data.errors;
+  const inMkt = x => ui.mkt === 'all' || exchangeKeyOf(x.symbol) === ui.mkt;
   const passes = it => {
     if (ui.cat !== 'all' && it.category !== ui.cat) return false;
+    if (!inMkt(it)) return false;
     if (ui.status === 'flag' && !it.flag) return false;
     if ((ui.status === 'down' || ui.status === 'up') && !(it.flag && it.direction === ui.status)) return false;
     if (ui.status === 'flat' && it.flag) return false;
@@ -732,7 +794,7 @@ function render() {
     return true;
   };
   const filtered = items.filter(passes);
-  const errs = (ui.status === 'all' || ui.status === 'flat') ? errors.filter(e => ui.cat === 'all' || e.category === ui.cat) : [];
+  const errs = (ui.status === 'all' || ui.status === 'flat') ? errors.filter(e => (ui.cat === 'all' || e.category === ui.cat) && inMkt(e)) : [];
   const naam = it => (it.label || it.name || it.symbol).toLowerCase();
   // eerst hoogste realisatie, daarna alfabetisch; zonder signaal achteraan
   const byReal = (a, b) => (realPct(b) ?? -Infinity) - (realPct(a) ?? -Infinity) || naam(a).localeCompare(naam(b), 'nl');
@@ -742,7 +804,8 @@ function render() {
   if (!filtered.length && !errs.length) {
     const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', down: 'met een verwachte daling ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
     const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : 'posities';
-    cards.innerHTML = `<div class="empty">Op dit moment geen ${cat} ${wat}.</div>`;
+    const beurs = ui.mkt !== 'all' && EXCHANGES[ui.mkt] ? ' op ' + EXCHANGES[ui.mkt].name : '';
+    cards.innerHTML = `<div class="empty">Op dit moment geen ${cat}${beurs} ${wat}.</div>`;
   } else if (ui.sort === 'section') {
     const secs = [...new Set([...SECTION_ORDER, ...items.map(i => i.category), ...errors.map(e => e.category)])];
     secs.forEach(sec => {
@@ -770,7 +833,7 @@ function render() {
   const shown = filtered.length + errs.length;
   document.getElementById('tbCount').textContent = shown === total ? `${total} posities` : `${shown} van ${total} getoond`;
 
-  const inCat = x => ui.cat === 'all' || x.category === ui.cat;
+  const inCat = x => (ui.cat === 'all' || x.category === ui.cat) && inMkt(x);
   const catItems = items.filter(inCat), catErrors = errors.filter(inCat);
   const nDown = catItems.filter(i => i.flag && i.direction === 'down').length;
   const nUp = catItems.filter(i => i.flag && i.direction === 'up').length;
@@ -1079,11 +1142,26 @@ function renderMarkets() {
   keys.forEach(k => { tijden[k] = lokaleTijden(EXCHANGES[k]); });
   keys.sort((a, b) => tijden[a].openMin - tijden[b].openMin || tijden[a].closeMin - tijden[b].closeMin ||
     EXCHANGES[a].name.localeCompare(EXCHANGES[b].name));
+  // Beurs-dropdown in de toolbar (alleen opnieuw opbouwen als de lijst verandert)
+  const mktSel = document.getElementById('mktSel');
+  const opts = keys.includes(ui.mkt) || ui.mkt === 'all' || !EXCHANGES[ui.mkt] ? keys : [...keys, ui.mkt];
+  const sig = opts.join(',');
+  if (mktSel && mktSel.dataset.sig !== sig) {
+    mktSel.innerHTML = '<option value="all">Alle</option>' +
+      opts.map(k => `<option value="${k}">${EXCHANGES[k].name}</option>`).join('');
+    mktSel.dataset.sig = sig;
+  }
+  if (mktSel) mktSel.value = EXCHANGES[ui.mkt] ? ui.mkt : 'all';
+  box.classList.toggle('filtering', ui.mkt !== 'all');
+
   box.innerHTML = keys.map(key => {
     const ex = EXCHANGES[key], st = status[key];
     const tekst = st.open ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
       : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
-    return `<div class="mkt ${st.open ? 'open' : 'closed'}">
+    const aan = ui.mkt === key;
+    return `<div class="mkt ${st.open ? 'open' : 'closed'}${aan ? ' active' : ''}" data-mkt="${key}"
+      role="button" tabindex="0" aria-pressed="${aan}"
+      title="${aan ? 'Toon weer alle posities' : 'Toon alleen posities op ' + ex.name}">
       <div class="mkt-top"><span class="mkt-dot"></span><span class="mkt-name">${ex.name}</span></div>
       <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
       <div class="mkt-state">${tekst}</div>
@@ -1100,6 +1178,24 @@ function renderMarkets() {
 }
 setInterval(renderMarkets, 60 * 1000);
 
+// Klik op een beurs = alleen posities van die beurs (nog eens klikken = weer alles)
+function toggleMarket(key) {
+  ui.mkt = ui.mkt === key ? 'all' : key;
+  saveUI(); render();
+  const tb = document.querySelector('.toolbar');
+  if (ui.mkt !== 'all' && tb && tb.getBoundingClientRect().top > window.innerHeight - 140) {
+    tb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+(function () {
+  const box = document.getElementById('markets');
+  box.addEventListener('click', e => { const el = e.target.closest('.mkt'); if (el) toggleMarket(el.dataset.mkt); });
+  box.addEventListener('keydown', e => {
+    const el = e.target.closest('.mkt');
+    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleMarket(el.dataset.mkt); }
+  });
+})();
+
 document.addEventListener('click', e => {
   const t = e.target.closest('.toggle[data-sym]');
   if (!t) return;
@@ -1110,7 +1206,8 @@ document.addEventListener('click', e => {
 document.getElementById('sortSel').onchange = e => { ui.sort = e.target.value; saveUI(); render(); };
 document.getElementById('catSel').onchange = e => { ui.cat = e.target.value; saveUI(); render(); };
 document.getElementById('statusSel').onchange = e => { ui.status = e.target.value; saveUI(); render(); };
-document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; ui.cat = 'all'; ui.status = 'all'; saveUI(); render(); };
+document.getElementById('mktSel').onchange = e => { ui.mkt = e.target.value; saveUI(); render(); };
+document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; ui.cat = 'all'; ui.status = 'all'; ui.mkt = 'all'; saveUI(); render(); };
 
 load().then(syncTrades);
 setInterval(load, 5 * 60 * 1000);

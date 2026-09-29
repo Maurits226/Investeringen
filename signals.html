@@ -18,6 +18,7 @@
     --down: #f0595f;
     --warn: #f5b544;
     --accent: #4f8ff0;
+    --violet: #a78bfa;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -118,8 +119,21 @@
   .heads ul { padding: 0 14px 12px; }
   .h-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; position: relative; top: -1px; background: var(--line); }
   .h-dot.pos { background: var(--up); } .h-dot.neg { background: var(--down); }
-  .regime-why { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin: -2px 0 10px; line-height: 1.5; }
+  .regime-why { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }
   .regime-why b { color: var(--text); font-weight: 500; }
+  /* Beursklimaat: vaste kolom voor de kopjes, zodat labels en uitleg netjes onder elkaar staan */
+  .clim { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 6px 14px; margin-bottom: 14px; }
+  .clim-k { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
+            padding: 6px 0 0 10px; border-left: 2px solid var(--accent); align-self: start; }
+  .clim-k.wk { border-left-color: var(--violet); }
+  .clim-v { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+  .clim-v + .clim-k, .clim-v + .clim-k + .clim-v { margin-top: 8px; }
+  .regime-why.wk b { color: var(--violet); }
+  @media (max-width: 640px) {
+    .clim { grid-template-columns: 1fr; gap: 4px; }
+    .clim-v + .clim-k { margin-top: 12px; }
+    .clim-v + .clim-k + .clim-v { margin-top: 0; }
+  }
   .fac.key { box-shadow: inset 0 2px 0 var(--accent); }
   .heads summary::-webkit-details-marker { display: none; }
   .heads ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
@@ -681,15 +695,22 @@ function renderWorld() {
     `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
   // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
   const vix = byKey.vix, nd = byKey.nasdaq;
-  const why = (vix && nd) ? `<div class="regime-why">Beursklimaat gebaseerd op <b>angstindex ${fmtFactor(vix)}</b>
+  const why = (vix && nd) ? `<div class="regime-why">Beursklimaat vandaag gebaseerd op <b>angstindex ${fmtFactor(vix)}</b>
       (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100 ${nd.trend === 'up' ? 'boven' : 'onder'}</b> zijn 50-daags gemiddelde
       <span style="color:var(--accent)">(blauw gemarkeerd)</span></div>` : '';
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
   const wk = weekOutlook();
-  const wkPill = wk ? `<span class="regime week ${wk.cls}" title="${esc(wk.why)}">Verwachting deze week: <b>${wk.word}</b> · gem. ${pct(wk.avg, 1)} · ${wk.up} omhoog, ${wk.down} omlaag${wk.n - wk.up - wk.down ? ', ' + (wk.n - wk.up - wk.down) + ' vlak' : ''}</span>` : '';
+  const wkPill = wk ? `<span class="regime week ${wk.cls}"><b>${wk.word[0].toUpperCase() + wk.word.slice(1)}</b> · gem. ${pct(wk.avg, 1)} · ${wk.up} omhoog, ${wk.down} omlaag${wk.n - wk.up - wk.down ? ', ' + (wk.n - wk.up - wk.down) + ' vlak' : ''}</span>` : '';
+  const wkWhy = wk ? `<div class="regime-why wk">Beursklimaat deze week gebaseerd op de verwachte beweging van <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'stocks uit de Top 250'}</b>
+      ${SET === 'investeringen' ? '(<b>gewogen naar positiewaarde</b>)' : '(gelijk gewogen)'} · radar 10 dagen teruggerekend naar 5 · zonder patroon = 0%
+      · positief vanaf +0,5%, negatief vanaf −0,5%</div>` : '';
   box.innerHTML = `
-    <div class="world-head"><span class="world-title">Beursklimaat vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}${wkPill}</div>
-    ${why}
+    <div class="clim">
+      <div class="clim-k">Beursklimaat vandaag:</div>
+      <div class="clim-v">${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}${why}</div>
+      ${wk ? `<div class="clim-k wk">Beursklimaat deze week:</div>
+      <div class="clim-v">${wkPill}${wkWhy}</div>` : ''}
+    </div>
     <div class="factors">${facs}</div>
     ${heads ? `<details class="heads"${open ? ' open' : ''}><summary>📰 Wereldnieuws
         <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>

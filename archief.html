@@ -194,7 +194,6 @@
       <h1><span class="pulse"></span><span id="pageTitle">Archief</span></h1>
       <p id="pageSub">Per handelsdag de patronen en adviezen van de Patroonradar</p>
     </div>
-    <span class="updated" id="updated">laden…</span>
   </header>
 
   <div class="viewnav" role="tablist">
@@ -293,7 +292,6 @@ async function load(first) {
       try { live = await getJSON(CFG.file); } catch (e) {}
     }
   } catch (e) {
-    document.getElementById('updated').textContent = 'nog geen archief';
     document.getElementById('day').innerHTML = `<div class="empty">Het archief begint op ${CFG.start}. Vanaf dan komt er elke handelsdag automatisch een dag bij.</div>`;
     document.querySelector('.daynav').hidden = true;
     return;
@@ -309,7 +307,6 @@ async function load(first) {
   fillSelect();
   renderSummary();
   await show(current, force);
-  document.getElementById('updated').textContent = `${index.length} ${index.length === 1 ? 'dag' : 'dagen'} in het archief`;
 }
 
 // ---- Weergave ----
@@ -581,9 +578,8 @@ async function show(date, force) {
     .sort((a, b) => (b.new - a.new) || (b.start || '').localeCompare(a.start || ''));
   const nUp = items.filter(it => it.flag && it.direction === 'up').length;
   const nDown = items.filter(it => it.flag && it.direction === 'down').length;
-  const reg = snap.regime && snap.regime.text ? ` · <span class="regime-${snap.regime.state || ''}">${esc(snap.regime.text)}</span>` : '';
   const isToday = date === localDay(new Date().toISOString());
-  document.getElementById('dayinfo').innerHTML = `<b>${dagLang(date)}</b> · ${isToday ? 'stand van' : 'slotstand'} ${tijd(snap.generated)}${reg}<br>
+  document.getElementById('dayinfo').innerHTML = `<b>${dagLang(date)}</b> · ${isToday ? 'stand van' : 'slotstand'} ${tijd(snap.generated)}<br>
     <span class="c-up">${nUp} koopsignaal</span> · <span class="c-down">${nDown} verkoopsignaal</span> · ${items.length - nUp - nDown} zonder signaal${(snap.expired || []).length + gone.length ? ` · ${(snap.expired || []).filter(a => keep.has(a.symbol)).length + gone.length} advies afgelopen` : ''}`;
 
   box.innerHTML = '';

@@ -89,6 +89,10 @@
   .regime { font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .regime.off { color: var(--down); border-color: rgba(255,93,108,.4); background: rgba(255,93,108,.10); }
   .regime.calm { color: var(--up); border-color: rgba(62,207,142,.4); background: rgba(62,207,142,.10); }
+  .regime.week { color: var(--muted); }
+  .regime.week b { font-weight: 600; }
+  .regime.week.pos { color: var(--up); border-color: rgba(62,207,142,.4); background: rgba(62,207,142,.06); }
+  .regime.week.neg { color: var(--down); border-color: rgba(255,93,108,.4); background: rgba(255,93,108,.06); }
   .factors { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; margin-bottom: 10px; }
   .fac { padding: 9px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
   .fac-l { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -681,14 +685,40 @@ function renderWorld() {
       (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100 ${nd.trend === 'up' ? 'boven' : 'onder'}</b> zijn 50-daags gemiddelde
       <span style="color:var(--accent)">(blauw gemarkeerd)</span></div>` : '';
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
+  const wk = weekOutlook();
+  const wkPill = wk ? `<span class="regime week ${wk.cls}" title="${esc(wk.why)}">Verwachting deze week: <b>${wk.word}</b> · gem. ${pct(wk.avg, 1)} · ${wk.up} omhoog, ${wk.down} omlaag${wk.n - wk.up - wk.down ? ', ' + (wk.n - wk.up - wk.down) + ' vlak' : ''}</span>` : '';
   box.innerHTML = `
-    <div class="world-head"><span class="world-title">Beursklimaat vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}</div>
+    <div class="world-head"><span class="world-title">Beursklimaat vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}${wkPill}</div>
     ${why}
     <div class="factors">${facs}</div>
     ${heads ? `<details class="heads"${open ? ' open' : ''}><summary>📰 Wereldnieuws
         <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>
         <span class="h-btn"><span class="h-show-more">tonen</span><span class="h-show-less">verbergen</span></span></summary>
         <ul>${heads}</ul></details>` : ''}`;
+}
+// Verwacht weekresultaat: de verwachte beweging van elke stock (radar, 10 handelsdagen) teruggerekend
+// naar 5 dagen. Bij je investeringen gewogen naar de waarde van je positie, bij de Top 250 gelijk gewogen.
+function weekOutlook() {
+  if (!data || !data.items) return null;
+  const horizon = (data.config && data.config.horizon) || 10;
+  const pos = SET === 'investeringen' ? portfolioPositions() : {};
+  let sw = 0, sm = 0, up = 0, down = 0, n = 0;
+  data.items.forEach(it => {
+    if (it.category === 'Gold & Silver') return;
+    const p = pos[it.symbol.toUpperCase()];
+    const w = SET === 'investeringen' ? (it.price || 1) * ((p && p.qty) || 1) : 1;
+    // zonder duidelijk patroon telt een stock mee als 0%
+    const week = it.projected_pct != null && isFinite(it.projected_pct) ? it.projected_pct * 5 / horizon : 0;
+    sw += w; sm += w * week; n++;
+    if (week > 0) up++; else if (week < 0) down++;
+  });
+  if (!n || !sw) return null;
+  const avg = sm / sw;
+  const cls = avg >= 0.5 ? 'pos' : avg <= -0.5 ? 'neg' : '';
+  const word = cls === 'pos' ? 'positief' : cls === 'neg' ? 'negatief' : 'neutraal';
+  const why = `Gemiddelde verwachte beweging van ${n} ${SET === 'investeringen' ? 'stocks in je portefeuille, gewogen naar positiewaarde' : 'stocks uit de Top 250'}, `
+    + `teruggerekend van ${horizon} naar 5 handelsdagen. Stocks zonder duidelijk patroon tellen als 0%. Vanaf +0,5% positief, vanaf -0,5% negatief. Edelmetalen tellen niet mee.`;
+  return { avg, cls, word, up, down, n, why };
 }
 function newsScore(it) {
   const sc = ((it.context || {}).news || []).map(n => n.sent).filter(x => x);

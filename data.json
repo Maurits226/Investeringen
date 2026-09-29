@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-29T12:29:32.423117+00:00",
+  "updated": "2026-09-29T12:30:33.512718+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -14,7 +14,7 @@
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
-      "price": 129.26,
+      "price": 129.42,
       "prevClose": 130.0,
       "currency": "EUR",
       "name": "Space Exploration Technologies Corp.",
@@ -58,7 +58,7 @@
     },
     "TL0.DE": {
       "ticker": "TL0.DE",
-      "price": 316.25,
+      "price": 316.3,
       "prevClose": 316.8999938964844,
       "currency": "EUR",
       "name": "Tesla, Inc.",
@@ -102,7 +102,7 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 147.38,
+      "price": 147.24,
       "prevClose": 140.8800048828125,
       "currency": "EUR",
       "name": "Siemens Energy AG",
@@ -212,7 +212,7 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 203.35,
+      "price": 203.45,
       "prevClose": 202.35000610351562,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
@@ -245,7 +245,7 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1592.4,
+      "price": 1592.8,
       "prevClose": 1537.0,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
@@ -278,7 +278,7 @@
     },
     "QDVE.DE": {
       "ticker": "QDVE.DE",
-      "price": 47.33,
+      "price": 47.34,
       "prevClose": 47.125,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",

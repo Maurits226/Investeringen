@@ -665,9 +665,9 @@ function renderWorld() {
     `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
   // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
   const vix = byKey.vix, nd = byKey.nasdaq;
-  const why = (vix && nd) ? `<div class="regime-why">Gebaseerd op <b>angstindex ${fmtFactor(vix)}</b>
+  const why = (vix && nd) ? `<div class="regime-why">Beursklimaat gebaseerd op <b>angstindex ${fmtFactor(vix)}</b>
       (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100 ${nd.trend === 'up' ? 'boven' : 'onder'}</b> zijn 50-daags gemiddelde
-      <span style="color:var(--accent)">(blauw gemarkeerd)</span> · telt mee in elk advies</div>` : '';
+      <span style="color:var(--accent)">(blauw gemarkeerd)</span></div>` : '';
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
   box.innerHTML = `
     <div class="world-head"><span class="world-title">Beursklimaat vandaag</span>${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}</div>
@@ -865,8 +865,8 @@ function render() {
   const s = data.stats;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
-    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label plain">Stocks met verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">STIJGING ≥${MOVE_MIN}%</div></div>
-    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label plain">Stocks met verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">DALING ≥${MOVE_MIN}%</div></div>
+    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omhoog</div></div>
+    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omlaag</div></div>
     <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">sinds de vorige handelsdag</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
 `;
@@ -910,7 +910,7 @@ function entryInfo(it) {
   }
   const up = ep.dir === 'up', grens = ep.instap_grens ?? grensOf(ep.dir, ep.plan.target);
   const base = { up, grens, ep };
-  if (!it.flag) return { ...base, kind: 'out', reason: 'signaal vervallen' };
+  if (!it.flag) return null;      // signaal weg = advies vervallen: staat alleen nog in het archief
   if (up ? it.price > grens : it.price < grens) {
     // minder dan 5% over tot het doel: dit advies vervalt; de radar ziet nog ≥5%, dus er start een nieuw advies
     return { kind: 'in', up: it.direction === 'up', grens: grensOf(it.direction, it.plan.target), ep: null };

@@ -750,7 +750,7 @@ function climateCards(reg, byKey, wk) {
         <div class="meter"><div class="meter-l">Nasdaq 100 <b>${fmtFactor(nd)}</b></div>
           <div class="trend ${up ? 'c-up' : 'c-down'}">${up ? '▲ boven' : '▼ onder'} 50-daags gem.</div></div>
       </div>` : ''}
-      <div class="cc-basis">Gebaseerd op <b>angstindex</b> (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100</b> t.o.v. zijn 50-daags gemiddelde · blauw gemarkeerd in de tegels</div>
+      <div class="cc-basis">Gebaseerd op <b>angstindex</b> (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100</b> t.o.v. zijn 50-daags gemiddelde · <b>blauw gemarkeerd in onderstaande tegels</b></div>
     </div>`;
   if (!wk) return `<div class="clim">${today}</div>`;
   const flat = wk.n - wk.up - wk.down;
@@ -761,7 +761,7 @@ function climateCards(reg, byKey, wk) {
       <div class="cc-sub">Verwacht gemiddeld resultaat van ${SET === 'investeringen' ? 'je stocks' : 'de Top 250'} over 5 handelsdagen</div>
       <div class="dist">${wk.up ? `<span class="u" style="width:${w(wk.up)}"></span>` : ''}${flat ? `<span class="f" style="width:${w(flat)}"></span>` : ''}${wk.down ? `<span class="d" style="width:${w(wk.down)}"></span>` : ''}</div>
       <div class="dist-l"><em class="u">${wk.up} omhoog</em><em class="f">${flat} vlak</em><em class="d">${wk.down} omlaag</em></div>
-      <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'stocks uit de Top 250'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'} · radar 10 dagen teruggerekend naar 5 · zonder patroon = 0% · positief vanaf +0,5%, negatief vanaf −0,5%</div>
+      <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'stocks uit de Top 250'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'}</div>
     </div>`;
   return `<div class="clim">${today}${week}</div>`;
 }

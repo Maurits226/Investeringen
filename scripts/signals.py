@@ -12,7 +12,11 @@ worden daarna omgerekend naar de euro-notering, zodat je in euro kunt handelen.
 
 Alleen standaardbibliotheek: geen pip install nodig in GitHub Actions.
 
-Tickerbron (eerste die iets oplevert):
+Twee sets (omgevingsvariabele RADAR_SET):
+  investeringen (standaard) — je eigen posities       → signals.json + archive/
+  top250                    — de Top 250 uit screener.json → signals_top250.json + archive_top250/
+
+Tickerbron voor 'investeringen' (eerste die iets oplevert):
   1. tickers.json  — optionele eigen lijst, bv. [{"symbol":"1YD.DE","name":"Broadcom"}]
   2. tickers.txt   — dezelfde lijst die het portfolio-dashboard gebruikt
   3. data.json     — de bestaande dashboard-feed; tickers worden er automatisch uit gehaald
@@ -68,7 +72,22 @@ WORLD_NEWS_QUERIES = ["stock market", "oil prices", "war", "Federal Reserve", "t
 US_LISTING_OVERRIDES = {}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "signals.json")
+RADAR_SET = (os.environ.get("RADAR_SET") or "investeringen").strip().lower()
+TOP_LIMIT = 250
+if RADAR_SET == "top250":
+    OUT = os.path.join(ROOT, "signals_top250.json")
+    ARCHIVE_DIR = "archive_top250"
+    ARCHIVE_START = "2026-09-30"
+    SPARK_BARS = 80           # kleiner bestand: 250 stocks
+else:
+    RADAR_SET = "investeringen"
+    OUT = os.path.join(ROOT, "signals.json")
+SECTOR_NL = {
+    "Technology": "Technologie", "Healthcare": "Gezondheidszorg", "Financial Services": "Financieel",
+    "Consumer Cyclical": "Cyclische consumptie", "Consumer Defensive": "Basisconsumptie", "Industrials": "Industrie",
+    "Communication Services": "Communicatie", "Energy": "Energie", "Utilities": "Nutsbedrijven",
+    "Real Estate": "Vastgoed", "Basic Materials": "Grondstoffen",
+}
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9\-\^=]{0,11}(\.[A-Z]{1,3})?$")
@@ -76,6 +95,31 @@ TICKER_KEYS = {"ticker", "symbol", "yahoo", "yahooticker", "yahoo_symbol", "sym"
 
 
 # ── Tickers ──────────────────────────────────────────────────────────────
+def load_top250():
+    """De Top 250 uit screener.json, op hun euro-notering. De dollarnotering (voor het patroon)
+    is daar al bekend, dus zoeken is niet nodig."""
+    path = os.path.join(ROOT, "screener.json")
+    if not os.path.exists(path):
+        sys.exit("screener.json ontbreekt — draai eerst de workflow Top 250.")
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f).get("items", [])
+    out = []
+    for it in items:
+        if len(out) >= TOP_LIMIT:
+            break
+        eu = it.get("eu")
+        if not eu or it.get("approx"):
+            continue                        # geen bruikbare euro-notering: overslaan
+        out.append({"symbol": eu, "name": it.get("name"),
+                    "category": SECTOR_NL.get(it.get("sector"), it.get("sector") or "Overig"),
+                    "us": it["sym"] if it.get("region") == "VS" else "",
+                    "rank": it.get("rank"), "score_top": it.get("score"), "watch": True, "label": None,
+                    "position": None})
+    if not out:
+        sys.exit("Geen stocks met een euro-notering in screener.json.")
+    return out, "screener.json"
+
+
 def load_tickers():
     manual = os.path.join(ROOT, "tickers.json")
     if os.path.exists(manual):
@@ -277,6 +321,8 @@ def eurusd():
 def find_us_listing(tk, eu_price, fx, cache):
     """Zoekt dezelfde stock op NASDAQ/NYSE. Controle: omgerekende dollarkoers ~ euro-koers."""
     sym = tk["symbol"].upper()
+    if "us" in tk:
+        return tk["us"] or ""               # al bekend (Top 250)
     if "." not in sym:
         return None                         # is zelf al de Amerikaanse notering
     if sym in US_LISTING_OVERRIDES:
@@ -1005,6 +1051,8 @@ def analyse(tk, bars, meta, world=None):
         "category": tk.get("category"),
         "watch": tk.get("watch", False),
         "position": tk.get("position"),
+        "rank": tk.get("rank"),
+        "score_top": tk.get("score_top"),
         "currency": meta.get("currency", ""),
         "price": r2(price),
         "day_pct": round((price / prev - 1) * 100, 2) if prev else None,
@@ -1170,7 +1218,8 @@ def _nl():
 
 def _snap_item(it):
     keys = ("symbol", "name", "label", "category", "currency", "price", "day_pct", "score", "direction", "flag",
-            "projected_pct", "target", "support", "resistance", "plan", "new_signal", "rsi", "sigma_pct", "pattern_symbol")
+            "projected_pct", "target", "support", "resistance", "plan", "new_signal", "rsi", "sigma_pct", "pattern_symbol",
+            "rank")
     out = {k: it.get(k) for k in keys}
     out["patterns"] = [{"label": p.get("label"), "dir": p.get("dir"), "detail": p.get("detail")} for p in it.get("patterns") or []]
     return out
@@ -1228,8 +1277,13 @@ def write_archive(sig, day, advices, expired):
 
 # ── Hoofdprogramma ───────────────────────────────────────────────────────
 def main():
-    tickers, source = load_tickers()
-    tickers, portfolio_version = enrich(tickers)
+    if RADAR_SET == "top250":
+        tickers, source = load_top250()
+        portfolio_version = 0
+    else:
+        tickers, source = load_tickers()
+        tickers, portfolio_version = enrich(tickers)
+    print(f"Set: {RADAR_SET}")
     print(f"{len(tickers)} tickers uit {source}")
     items, errors = [], []
     cache = load_listing_cache()
@@ -1302,6 +1356,7 @@ def main():
     out = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": source,
+        "set": RADAR_SET,
         "portfolio_version": portfolio_version,
         "config": {"horizon": HORIZON, "drop_pct": DROP_PCT, "rise_pct": RISE_PCT,
                    "eval_rise_pct": EVAL_RISE_PCT, "signal_score": SIGNAL_SCORE,
@@ -1314,7 +1369,7 @@ def main():
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"signals.json geschreven: {len(items)} ok, {len(errors)} fout")
+    print(f"{os.path.basename(OUT)} geschreven: {len(items)} ok, {len(errors)} fout")
     if items:
         try:                                           # momentopname van vandaag bijwerken (laatste run van de dag blijft staan)
             today = datetime.now(_nl()).date()

@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Top 250</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
+    --muted: #83888d; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
+    --warn: #f5b544; --accent: #4f8ff0;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%), var(--ink);
+    color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh; padding: 28px 18px 60px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  header.top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
+  .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px; }
+  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 2.4s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(79,143,240,.5); }
+    70% { box-shadow: 0 0 0 10px rgba(79,143,240,0); }
+    100% { box-shadow: 0 0 0 0 rgba(79,143,240,0); }
+  }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .scan-chip { font-size: 11px; font-family: var(--mono); color: var(--warn); border: 1px solid rgba(245,181,68,.45); background: rgba(245,181,68,.08); padding: 5px 10px; border-radius: 999px; }
+
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat {
+    background: linear-gradient(180deg, var(--panel), var(--ink));
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+    cursor: pointer; transition: border-color .15s, transform .15s; text-align: left;
+    font: inherit; color: inherit;
+  }
+  .stat:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat:active { transform: translateY(0); }
+  .stat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 8px; }
+  .stat .sub { font-size: 12px; margin-top: 4px; font-family: var(--mono); color: var(--muted); }
+
+  .howto { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 11px 16px; margin-bottom: 18px; }
+  .howto summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 8px; }
+  .howto summary::-webkit-details-marker { display: none; }
+  .howto summary::before { content: '▸'; transition: transform .15s; }
+  .howto[open] summary::before { transform: rotate(90deg); }
+  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .howto-body b { color: var(--text); font-weight: 600; }
+  .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap;
+    margin-bottom: 20px; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .toolbar select, .toolbar input {
+    font-family: inherit; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    padding: 7px 11px; border-radius: 9px; font-size: 13px;
+  }
+  .toolbar select { cursor: pointer; }
+  .toolbar select:hover, .toolbar input:hover, .toolbar input:focus { border-color: var(--accent); outline: none; }
+  .toolbar input { width: 150px; }
+  .tb-reset { font-family: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); padding: 7px 12px; border-radius: 9px; font-size: 13px; }
+  .tb-reset:hover { border-color: var(--accent); color: var(--text); }
+  .tb-count { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-left: auto; }
+
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+  .stock {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px 20px 16px 22px; display: grid;
+    grid-template-columns: 44px minmax(0,2.1fr) 76px minmax(0,.95fr) minmax(0,1fr) minmax(0,1.25fr) auto;
+    gap: 18px; align-items: center; position: relative; overflow: hidden; cursor: pointer;
+    transition: border-color .15s;
+  }
+  .stock:hover { border-color: #3a3d41; }
+  .stock::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+  .stock.t1::before { background: var(--up); }
+  .stock.t2::before { background: var(--accent); }
+  .stock.t3::before { background: var(--warn); }
+  .stock.open { border-color: rgba(79,143,240,.5); }
+
+  .rank { font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--muted); letter-spacing: -.5px; }
+  .rank.top { color: var(--text); }
+  .s-name { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .s-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .s-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+  .tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.watch { color: var(--accent); border-color: rgba(79,143,240,.45); }
+  .tag.warn { color: var(--warn); border-color: rgba(245,181,68,.45); }
+
+  .ring { position: relative; width: 58px; height: 58px; }
+  .ring svg { width: 58px; height: 58px; transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  .ring-sub { font-size: 10px; color: var(--muted); font-family: var(--mono); text-align: center; margin-top: 3px; white-space: nowrap; }
+
+  .blk .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .blk .v { font-family: var(--mono); font-size: 16px; font-weight: 500; margin-top: 4px; white-space: nowrap; }
+  .blk .s { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
+
+  .steps { display: flex; gap: 4px; margin-top: 6px; }
+  .step { width: 20px; height: 22px; border-radius: 5px; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+          display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); background: var(--panel-2); }
+  .step.ok { background: rgba(62,207,142,.16); border-color: rgba(62,207,142,.5); color: var(--up); }
+  .step.no { background: transparent; color: #5a5f64; }
+  .step.na { border-style: dashed; background: transparent; color: #4a4e52; }
+
+  .stock .row2 { display: contents; }
+  .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11px; padding: 5px 9px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .toggle:hover { border-color: var(--accent); color: var(--text); }
+
+  .detail { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 24px; cursor: default; }
+  .d-k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; }
+  .d-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
+  .crit { display: grid; grid-template-columns: minmax(0,1fr) auto 50px 26px; gap: 4px 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid #232528; }
+  .crit:last-child { border-bottom: 0; }
+  .crit-n { font-size: 13px; min-width: 0; }
+  .crit-n small { display: block; font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
+  .crit-v { font-family: var(--mono); font-size: 12.5px; text-align: right; white-space: nowrap; }
+  .crit.na .crit-n, .crit.na .crit-v { color: var(--muted); }
+  .pips { display: flex; gap: 3px; }
+  .pips i { flex: 1; height: 7px; border-radius: 2px; background: var(--panel-2); border: 1px solid var(--line); }
+  .pips.p5 i:nth-child(-n+2), .pips.p10 i { background: var(--accent); border-color: var(--accent); }
+  .pips.p10 i { background: var(--up); border-color: var(--up); }
+  .pips.p0 i:first-child { background: var(--down); border-color: var(--down); }
+  .crit-p { font-family: var(--mono); font-size: 12px; text-align: right; font-weight: 600; }
+
+  .qual { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
+  .q-row { display: grid; grid-template-columns: 116px minmax(0,1fr) 34px; gap: 10px; align-items: center; font-size: 13px; }
+  .q-row small { font-size: 10px; color: var(--muted); font-family: var(--mono); display: block; }
+  .q-bar { height: 7px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+  .q-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--up)); }
+  .q-bar.est i { background: repeating-linear-gradient(90deg, #4f8ff0 0 6px, #3b6fbf 6px 9px); }
+  .q-val { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+  .q-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: -2px; margin-bottom: 16px; }
+  .checklist { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; margin-bottom: 16px; font-size: 12.5px; }
+  .checklist li { display: flex; gap: 7px; align-items: baseline; }
+  .checklist b { font-family: var(--mono); font-size: 11px; width: 14px; flex-shrink: 0; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  .facts .v { font-family: var(--mono); font-size: 14px; margin-top: 3px; }
+  .facts .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .range { height: 6px; background: var(--panel-2); border-radius: 6px; position: relative; margin-top: 8px; }
+  .range .dot { position: absolute; top: -4px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
+  .range-l { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 5px; }
+  .d-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .note { font-size: 11.5px; color: var(--muted); line-height: 1.55; }
+
+  .state, .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
+  .state code, .empty code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .banner { font-size: 12px; line-height: 1.5; padding: 10px 14px; border-radius: 10px; background: rgba(245,181,68,.08); border: 1px solid rgba(245,181,68,.35); color: var(--warn); margin-bottom: 18px; }
+  .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
+
+  @media (max-width: 1000px) {
+    .stock { grid-template-columns: 40px minmax(0,1fr) 70px; gap: 14px; }
+    .stock .blk, .stock .steps-blk { grid-column: span 1; }
+    .stock .row2 { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 14px; align-items: center; }
+    .detail { grid-template-columns: 1fr; }
+    .howto-body { grid-template-columns: 1fr; gap: 10px; }
+  }
+  @media (max-width: 860px) {
+    .summary { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    body { padding: 18px 12px 40px; }
+    header.top { flex-direction: column; align-items: stretch; }
+    .summary { gap: 10px; }
+    .stat { padding: 12px 14px; }
+    .stat .value { font-size: 20px; }
+    .stock { padding: 14px 14px 14px 18px; }
+    .stock .row2 { grid-template-columns: 1fr 1fr; }
+    .stock .row2 .steps-blk { grid-column: 1 / 2; }
+    .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+    .tb-group { flex-direction: column; align-items: stretch; gap: 4px; }
+    .toolbar select, .toolbar input { width: 100%; }
+    .tb-group.search { grid-column: 1 / -1; }
+    .tb-count { align-self: center; text-align: right; }
+    .checklist { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .crit { grid-template-columns: minmax(0,1fr) auto 40px 22px; gap: 4px 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="pulse"></span>Top 250</h1>
+      <p>Kansen buiten je portefeuille · formuleblad + moat, CEO &amp; recessiebestendigheid</p>
+    </div>
+    <div class="controls">
+      <span class="scan-chip" id="scanChip" hidden></span>
+      <span class="updated" id="updated">laden…</span>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+  <div class="summary" id="summary"></div>
+
+  <details class="howto">
+    <summary>Hoe komt de score tot stand?</summary>
+    <div class="howto-body">
+      <div>
+        <h4>Formuleblad · 75%</h4>
+        Tien criteria uit je rekenblad, elk <b>0, 5 of 10 punten</b>: omzetgroei, operationele marge, groei van
+        cash &amp; beleggingen, current ratio, cash/schuld, short interest, institutioneel bezit, schaalbaarheid,
+        koers sinds eerste notering en K/W. Ontbreekt een cijfer (bv. short interest bij Europese aandelen), dan telt
+        dat criterium niet mee in plaats van 0 punten te geven.
+      </div>
+      <div>
+        <h4>Kwaliteit · 25%</h4>
+        Stap 5 t/m 7 van het whiteboard: <b>moat</b>, <b>CEO-kwaliteit</b> en <b>recessiebestendig</b>, elk 0–10.
+        Voor de bekendste bedrijven is dit een oordeel uit <code>kwaliteit.json</code> (daar pas je het aan).
+        Anders een schatting uit de cijfers (marges, rendement op eigen vermogen, insiderbezit, groei, sector, beta),
+        herkenbaar aan de gestreepte balk.
+      </div>
+      <div>
+        <h4>Verwacht rendement · 12 mnd</h4>
+        Gemiddeld <b>koersdoel van analisten</b> (minstens 3) plus dividendrendement. Zonder analisten een
+        schatting op basis van de omzetgroei. Amerikaanse bedrijven: cijfers van de dollarnotering, koers en
+        koersdoel op de euro-notering. Valutaschommelingen zitten er niet in. Dit is geen koopadvies.
+      </div>
+    </div>
+  </details>
+
+  <div class="toolbar">
+    <div class="tb-group">
+      <span class="tb-label">Sorteer</span>
+      <select id="sortSel">
+        <option value="score">Totaalscore</option>
+        <option value="formule">Formuleblad</option>
+        <option value="kwal">Kwaliteit</option>
+        <option value="exp">Verwacht rendement</option>
+        <option value="steps">Meeste stappen</option>
+        <option value="pe">K/W (laag-hoog)</option>
+        <option value="name">Naam (A-Z)</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Sector</span>
+      <select id="sectorSel"><option value="all">Alle</option></select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Herkomst</span>
+      <select id="regionSel">
+        <option value="all">Alle</option>
+        <option value="EU">Eurozone</option>
+        <option value="VS">VS (via €-notering)</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Min. score</span>
+      <select id="minSel">
+        <option value="0">Alle</option>
+        <option value="60">60+</option>
+        <option value="70">70+</option>
+        <option value="80">80+</option>
+        <option value="90">90+</option>
+      </select>
+    </div>
+    <div class="tb-group search">
+      <input id="searchInp" type="search" placeholder="Zoek naam of ticker" autocomplete="off">
+    </div>
+    <button id="resetBtn" class="tb-reset">Reset</button>
+    <span class="tb-count" id="tbCount"></span>
+  </div>
+
+  <div class="cards" id="cards"><div class="state">Top 250 laden…</div></div>
+
+  <p class="foot">
+    Eigen posities worden automatisch verborgen; stocks op je watchlist krijgen een label.
+    Cijfers via Yahoo Finance, fundamentele data per stock wekelijks ververst, koersen twee keer per dag.
+    Dit overzicht is een hulpmiddel om kansen te vinden, geen beleggingsadvies.
+  </p>
+</div>
+
+<script>
+const LIMIT = 250;
+const SECTOR_NL = {
+  'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
+  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', 'Industrials': 'Industrie',
+  'Communication Services': 'Communicatie', 'Energy': 'Energie', 'Utilities': 'Nutsbedrijven',
+  'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen'
+};
+const RATING_NL = { strong_buy: 'sterk kopen', buy: 'kopen', hold: 'houden', underperform: 'onderwegen', sell: 'verkopen', none: '—' };
+const CRIT = {
+  omzetgroei: ['Omzetgroei', 'gem. 3 jaar · >2% = 10 · ±2% = 5 · lager = 0'],
+  marge:      ['Operationele marge', 'laatste jaar · >10% = 10 · 0–10% = 5 · <0% = 0'],
+  cashgroei:  ['Cash & kortlopende beleggingen', 'groei gem. 3 jaar · >2% = 10 · ±2% = 5 · lager = 0'],
+  current:    ['Current assets / liabilities', '>1 = 10 · 1 = 5 · <1 = 0'],
+  cashschuld: ['Cash / schuld', 'verandering 3 mnd · >5% = 10 · ±5% = 5 · lager = 0'],
+  short:      ['Short % van float', '<5% = 10 · 5–10% = 5 · >10% = 0'],
+  instituten: ['Institutioneel bezit', '>50% = 10 · 30–50% = 5 · <30% = 0'],
+  schaal:     ['Schaalbaarheid', 'kostengroei − omzetgroei · negatief = 10 · ±2 = 5 · hoger = 0'],
+  ipo:        ['Koers sinds eerste notering', 'hoger = 10 · gelijk = 5 · lager = 0'],
+  kw:         ['Koers/winst (K/W)', '<10 = 10 · 10–30 = 5 · >30 = 0']
+};
+const STEPS = ['Cash > schuld', 'Omzetgroei ≥ 10%', 'Marge ≥ 15%', 'Omzet groeit harder dan kosten', 'Moat', 'CEO-kwaliteit', 'Recessiebestendig'];
+
+let DATA = null, lastLoad = 0;
+let quick = null;                    // actieve tegel-filter
+const openSet = new Set();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = (v, d = 2) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const eur = v => v == null ? '—' : '€ ' + nf(v, v >= 1000 ? 0 : 2);
+const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
+const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
+const tier = s => s >= 80 ? 't1' : s >= 65 ? 't2' : s >= 50 ? 't3' : '';
+const ringColor = s => s >= 80 ? 'var(--up)' : s >= 65 ? 'var(--accent)' : s >= 50 ? 'var(--warn)' : 'var(--down)';
+const stepsOk = it => it.steps.filter(x => x === 1).length;
+
+// Eigen posities uit het portfolio-tabblad (zelfde website = zelfde opslag)
+function portfolio() {
+  const own = new Set(), watch = new Set();
+  try {
+    (JSON.parse(localStorage.getItem('portfolio_positions') || '[]') || []).forEach(p => {
+      if (!p || !p.ticker) return;
+      (p.watch ? watch : own).add(String(p.ticker).toUpperCase());
+    });
+  } catch (e) {}
+  return { own, watch };
+}
+
+async function load() {
+  try {
+    const r = await fetch('screener.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    DATA = await r.json();
+    lastLoad = Date.now();
+  } catch (e) {
+    if (!DATA) {
+      $('cards').innerHTML = `<div class="empty">Nog geen data. Zet <code>scripts/screener.py</code> en de workflow
+        <code>.github/workflows/screener.yml</code> in je repository en start <b>Actions → Top 250 → Run workflow</b>.
+        De eerste scan duurt ongeveer een uur (verdeeld over 1–2 runs).</div>`;
+      $('updated').textContent = 'geen data';
+      $('summary').innerHTML = '';
+    }
+    return;
+  }
+  fillSectors();
+  render();
+}
+
+function pool() {
+  const pf = portfolio();
+  const items = (DATA.items || []).filter(it => !pf.own.has((it.eu || '').toUpperCase()) && !pf.own.has(it.sym.toUpperCase()));
+  return items.slice(0, LIMIT).map((it, i) => Object.assign({}, it, {
+    pos: i + 1,
+    watch: it.watch || pf.watch.has((it.eu || '').toUpperCase()) || pf.watch.has(it.sym.toUpperCase())
+  }));
+}
+
+function fillSectors() {
+  const sel = $('sectorSel'), keep = sel.value;
+  const secs = [...new Set((DATA.items || []).map(i => i.sector).filter(Boolean))]
+    .sort((a, b) => (SECTOR_NL[a] || a).localeCompare(SECTOR_NL[b] || b, 'nl'));
+  sel.innerHTML = '<option value="all">Alle</option>' + secs.map(s => `<option value="${esc(s)}">${esc(SECTOR_NL[s] || s)}</option>`).join('');
+  sel.value = secs.includes(keep) ? keep : 'all';
+}
+
+const QUICK = {
+  strong: { label: 'Topscore ≥ 80', sub: 'formule én kwaliteit', test: it => it.score >= 80 },
+  steps:  { label: '6+ van 7 stappen', sub: 'whiteboard-checklist', test: it => stepsOk(it) >= 6 },
+  exp:    { label: 'Verwacht ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 },
+  eu:     { label: 'Eurozone', sub: 'Europese bedrijven', test: it => it.region === 'EU' }
+};
+
+function render() {
+  if (!DATA) return;
+  const all = pool();
+  const sortBy = $('sortSel').value, sector = $('sectorSel').value, region = $('regionSel').value;
+  const min = +$('minSel').value, q = $('searchInp').value.trim().toLowerCase();
+
+  // Kop
+  const d = new Date(DATA.updated);
+  $('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const chip = $('scanChip');
+  chip.hidden = !(DATA.pending > 0);
+  chip.textContent = `scan ${DATA.scanned}/${DATA.universe}`;
+  $('banner').innerHTML = DATA.pending > 0
+    ? `<div class="banner">De eerste scan loopt nog: ${DATA.scanned} van ${DATA.universe} stocks bekeken. De lijst vult zich bij de volgende runs vanzelf aan.</div>` : '';
+
+  // Tegels
+  $('summary').innerHTML = Object.entries(QUICK).map(([k, t]) =>
+    `<button class="stat ${quick === k ? 'active' : ''}" data-q="${k}">
+       <div class="label">${t.label}</div><div class="value">${all.filter(t.test).length}</div><div class="sub">${t.sub}</div>
+     </button>`).join('');
+  $('summary').querySelectorAll('.stat').forEach(b => b.onclick = () => { quick = quick === b.dataset.q ? null : b.dataset.q; render(); });
+
+  // Filteren
+  let list = all.filter(it =>
+    (sector === 'all' || it.sector === sector) &&
+    (region === 'all' || it.region === region) &&
+    it.score >= min &&
+    (!quick || QUICK[quick].test(it)) &&
+    (!q || [it.name, it.sym, it.eu, it.industry].some(x => (x || '').toLowerCase().includes(q))));
+
+  const pe = it => { const c = it.crit.find(x => x.k === 'kw'); return c && c.v != null ? c.v : 1e9; };
+  const sorters = {
+    score: (a, b) => b.score - a.score,
+    formule: (a, b) => b.formule - a.formule || b.score - a.score,
+    kwal: (a, b) => b.kwal - a.kwal || b.score - a.score,
+    exp: (a, b) => ((b.exp && b.exp.pct) ?? -1e9) - ((a.exp && a.exp.pct) ?? -1e9),
+    steps: (a, b) => stepsOk(b) - stepsOk(a) || b.score - a.score,
+    pe: (a, b) => pe(a) - pe(b),
+    name: (a, b) => a.name.localeCompare(b.name, 'nl')
+  };
+  list.sort(sorters[sortBy] || sorters.score);
+
+  $('tbCount').textContent = list.length === all.length ? `${all.length} stocks` : `${list.length} van ${all.length} getoond`;
+
+  const box = $('cards');
+  if (!list.length) {
+    box.innerHTML = `<div class="empty">Geen stocks met deze filters. <button class="tb-reset" onclick="resetAll()">Reset filters</button></div>`;
+    return;
+  }
+  box.innerHTML = list.map(card).join('');
+  box.querySelectorAll('.stock').forEach(el => bindOne(el, list));
+}
+
+function bindOne(el, list) {
+  if (!el) return;
+  el.addEventListener('click', e => {
+    if (e.target.closest('.detail') && !e.target.closest('.toggle')) return;
+    const s = el.dataset.sym;
+    openSet.has(s) ? openSet.delete(s) : openSet.add(s);
+    el.outerHTML = card(list.find(x => x.sym === s));
+    bindOne(document.querySelector(`.stock[data-sym="${CSS.escape(s)}"]`), list);
+  });
+  bindCopy(el);
+}
+
+function bindCopy(root) {
+  root.querySelectorAll('[data-copy]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const t = b.dataset.copy;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
+      () => { b.textContent = '✓ gekopieerd'; setTimeout(() => b.textContent = 'Kopieer ' + t, 1500); },
+      () => prompt('Ticker:', t));
+  });
+}
+
+function ring(score) {
+  const r = 24, c = 2 * Math.PI * r, f = Math.max(0, Math.min(100, score)) / 100;
+  return `<div class="ring"><svg viewBox="0 0 58 58">
+      <circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--panel-2)" stroke-width="5"/>
+      <circle cx="29" cy="29" r="${r}" fill="none" stroke="${ringColor(score)}" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}"/>
+    </svg><div class="num">${Math.round(score)}</div></div>`;
+}
+
+function card(it) {
+  const open = openSet.has(it.sym);
+  const e = it.exp || {};
+  const tick = it.eu || it.sym;
+  const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
+  const tags = [
+    it.watch ? '<span class="tag watch">op watchlist</span>' : '',
+    it.approx ? '<span class="tag warn">≈ omgerekend</span>' : '',
+    it.region === 'VS' ? `<span class="tag">VS · ${esc(it.sym)}</span>` : ''
+  ].join('');
+  return `<div class="stock ${tier(it.score)} ${open ? 'open' : ''}" data-sym="${esc(it.sym)}">
+    <div class="rank ${it.pos <= 10 ? 'top' : ''}">#${it.pos}</div>
+    <div class="s-name">
+      <div class="s-title" title="${esc(it.name)}">${esc(it.name)}</div>
+      <div class="s-sub">${esc(tick)}${it.exch ? ' · ' + esc(it.exch) : ''} · ${esc(SECTOR_NL[it.sector] || it.sector || '—')}</div>
+      ${tags ? `<div class="tags">${tags}</div>` : ''}
+    </div>
+    <div>${ring(it.score)}<div class="ring-sub">F${Math.round(it.formule)} · K${it.kwal}</div></div>
+    <div class="row2">
+      <div class="blk"><div class="k">Koers</div><div class="v">${it.approx ? '≈ ' : ''}${eur(it.price)}</div>
+        <div class="s ${cls(it.day)}">${it.day == null ? '&nbsp;' : pct(it.day, 2) + ' vandaag'}</div></div>
+      <div class="blk"><div class="k">Verwacht 12 mnd</div><div class="v ${cls(e.pct)}">${pct(e.pct)}</div><div class="s">${expSrc}</div></div>
+      <div class="blk steps-blk"><div class="k">${stepsOk(it)}/7 stappen</div>
+        <div class="steps">${it.steps.map((s, i) => `<span class="step ${s === 1 ? 'ok' : s === 0 ? 'no' : 'na'}" title="${i + 1}. ${STEPS[i]}: ${s === 1 ? 'ja' : s === 0 ? 'nee' : 'geen data'}">${i + 1}</span>`).join('')}</div></div>
+      <button class="toggle">${open ? 'sluiten ▴' : 'details ▾'}</button>
+    </div>
+    ${open ? detail(it) : ''}
+  </div>`;
+}
+
+function critValue(c) {
+  if (c.p == null) return 'geen data';
+  switch (c.k) {
+    case 'current': return nf(c.v, 2);
+    case 'cashschuld': return c.v == null ? 'geen schuld' : pct(c.v) + (c.ratio != null ? ` <small>(${nf(c.ratio, 0)}%)</small>` : '');
+    case 'short': case 'instituten': return nf(c.v, c.k === 'short' ? 1 : 0) + '%';
+    case 'schaal': return (c.v > 0 ? '+' : '') + nf(c.v, 1) + ' pp';
+    case 'ipo': return pct(c.v, 0) + (c.since ? ` <small>sinds ${c.since.slice(0, 4)}</small>` : '');
+    case 'kw': return c.v == null ? 'verlies' : nf(c.v, 1);
+    default: return pct(c.v);
+  }
+}
+
+function detail(it) {
+  const e = it.exp || {};
+  const q = it.q || {};
+  const qrow = (label, o) => o ? `<div class="q-row"><div>${label}<small>${o.src === 'oordeel' ? 'oordeel' : 'schatting uit cijfers'}</small></div>
+      <div class="q-bar ${o.src === 'oordeel' ? '' : 'est'}"><i style="width:${o.s * 10}%"></i></div><div class="q-val">${o.s}/10</div></div>` : '';
+  const crit = it.crit.map(c => `<div class="crit ${c.p == null ? 'na' : ''}">
+      <div class="crit-n">${CRIT[c.k][0]}<small>${CRIT[c.k][1]}</small></div>
+      <div class="crit-v">${critValue(c)}</div>
+      <div class="pips ${c.p == null ? '' : 'p' + c.p}"><i></i><i></i><i></i></div>
+      <div class="crit-p">${c.p == null ? '–' : c.p}</div>
+    </div>`).join('');
+  const range = (it.hi52 && it.lo52 && it.hi52 > it.lo52)
+    ? `<div class="range"><div class="dot" style="left:${Math.max(0, Math.min(100, (it.price - it.lo52) / (it.hi52 - it.lo52) * 100)).toFixed(1)}%"></div></div>
+       <div class="range-l"><span>${eur(it.lo52)}</span><span>52 weken</span><span>${eur(it.hi52)}</span></div>` : '';
+  const expTxt = e.src === 'analisten'
+    ? `Koersdoel <b>${eur(e.tgt_eur)}</b> (${pct(e.upside)}) volgens ${e.n} analisten, advies <b>${RATING_NL[e.rating] || e.rating || '—'}</b>${e.div ? `, plus ${nf(e.div, 1)}% dividend` : ''}.`
+    : e.src === 'schatting'
+      ? `Te weinig analisten; schatting uit de omzetgroei (${pct(e.growth)})${e.div ? ` plus ${nf(e.div, 1)}% dividend` : ''}.`
+      : e.src === 'dividend' ? `Alleen dividendrendement bekend (${nf(e.div, 1)}%).` : 'Onvoldoende gegevens voor een verwachting.';
+  const cd = it.cashdebt || [];
+  const tick = it.eu || it.sym;
+  return `<div class="detail">
+    <div>
+      <div class="d-k">Formuleblad <span>${Math.round(it.formule)}/100 · ${it.n_crit}/10 criteria met data</span></div>
+      ${crit}
+    </div>
+    <div>
+      <div class="d-k">Kwaliteit <span>${it.kwal}/30</span></div>
+      <div class="qual">${qrow('Moat', q.moat)}${qrow('CEO-kwaliteit', q.ceo)}${qrow('Recessiebestendig', q.recessie)}</div>
+      ${q.note ? `<div class="q-note">${esc(q.note)}</div>` : ''}
+      <div class="d-k">7 stappen <span>${stepsOk(it)}/7</span></div>
+      <ul class="checklist">${it.steps.map((s, i) => `<li><b class="${s === 1 ? 'c-up' : s === 0 ? 'c-down' : ''}">${s === 1 ? '✓' : s === 0 ? '✕' : '?'}</b>${i + 1}. ${STEPS[i]}</li>`).join('')}</ul>
+      <div class="d-k">Verwacht rendement <span class="${cls(e.pct)}">${pct(e.pct)}</span></div>
+      <p class="note" style="margin-bottom:14px">${expTxt}</p>
+      <div class="facts">
+        <div><div class="k">Marktwaarde</div><div class="v">${it.mcap ? '€ ' + nf(it.mcap, it.mcap >= 100 ? 0 : 1) + ' mld' : '—'}</div></div>
+        <div><div class="k">Cash</div><div class="v">${cd[0] == null ? '—' : '€ ' + nf(cd[0], 1) + ' mld'}</div></div>
+        <div><div class="k">Schuld</div><div class="v">${cd[1] == null ? '—' : '€ ' + nf(cd[1], 1) + ' mld'}</div></div>
+      </div>
+      ${range}
+      <p class="note" style="margin-top:12px">${esc(it.industry || '')}${it.country ? ' · ' + esc(it.country) : ''}${it.region === 'VS'
+        ? ` · cijfers via ${esc(it.sym)} ($ ${nf(it.native)})${it.approx ? '; geen euro-notering gevonden, koers omgerekend tegen ' + nf(DATA.fx, 4) : ''}` : ''}</p>
+      <div class="d-actions"><button class="toggle" data-copy="${esc(tick)}">Kopieer ${esc(tick)}</button></div>
+    </div>
+  </div>`;
+}
+
+function resetAll() {
+  $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all';
+  $('minSel').value = '0'; $('searchInp').value = ''; quick = null;
+  render();
+}
+
+['sortSel', 'sectorSel', 'regionSel', 'minSel'].forEach(id => $(id).onchange = render);
+let tSearch;
+$('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
+$('resetBtn').onclick = resetAll;
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastLoad > 10 * 60 * 1000) load(); });
+window.addEventListener('storage', e => { if (e.key === 'portfolio_positions') render(); });
+load();
+</script>
+</body>
+</html>

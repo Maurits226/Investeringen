@@ -45,7 +45,8 @@ SIGNAL_SCORE = 35     # |score| vanaf hier is er een richting (schaal -100..100)
 PIVOT_K = 5           # bars links/rechts voor een swing-top/-bodem
 SPARK_BARS = 120
 RETRACE = 0.5         # na het koersdoel: terugveer-/terugvalniveau (50% van de beweging)
-HIST_GRACE_H = 20     # advies telt pas als vervallen als het zo lang niet meer getoond is (geen flikkeren per kwartier)
+# Signaal weg = advies vervalt direct (naar het archief). Komt hetzelfde signaal dezelfde dag terug,
+# dan wordt dat advies heropend in plaats van een nieuw te starten (geen dubbele adviezen door flikkeren).
 HIST_KEEP_DAYS = 400  # zo lang blijven afgesloten adviezen in de geschiedenis
 ARCHIVE_DIR = "archive"   # per handelsdag een momentopname: archive/JJJJ-MM-DD.json + archive/index.json
 NL_TZ = "Europe/Amsterdam"
@@ -1177,6 +1178,14 @@ def update_history(prev_hist, items, bars_by_sym, bootstrap):
         if h:
             h["last_seen"] = now_iso
             continue
+        # zelfde signaal vandaag al vervallen? Dan dat advies heropenen
+        re_h = next((x for x in hist if x["symbol"] == sym and x.get("end_reason") == "vervallen"
+                     and x.get("closed_on") == nl_today and x["dir"] == it["direction"]
+                     and x.get("outcome", "open") == "open"), None)
+        if re_h:
+            re_h.update({"end": None, "end_reason": None, "closed_on": None, "last_seen": now_iso})
+            active[sym] = re_h
+            continue
         nid = f"{sym}|{now_iso}"
         while any(x["id"] == nid for x in hist):     # uniek houden, ook als een advies in dezelfde run afloopt en opnieuw start
             nid += "+"
@@ -1190,19 +1199,16 @@ def update_history(prev_hist, items, bars_by_sym, bootstrap):
         hist.append(h)
         active[sym] = h
 
-    # 4) niet meer getoond: na de wachttijd vervallen (de uitkomst wordt daarna nog wel gevolgd)
+    # 4) niet meer getoond: advies vervalt direct en gaat naar het archief (de uitkomst wordt nog wel gevolgd)
     for sym, h in list(active.items()):
-        if sym not in flagged and now - _dt(h["last_seen"]) > timedelta(hours=HIST_GRACE_H):
+        if sym not in flagged:
             sluit(h, h["last_seen"], "vervallen")
             del active[sym]
 
     # 5) status van de lopende adviezen
     for sym, h in active.items():
         h["instap_grens"] = instap_grens(h)
-        if sym not in flagged:                         # binnen de wachttijd: niet instappen, advies nog niet vervallen
-            h.update({"status": "niet_instappen", "status_reason": "signaal weg"})
-        else:
-            h.update({"status": "instappen", "status_reason": None})
+        h.update({"status": "instappen", "status_reason": None})
 
     cutoff = now - timedelta(days=HIST_KEEP_DAYS)
     hist = [h for h in hist if not h.get("end") or _dt(h["end"]) >= cutoff]

@@ -121,19 +121,42 @@
   .h-dot.pos { background: var(--up); } .h-dot.neg { background: var(--down); }
   .regime-why { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }
   .regime-why b { color: var(--text); font-weight: 500; }
-  /* Beursklimaat: vaste kolom voor de kopjes, zodat labels en uitleg netjes onder elkaar staan */
-  .clim { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 6px 14px; margin-bottom: 14px; }
-  .clim-k { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
-            padding: 6px 0 0 10px; border-left: 2px solid var(--accent); align-self: start; }
-  .clim-k.wk { border-left-color: var(--violet); }
-  .clim-v { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
-  .clim-v + .clim-k, .clim-v + .clim-k + .clim-v { margin-top: 8px; }
-  .regime-why.wk b { color: var(--violet); }
-  @media (max-width: 640px) {
-    .clim { grid-template-columns: 1fr; gap: 4px; }
-    .clim-v + .clim-k { margin-top: 12px; }
-    .clim-v + .clim-k + .clim-v { margin-top: 0; }
+  /* Beursklimaat: twee kaarten (vandaag = blauw, deze week = paars) */
+  .clim { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .cc {
+    position: relative; overflow: hidden; border-radius: 14px; padding: 16px 18px 14px;
+    background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 10px; --tone: var(--muted); --mark: var(--accent);
   }
+  .cc::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
+  .cc::after { content: ''; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px; border-radius: 50%;
+               background: radial-gradient(circle, color-mix(in srgb, var(--tone) 16%, transparent), transparent 70%); pointer-events: none; }
+  .cc.wk { --mark: var(--violet); }
+  .cc.good { --tone: var(--up); } .cc.bad { --tone: var(--down); } .cc.mid { --tone: var(--warn, #f5b544); }
+  .cc-k { display: flex; align-items: center; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); }
+  .cc-k i { width: 7px; height: 7px; border-radius: 50%; background: var(--mark); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mark) 22%, transparent); }
+  .cc-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .cc-verdict { font-size: 22px; font-weight: 700; letter-spacing: -.4px; color: var(--tone); line-height: 1.1; }
+  .cc-num { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: var(--tone); white-space: nowrap; }
+  .cc-sub { font-size: 12.5px; color: var(--muted); margin-top: -4px; }
+  .cc-meters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .meter { background: rgba(255,255,255,.025); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .meter-l { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .meter-l b { color: var(--text); font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+  .gauge { position: relative; height: 6px; border-radius: 6px; margin-top: 8px;
+           background: linear-gradient(90deg, var(--up) 0 26.7%, var(--warn, #f5b544) 26.7% 50%, var(--down) 50% 100%); opacity: .85; }
+  .gauge .pin { position: absolute; top: -4px; width: 3px; height: 14px; border-radius: 2px; background: #fff; transform: translateX(-50%); box-shadow: 0 0 0 2px var(--panel); }
+  .trend { margin-top: 5px; font-size: 12.5px; font-weight: 600; }
+  .dist { display: flex; height: 8px; border-radius: 6px; overflow: hidden; background: var(--panel-2); gap: 2px; }
+  .dist span { display: block; height: 100%; }
+  .dist .u { background: var(--up); } .dist .f { background: #3a3e43; } .dist .d { background: var(--down); }
+  .dist-l { display: flex; gap: 14px; font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: -3px; flex-wrap: wrap; }
+  .dist-l em { font-style: normal; display: inline-flex; align-items: center; gap: 5px; }
+  .dist-l em::before { content: ''; width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+  .dist-l .u { color: var(--up); } .dist-l .f { color: #6b7075; } .dist-l .d { color: var(--down); }
+  .cc-basis { font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 9px; margin-top: auto; }
+  .cc-basis b { color: var(--mark); font-weight: 500; }
+  @media (max-width: 760px) { .clim { grid-template-columns: 1fr; } }
   .fac.key { box-shadow: inset 0 2px 0 var(--accent); }
   .heads summary::-webkit-details-marker { display: none; }
   .heads ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
@@ -695,27 +718,52 @@ function renderWorld() {
     `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
   // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
   const vix = byKey.vix, nd = byKey.nasdaq;
-  const why = (vix && nd) ? `<div class="regime-why">Beursklimaat vandaag gebaseerd op <b>angstindex ${fmtFactor(vix)}</b>
-      (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100 ${nd.trend === 'up' ? 'boven' : 'onder'}</b> zijn 50-daags gemiddelde
-      <span style="color:var(--accent)">(blauw gemarkeerd)</span></div>` : '';
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
   const wk = weekOutlook();
-  const wkPill = wk ? `<span class="regime week ${wk.cls}"><b>${wk.word[0].toUpperCase() + wk.word.slice(1)}</b> · gem. ${pct(wk.avg, 1)} · ${wk.up} omhoog, ${wk.down} omlaag${wk.n - wk.up - wk.down ? ', ' + (wk.n - wk.up - wk.down) + ' vlak' : ''}</span>` : '';
-  const wkWhy = wk ? `<div class="regime-why wk">Beursklimaat deze week gebaseerd op de verwachte beweging van <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'stocks uit de Top 250'}</b>
-      ${SET === 'investeringen' ? '(<b>gewogen naar positiewaarde</b>)' : '(gelijk gewogen)'} · radar 10 dagen teruggerekend naar 5 · zonder patroon = 0%
-      · positief vanaf +0,5%, negatief vanaf −0,5%</div>` : '';
+  const clim = climateCards(reg, byKey, wk);
   box.innerHTML = `
-    <div class="clim">
-      <div class="clim-k">Beursklimaat vandaag:</div>
-      <div class="clim-v">${reg.text ? `<span class="regime ${reg.state || ''}">${esc(reg.text)}</span>` : ''}${why}</div>
-      ${wk ? `<div class="clim-k wk">Beursklimaat deze week:</div>
-      <div class="clim-v">${wkPill}${wkWhy}</div>` : ''}
-    </div>
+    ${clim}
     <div class="factors">${facs}</div>
     ${heads ? `<details class="heads"${open ? ' open' : ''}><summary>📰 Wereldnieuws
         <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>
         <span class="h-btn"><span class="h-show-more">tonen</span><span class="h-show-less">verbergen</span></span></summary>
         <ul>${heads}</ul></details>` : ''}`;
+}
+// Twee kaarten: beursklimaat vandaag (blauw) en deze week (paars)
+function climateCards(reg, byKey, wk) {
+  const vix = byKey.vix, nd = byKey.nasdaq;
+  const V = {
+    calm:    ['good', 'Rustig & stijgend', 'Angstindex laag en de Nasdaq in een stijgende trend.'],
+    neutral: ['mid',  'Neutraal', 'Geen duidelijke risico-aan- of risico-uit-stand.'],
+    off:     ['bad',  'Risico-uit', 'Angstindex hoog of Nasdaq onder zijn trend: voorzichtig met kopen.']
+  }[reg.state] || ['', '—', reg.text || 'Nog geen gegevens.'];
+  // angstindex op een schaal van 10 tot 40 (groen < 18, oranje 18-25, rood ≥ 25)
+  const vixPos = vix ? Math.max(0, Math.min(100, (vix.last - 10) / 30 * 100)) : null;
+  const up = nd && nd.trend === 'up';
+  const today = `<div class="cc ${V[0]}">
+      <div class="cc-k"><i></i>Beursklimaat vandaag</div>
+      <div class="cc-main"><span class="cc-verdict">${V[1]}</span></div>
+      <div class="cc-sub">${V[2]}</div>
+      ${vix && nd ? `<div class="cc-meters">
+        <div class="meter"><div class="meter-l">Angstindex <b>${fmtFactor(vix)}</b></div>
+          <div class="gauge" title="rustig < 18 · onrustig 18–25 · paniek ≥ 25"><span class="pin" style="left:${vixPos.toFixed(1)}%"></span></div></div>
+        <div class="meter"><div class="meter-l">Nasdaq 100 <b>${fmtFactor(nd)}</b></div>
+          <div class="trend ${up ? 'c-up' : 'c-down'}">${up ? '▲ boven' : '▼ onder'} 50-daags gem.</div></div>
+      </div>` : ''}
+      <div class="cc-basis">Gebaseerd op <b>angstindex</b> (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100</b> t.o.v. zijn 50-daags gemiddelde · blauw gemarkeerd in de tegels</div>
+    </div>`;
+  if (!wk) return `<div class="clim">${today}</div>`;
+  const flat = wk.n - wk.up - wk.down;
+  const w = x => (x / wk.n * 100).toFixed(1) + '%';
+  const week = `<div class="cc wk ${wk.cls === 'pos' ? 'good' : wk.cls === 'neg' ? 'bad' : 'mid'}">
+      <div class="cc-k"><i></i>Beursklimaat deze week</div>
+      <div class="cc-main"><span class="cc-verdict">${wk.word[0].toUpperCase() + wk.word.slice(1)}</span><span class="cc-num">${pct(wk.avg, 1)}</span></div>
+      <div class="cc-sub">Verwacht gemiddeld resultaat van ${SET === 'investeringen' ? 'je stocks' : 'de Top 250'} over 5 handelsdagen</div>
+      <div class="dist">${wk.up ? `<span class="u" style="width:${w(wk.up)}"></span>` : ''}${flat ? `<span class="f" style="width:${w(flat)}"></span>` : ''}${wk.down ? `<span class="d" style="width:${w(wk.down)}"></span>` : ''}</div>
+      <div class="dist-l"><em class="u">${wk.up} omhoog</em><em class="f">${flat} vlak</em><em class="d">${wk.down} omlaag</em></div>
+      <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'stocks uit de Top 250'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'} · radar 10 dagen teruggerekend naar 5 · zonder patroon = 0% · positief vanaf +0,5%, negatief vanaf −0,5%</div>
+    </div>`;
+  return `<div class="clim">${today}${week}</div>`;
 }
 // Verwacht weekresultaat: de verwachte beweging van elke stock (radar, 10 handelsdagen) teruggerekend
 // naar 5 dagen. Bij je investeringen gewogen naar de waarde van je positie, bij de Top 250 gelijk gewogen.

@@ -226,6 +226,7 @@
   .p-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
   .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
+  .rank-tag { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); margin-right: 7px; }
   .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
   .src-live { color: var(--up); }
   .src-none { color: var(--warn); }
@@ -359,7 +360,8 @@
 <div class="wrap">
   <header class="top">
     <div class="title-block">
-      <h1><span class="pulse"></span>Patroonradar</h1>
+      <h1><span class="pulse"></span><span id="pageTitle">Patroonradar</span></h1>
+      <p id="pageSub"></p>
     </div>
     <div class="controls">
       <span class="sync-note" id="syncNote"></span>
@@ -416,13 +418,25 @@
 </div>
 
 <script>
+// Welke radar: je eigen investeringen (standaard) of de Top 250 (signals.html?set=top250)
+const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top250' : 'investeringen';
+const SETS = {
+  investeringen: { title: 'Patroonradar · Investeringen', sub: 'Patronen en adviezen voor je eigen posities',
+                   file: 'signals.json', ui: 'signals_ui', noun: ['positie', 'posities'], workflow: 'Patroonradar investeringen' },
+  top250:        { title: 'Patroonradar · Top 250', sub: 'Instapmomenten voor de Top 250 — stocks die je nog niet hebt',
+                   file: 'signals_top250.json', ui: 'signals_ui_top250', noun: ['stock', 'stocks'], workflow: 'Patroonradar top 250' }
+};
+const CFG = SETS[SET];
+const NOUN = n => n === 1 ? CFG.noun[0] : CFG.noun[1];
+document.title = CFG.title;
 const DEMO = null; /*__DEMO__*/
 const DEMO_QUOTES = null; /*__DEMOQ__*/
-const SECTION_ORDER = ['Stocks', 'Gold & Silver'];
+const SECTION_ORDER = SET === 'top250' ? [] : ['Stocks', 'Gold & Silver'];
+const CAT_LABEL = { 'Gold & Silver': 'Edelmetalen' };
 const SKIP_CATEGORIES = ["ETF's"];                 // ETF's doen niet mee in de radar
 const MERGE_CATEGORY = { Watchlist: 'Stocks' };    // watchlist telt gewoon als stock
 const MOVE_MIN = 5;                                // interessant vanaf een verwachte daling of stijging van 5%
-const UI_KEY = 'signals_ui';
+const UI_KEY = CFG.ui;
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
   style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2
@@ -433,8 +447,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '
 let data = null;
 let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [] };
 try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
-if (!['all', 'Stocks', 'Gold & Silver'].includes(ui.cat)) ui.cat = 'all';
-if (!['section', 'name', 'result'].includes(ui.sort)) ui.sort = 'section';
+if (!['section', 'name', 'result', 'rank'].includes(ui.sort) || (ui.sort === 'rank' && SET !== 'top250')) ui.sort = 'section';
 if (!['all', 'up', 'down', 'flat', 'new'].includes(ui.status)) ui.status = 'all';
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
@@ -456,7 +469,7 @@ function prep(raw) {
     const cat = (p && p.section) || it.category || 'Stocks';
     const pr = it.projected_pct;
     const flag = pr != null && ((it.direction === 'down' && -pr >= MOVE_MIN) || (it.direction === 'up' && pr >= MOVE_MIN));
-    return { ...it, flag, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: false };
+    return { ...it, flag, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: SET === 'top250' };
   };
   const keep = it => !SKIP_CATEGORIES.includes(it.category);
   const all = raw.items.map(one);
@@ -476,14 +489,14 @@ async function load() {
     if (q.ok) quotes = (await q.json()).quotes || {};
   } catch (e) {}
   try {
-    const r = await fetch('signals.json?t=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch(CFG.file + '?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     data = prep(await r.json());
     render();
   } catch (e) {
     if (!data) {
-      document.getElementById('updated').textContent = 'geen signals.json';
-      document.getElementById('cards').innerHTML = `<div class="empty">Nog geen signalen. Start de workflow <b>Patroonradar</b> via de tab <b>Actions</b> → <b>Run workflow</b> en ververs daarna.</div>`;
+      document.getElementById('updated').textContent = 'geen ' + CFG.file;
+      document.getElementById('cards').innerHTML = `<div class="empty">Nog geen signalen. Start de workflow <b>${CFG.workflow}</b> via de tab <b>Actions</b> → <b>Run workflow</b> en ververs daarna.${SET === 'top250' ? ' Deze radar gebruikt de lijst van de workflow <b>Top 250</b>; draai die eerst.' : ''}</div>`;
     }
   }
 }
@@ -538,7 +551,7 @@ function card(it) {
     under = `plan eindigt onder ${fmt(it.plan.stop, cur)}<br>actie: <b>verkopen</b>`;
   } else if (sig && d === 'down') {
     lblL = doel; lblR = 'stop ' + fmt(it.plan.stop, cur);
-    under = `plan eindigt boven ${fmt(it.plan.stop, cur)}<br>actie: <b>terugkopen</b>`;
+    under = `plan eindigt boven ${fmt(it.plan.stop, cur)}<br>actie: <b>${it.watch ? 'kopen bij het doel' : 'terugkopen'}</b>`;
   }
 
   const s = sig ? stappen(it) : null;
@@ -561,11 +574,11 @@ function card(it) {
     : sig && ei && ei.kind === 'in' ? `<button class="toggle follow" data-follow="${esc(it.symbol)}" title="Heb je dit advies uitgevoerd? Dan blijft het bovenaan staan">✓ Opgevolgd</button>` : '';
 
   const badge = !sig ? `<span class="badge hold">geen actie</span>`
-    : d === 'down' ? `<span class="badge down">VERKOOPSIGNAAL</span>` : `<span class="badge up">KOOPSIGNAAL</span>`;
+    : d === 'down' ? `<span class="badge down">${SET === 'top250' ? 'NOG NIET KOPEN' : 'VERKOOPSIGNAAL'}</span>` : `<span class="badge up">KOOPSIGNAAL</span>`;
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${esc(title)}</span>
+      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(it.symbol) || ''}"></span>${it.rank ? `<span class="rank-tag" title="Plaats in de Top 250">#${it.rank}</span>` : ''}${esc(title)}</span>
       <span class="p-company">(${esc(it.symbol)})${exchName(it.symbol)} <span class="src src-live" title="${it.pattern_symbol ? 'Patroon berekend op ' + esc(it.pattern_symbol) + ' (VS), koersen in euro' : 'Koersdata opgehaald'}">● data${it.pattern_symbol ? ' via ' + esc(it.pattern_symbol) : ''}</span></span>
       ${contextTags(it)}
     </div>
@@ -779,7 +792,16 @@ function render() {
   const scrollY = window.scrollY;
   const cfg = data.config;
   document.getElementById('sortSel').value = ui.sort;
-  document.getElementById('catSel').value = ui.cat;
+  const catSel = document.getElementById('catSel');
+  const cats = [...new Set([...SECTION_ORDER, ...data.items.map(i => i.category), ...(data.errors || []).map(e => e.category)].filter(Boolean))];
+  if (SET === 'top250') cats.sort((a, b) => a.localeCompare(b, 'nl'));
+  const csig = cats.join('|');
+  if (catSel.dataset.sig !== csig) {
+    catSel.innerHTML = '<option value="all">Alle</option>' + cats.map(c => `<option value="${esc(c)}">${esc(CAT_LABEL[c] || c)}</option>`).join('');
+    catSel.dataset.sig = csig;
+  }
+  if (ui.cat !== 'all' && !cats.includes(ui.cat)) ui.cat = 'all';
+  catSel.value = ui.cat;
   document.getElementById('statusSel').value = ui.status;
 
   const items = data.items, errors = data.errors;
@@ -803,7 +825,7 @@ function render() {
   cards.innerHTML = '';
   if (!filtered.length && !errs.length) {
     const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', down: 'met een verwachte daling ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
-    const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : 'posities';
+    const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : ui.cat !== 'all' ? CFG.noun[1] + ' in ' + ui.cat.toLowerCase() : CFG.noun[1];
     const beurs = ui.mkt !== 'all' && EXCHANGES[ui.mkt] ? ' op ' + EXCHANGES[ui.mkt].name : '';
     cards.innerHTML = `<div class="empty">Op dit moment geen ${cat}${beurs} ${wat}.</div>`;
   } else if (ui.sort === 'section') {
@@ -822,6 +844,7 @@ function render() {
   } else {
     filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
+      if (ui.sort === 'rank') return (a.rank || 999) - (b.rank || 999);
       if (ui.sort === 'result') return byReal(a, b);   // resultaat = realisatie hoog-laag, over alle categorieën
       if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
       return byReal(a, b);
@@ -831,7 +854,7 @@ function render() {
 
   const total = items.length + errors.length;
   const shown = filtered.length + errs.length;
-  document.getElementById('tbCount').textContent = shown === total ? `${total} posities` : `${shown} van ${total} getoond`;
+  document.getElementById('tbCount').textContent = shown === total ? `${total} ${NOUN(total)}` : `${shown} van ${total} getoond`;
 
   const inCat = x => (ui.cat === 'all' || x.category === ui.cat) && inMkt(x);
   const catItems = items.filter(inCat), catErrors = errors.filter(inCat);
@@ -902,7 +925,7 @@ let trades = (() => { try { const t = JSON.parse(localStorage.getItem(TRADES_KEY
 let tradesSha = null, syncState = '';
 const saveTradesLocal = () => { try { localStorage.setItem(TRADES_KEY, JSON.stringify(trades)); } catch (e) {} };
 const ghToken = () => { try { return localStorage.getItem('gh_token') || ''; } catch (e) { return ''; } };
-const openTrades = () => trades.filter(t => !t.deleted && t.status === 'open');
+const openTrades = () => trades.filter(t => !t.deleted && t.status === 'open' && (t.set || 'investeringen') === SET);
 const tradeFor = sym => openTrades().find(t => t.symbol === sym);
 
 function mergeTrades(a, b) {
@@ -970,7 +993,7 @@ function followAdvice(sym) {
   const px = parsePrice(ans);
   if (!px) { alert('Dat is geen geldige koers.'); return; }
   const ep = activeEpisode(sym, it.direction), now = new Date().toISOString();
-  const t = { id: sym + '|' + now, symbol: sym, name, dir: it.direction, date: now, price: px, currency: it.currency || 'EUR',
+  const t = { id: sym + '|' + now, set: SET, symbol: sym, name, dir: it.direction, date: now, price: px, currency: it.currency || 'EUR',
     plan: { target: it.plan.target, next: it.plan.next, stop: it.plan.stop }, episode: ep ? ep.id : null, status: 'open' };
   trades.push(t); touch(t);
 }
@@ -1061,6 +1084,14 @@ const EXCHANGES = {
   DUS:    { name: 'Börse Düsseldorf',   city: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
   AMS:    { name: 'Euronext Amsterdam', city: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
   MIL:    { name: 'Borsa Italiana',     city: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
+  FRA:    { name: 'Börse Frankfurt',    city: 'Frankfurt',  tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
+  PAR:    { name: 'Euronext Parijs',    city: 'Parijs',     tz: 'Europe/Paris',     open: [9, 0],  close: [17, 30] },
+  BRU:    { name: 'Euronext Brussel',   city: 'Brussel',    tz: 'Europe/Brussels',  open: [9, 0],  close: [17, 30] },
+  MCE:    { name: 'BME Madrid',         city: 'Madrid',     tz: 'Europe/Madrid',    open: [9, 0],  close: [17, 30] },
+  HEL:    { name: 'Nasdaq Helsinki',    city: 'Helsinki',   tz: 'Europe/Helsinki',  open: [10, 0], close: [18, 30] },
+  ISE:    { name: 'Euronext Dublin',    city: 'Dublin',     tz: 'Europe/Dublin',    open: [8, 0],  close: [16, 30] },
+  VIE:    { name: 'Wiener Börse',       city: 'Wenen',      tz: 'Europe/Vienna',    open: [9, 0],  close: [17, 30] },
+  LIS:    { name: 'Euronext Lissabon',  city: 'Lissabon',   tz: 'Europe/Lisbon',    open: [8, 0],  close: [16, 30] },
   NYSE:   { name: 'NYSE',               city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
@@ -1070,7 +1101,7 @@ const YAHOO_EXCHANGE = {
   NYQ: 'NYSE', ASE: 'NYSE', PCX: 'NYSE',
   NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ'
 };
-const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL' };
+const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL', F: 'FRA', PA: 'PAR', BR: 'BRU', MC: 'MCE', HE: 'HEL', IR: 'ISE', VI: 'VIE', LS: 'LIS' };
 
 function exchangeKeyOf(ticker) {
   const q = quotes[ticker.toUpperCase()];
@@ -1161,11 +1192,11 @@ function renderMarkets() {
     const aan = ui.mkt === key;
     return `<div class="mkt ${st.open ? 'open' : 'closed'}${aan ? ' active' : ''}" data-mkt="${key}"
       role="button" tabindex="0" aria-pressed="${aan}"
-      title="${aan ? 'Toon weer alle posities' : 'Toon alleen posities op ' + ex.name}">
+      title="${aan ? 'Toon weer alle ' + CFG.noun[1] : 'Toon alleen ' + CFG.noun[1] + ' op ' + ex.name}">
       <div class="mkt-top"><span class="mkt-dot"></span><span class="mkt-name">${ex.name}</span></div>
       <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
       <div class="mkt-state">${tekst}</div>
-      <div class="mkt-foot">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</div>
+      <div class="mkt-foot">${counts[key]} ${NOUN(counts[key])}</div>
     </div>`;
   }).join('');
   document.querySelectorAll('.exch-dot').forEach(el => {
@@ -1209,6 +1240,16 @@ document.getElementById('statusSel').onchange = e => { ui.status = e.target.valu
 document.getElementById('mktSel').onchange = e => { ui.mkt = e.target.value; saveUI(); render(); };
 document.getElementById('resetFilters').onclick = () => { ui.sort = 'section'; ui.cat = 'all'; ui.status = 'all'; ui.mkt = 'all'; saveUI(); render(); };
 
+document.getElementById('pageTitle').textContent = CFG.title;
+document.getElementById('pageSub').textContent = CFG.sub;
+if (SET === 'top250') {
+  const o = document.createElement('option'); o.value = 'rank'; o.textContent = 'Top 250-positie';
+  document.getElementById('sortSel').appendChild(o);
+  document.querySelector('#sortSel option[value="section"]').textContent = 'Sector (standaard)';
+  document.querySelector('#catSel').previousElementSibling.textContent = 'Sector';
+}
+if (SET === 'top250') document.querySelector('#statusSel option[value="down"]').textContent = 'Daling verwacht';
+document.getElementById('sortSel').value = ui.sort;
 load().then(syncTrades);
 setInterval(load, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); syncTrades(); } });

@@ -165,8 +165,8 @@
 <div class="wrap">
   <header class="top">
     <div class="title-block">
-      <h1><span class="pulse"></span>Archief</h1>
-      <p>Per handelsdag de patronen en adviezen van de Patroonradar</p>
+      <h1><span class="pulse"></span><span id="pageTitle">Archief</span></h1>
+      <p id="pageSub">Per handelsdag de patronen en adviezen van de Patroonradar</p>
     </div>
     <span class="updated" id="updated">laden…</span>
   </header>
@@ -189,11 +189,23 @@
 </div>
 
 <script>
+// Welk archief: je eigen investeringen (standaard) of de Top 250 (archief.html?set=top250)
+const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top250' : 'investeringen';
+const CFG = {
+  investeringen: { title: 'Archief · Investeringen', sub: 'Per handelsdag de patronen en adviezen voor je eigen posities',
+                   dir: 'archive', file: 'signals.json', ui: 'archive_ui', start: 'maandag 28 september', every: 'elke 15 minuten',
+                   one: 'positie', many: 'posities', Many: 'Posities' },
+  top250:        { title: 'Archief · Top 250', sub: 'Per handelsdag de patronen en adviezen voor de Top 250',
+                   dir: 'archive_top250', file: 'signals_top250.json', ui: 'archive_ui_top250', start: 'woensdag 30 september', every: 'elk uur',
+                   one: 'stock', many: 'stocks', Many: 'Stocks' }
+}[SET];
+document.title = CFG.title;
+const DOWN_PILL = SET === 'top250' ? 'NIET KOPEN' : 'VERKOPEN';   // Top 250: je hebt ze niet, dus een daling = wachten
 const DEMO = null; /*__DEMO__*/
 const SKIP_CATEGORIES = ["ETF's"];
 const MERGE_CATEGORY = { Watchlist: 'Stocks' };
 const GH_OWNER = 'Maurits226', GH_REPO = 'Investeringen', GH_BRANCH = 'main';
-const UI_KEY = 'archive_ui';
+const UI_KEY = CFG.ui;
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', { style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const pct = (n, d = 1) => n == null ? '–' : (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
@@ -235,11 +247,11 @@ async function loadTrades() {
   } catch (e) {}
   const m = {};
   [...remote, ...local].forEach(t => { if (t && t.id && (!m[t.id] || (t.updated || '') > (m[t.id].updated || ''))) m[t.id] = t; });
-  trades = Object.values(m).filter(t => !t.deleted);
+  trades = Object.values(m).filter(t => !t.deleted && (t.set || 'investeringen') === SET);
 }
 async function loadDay(date, force) {
   if (!force && dayCache[date]) return dayCache[date];
-  const d = DEMO ? DEMO.days[date] : await getJSON(`archive/${date}.json`);
+  const d = DEMO ? DEMO.days[date] : await getJSON(`${CFG.dir}/${date}.json`);
   dayCache[date] = d;
   return d;
 }
@@ -247,12 +259,12 @@ async function load(first) {
   try {
     if (DEMO) { index = DEMO.index.days; live = DEMO.signals; }
     else {
-      index = (await getJSON('archive/index.json')).days || [];
-      try { live = await getJSON('signals.json'); } catch (e) {}
+      index = (await getJSON(`${CFG.dir}/index.json`)).days || [];
+      try { live = await getJSON(CFG.file); } catch (e) {}
     }
   } catch (e) {
     document.getElementById('updated').textContent = 'nog geen archief';
-    document.getElementById('day').innerHTML = `<div class="empty">Het archief begint op maandag 28 september. Vanaf dan komt er elke handelsdag automatisch een dag bij.</div>`;
+    document.getElementById('day').innerHTML = `<div class="empty">Het archief begint op ${CFG.start}. Vanaf dan komt er elke handelsdag automatisch een dag bij.</div>`;
     document.querySelector('.daynav').hidden = true;
     return;
   }
@@ -309,8 +321,8 @@ function outcomeHTML(a, cfg) {
 }
 
 function statusHTML(a) {
-  if (a.status === 'instappen') return `<span class="st-in">✓ ${a.dir === 'up' ? 'instappen tot' : 'verkopen boven'} ${fmt(a.instap_grens, a.currency)}</span>`;
-  if (a.status === 'niet_instappen') return `<span class="st-out">✕ ${a.dir === 'up' ? 'niet meer instappen' : 'niet meer verkopen'}</span> (signaal weg)`;
+  if (a.status === 'instappen') return `<span class="st-in">✓ ${a.dir === 'up' ? 'instappen tot' : (SET === 'top250' ? 'niet kopen boven' : 'verkopen boven')} ${fmt(a.instap_grens, a.currency)}</span>`;
+  if (a.status === 'niet_instappen') return `<span class="st-out">✕ ${a.dir === 'up' ? 'niet meer instappen' : (SET === 'top250' ? 'wachten voorbij' : 'niet meer verkopen')}</span> (signaal weg)`;
   return '';
 }
 
@@ -326,7 +338,7 @@ function expiredRow(a, snap) {
   return `<div class="h-row done">
     <span class="h-date">${a.start ? (a.bootstrap ? 'vóór ' + dag(a.start) : dag(a.start)) : '–'} → ${tijd(a.end)}</span>
     <span class="h-name">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
-    <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : 'VERKOPEN'}</span>
+    <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}</small></span>
     <span class="h-res"><b>${reden}</b> · ${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(liveEpisode(a.id) || a), true) : ''}</span>
   </div>`;
@@ -342,7 +354,7 @@ function adviceRow(a, snap) {
   return `<div class="h-row${a.new ? ' new' : ''}">
     <span class="h-date">${wanneer}</span>
     <span class="h-name">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
-    <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : 'VERKOPEN'}</span>
+    <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}${a.projected_pct != null ? ' · verwacht ' + pct(a.projected_pct) : ''}</small></span>
     <span class="h-res">${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(liveEpisode(a.id) || a), true) : ''}</span>
   </div>`;
@@ -368,7 +380,9 @@ function posCard(it, snap) {
   const top = pats.slice(0, 3).map(p => `<span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span> ${esc(p.label)}`).join(' · ') || 'geen patronen gevonden';
   const plan = sig && it.plan ? (it.direction === 'up'
     ? [['Kopen', it.plan.entry], ['Verkopen (doel)', it.plan.target], ['Terugkopen', it.plan.next], ['Stop', it.plan.stop]]
-    : [['Verkopen', it.plan.entry], ['Terugkopen (doel)', it.plan.target], ['Weer verkopen', it.plan.next], ['Stop', it.plan.stop]]) : null;
+    : SET === 'top250'
+      ? [['Nog niet kopen', it.plan.entry], ['Kopen (doel)', it.plan.target], ['Verkopen', it.plan.next], ['Stop', it.plan.stop]]
+      : [['Verkopen', it.plan.entry], ['Terugkopen (doel)', it.plan.target], ['Weer verkopen', it.plan.next], ['Stop', it.plan.stop]]) : null;
   const el = document.createElement('details');
   el.className = 'pos ' + d;
   el.innerHTML = `
@@ -422,7 +436,7 @@ function scoreHist() {
 function renderScore() {
   const box = document.getElementById('scoreView');
   const all = scoreHist();
-  if (!all.length) { box.innerHTML = `<div class="empty">Nog geen adviezen. Zodra de Patroonradar een koop- of verkoopadvies geeft, verschijnt het hier en wordt het elke 15 minuten bijgewerkt.</div>`; return; }
+  if (!all.length) { box.innerHTML = `<div class="empty">Nog geen adviezen. Zodra de Patroonradar een koop- of verkoopadvies geeft, verschijnt het hier en wordt het ${CFG.every} bijgewerkt.</div>`; return; }
   const stats = list => {
     const af = list.filter(h => h.outcome !== 'open'), lo = list.filter(h => h.outcome === 'open');
     const gem = xs => xs.length ? xs.reduce((a, h) => a + (adviesStand(h).res || 0), 0) / xs.length : null;
@@ -449,7 +463,7 @@ function renderScore() {
       : `<span class="${h.outcome === 'doel' ? 'c-up' : h.outcome === 'stop' ? 'c-down' : 'c-info'}">${UITKOMST[h.outcome]}</span> · ${dag(h.outcome_at)}`;
     return `<div class="sb-row ${h.outcome}">
       <div class="sb-name"><b>${esc(h.name || h.symbol)}</b><small>${esc(h.symbol)} · ${h.bootstrap ? 'al vóór ' : ''}${dagTijd(h.start)}</small></div>
-      <span class="pill ${h.dir}">${h.dir === 'up' ? 'KOPEN' : 'VERKOPEN'}</span>
+      <span class="pill ${h.dir}">${h.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
       <div class="sb-plan">${fmt(h.price, cur)} → ${fmt(p.target, cur)}<small>stop ${fmt(p.stop, cur)}${st.nowPx != null ? ` · nu ${fmt(st.nowPx, cur)}` : ''}</small></div>
       <div class="sb-bar">${trackHTML(h, st)}</div>
       <div class="sb-res"><span class="big ${st.res >= 0 ? 'c-up' : 'c-down'}">${pct(st.res)}</span><small>${kop}</small>
@@ -464,7 +478,7 @@ function renderScore() {
       <span class="cnt">${list.length} van ${all.length}</span>
     </div>
     <div class="h-list">${rows || '<div class="empty">Geen adviezen met dit filter.</div>'}</div>
-    <p class="note">Resultaat in de richting van het advies: bij kopen de koersstijging, bij verkopen de daling die je vermeden hebt. Een advies loopt tot eerst het doel of de stop wordt geraakt, of tot 10 handelsdagen voorbij zijn. Raakt een dag beide, dan telt de stop.</p>`;
+    <p class="note">Resultaat in de richting van het advies: bij kopen de koersstijging, bij verkopen (of bij de Top 250: nog niet kopen) de daling die je vermeden hebt. Een advies loopt tot eerst het doel of de stop wordt geraakt, of tot 10 handelsdagen voorbij zijn. Raakt een dag beide, dan telt de stop.</p>`;
   document.getElementById('sbFilter').value = ui.sbFilter;
   document.getElementById('sbSort').value = ui.sbSort;
 }
@@ -516,13 +530,13 @@ async function show(date, force) {
     add(`<div class="h-list">${opened.map(t => tradeRow(t, 'open')).join('')}${closed.map(t => tradeRow(t, 'dicht')).join('')}</div>`);
   }
 
-  add(`<div class="section-header">Patronen per positie
-    <span class="right"><select id="showSel"><option value="signal">Alleen met signaal</option><option value="all">Alle posities</option></select></span></div>`);
+  add(`<div class="section-header">Patronen per ${CFG.one}
+    <span class="right"><select id="showSel"><option value="signal">Alleen met signaal</option><option value="all">Alle ${CFG.many}</option></select></span></div>`);
   document.getElementById('showSel').value = ui.show;
   const list = items.filter(it => ui.show === 'all' || it.flag)
     .sort((a, b) => (b.flag - a.flag) || Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0) || (a.label || a.name || '').localeCompare(b.label || b.name || '', 'nl'));
   const wrapEl = document.createElement('div'); wrapEl.className = 'h-list';
-  if (!list.length) wrapEl.innerHTML = `<div class="empty">Geen posities met een signaal op deze dag. Kies "Alle posities" om de patronen van alles te zien.</div>`;
+  if (!list.length) wrapEl.innerHTML = `<div class="empty">Geen ${CFG.many} met een signaal op deze dag. Kies "Alle ${CFG.many}" om de patronen van alles te zien.</div>`;
   list.forEach(it => wrapEl.appendChild(posCard(it, snap)));
   box.appendChild(wrapEl);
   const errs = (snap.errors || []).filter(e => !skipCat(e.category));
@@ -542,6 +556,8 @@ document.querySelectorAll('.viewnav button').forEach(b => b.onclick = () => setV
 load(true);
 setInterval(() => { if (ui.view === 'score' || (index.length && current === index[0].date)) load(); }, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && index.length && current === index[0].date) load(); });
+document.getElementById('pageTitle').textContent = CFG.title;
+document.getElementById('pageSub').textContent = CFG.sub;
 </script>
 </body>
 </html>

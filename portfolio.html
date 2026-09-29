@@ -858,6 +858,9 @@ function positionCard(p, q, err) {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
       if (userState[id] && userState[id].sells) {
+        const s = userState[id].sells[idx];
+        const oms = s ? ` (+${s.level*50}% → ${s.pct}% verkocht op ${s.date})` : '';
+        if (!confirm(`Weet je zeker dat je deze verkoopregistratie${oms} wilt verwijderen?`)) return;
         userState[id].sells.splice(idx, 1);
         saveState(); render();
       }
@@ -1011,6 +1014,11 @@ async function render() {
 }
 
 function removePosition(id) {
+  const pos = positions.find(p => posId(p) === id);
+  const q = pos && getQuote(pos.ticker);
+  const naam = pos ? (pos.label || (q && q.name) || pos.ticker) : id;
+  const tick = pos && pos.ticker !== naam ? ` (${pos.ticker})` : '';
+  if (!confirm(`Weet je zeker dat je ${naam}${tick} wilt verwijderen?`)) return;
   positions = positions.filter(p => posId(p) !== id);
   savePositions();
   render();

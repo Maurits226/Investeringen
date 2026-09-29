@@ -65,6 +65,8 @@ EXCH_NAME = {
     "VIE": "Wiener Börse", "LIS": "Euronext Lissabon", "STU": "Stuttgart", "MUN": "München",
 }
 EU_LISTING_PREF = ["GER", "FRA", "DUS"]
+US_EXCH = {"NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NYQ": "NYSE", "ASE": "NYSE American",
+           "PCX": "NYSE Arca", "BTS": "Cboe"}
 CACHE_V = 2                                 # v2: sector ook uit summaryProfile
 # S&P 500-lijst (GICS) -> Yahoo-sectornamen, als Yahoo zelf geen sector geeft
 GICS_TO_YAHOO = {
@@ -698,6 +700,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
     nm = norm_name(c.get("name"))
     return {
         "sym": sym, "eu": eu_sym, "exch": exch, "name": c.get("name") or sym,
+        "us_exch": US_EXCH.get(c.get("exch"), c.get("exch")) if region == "VS" else None,
         "region": region, "country": c.get("country"), "sector": c.get("sector") or gics,
         "industry": c.get("industry"),
         "price": rnd(price_eur, 2), "approx": approx,

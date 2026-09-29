@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-29T21:10:36.350521+00:00",
+  "updated": "2026-09-29T22:18:03.214498+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -279,7 +279,7 @@
     "QDVE.DE": {
       "ticker": "QDVE.DE",
       "price": 47.295,
-      "prevClose": 47.125,
+      "prevClose": 47.02000045776367,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
       "high52": 47.455,
@@ -290,7 +290,7 @@
     "VHYL.MI": {
       "ticker": "VHYL.MI",
       "price": 80.19,
-      "prevClose": 80.54000091552734,
+      "prevClose": 80.3499984741211,
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
@@ -301,7 +301,7 @@
     "VUAA.MI": {
       "ticker": "VUAA.MI",
       "price": 130.87,
-      "prevClose": 131.02999877929688,
+      "prevClose": 130.6699981689453,
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
       "high52": 131.83,
@@ -312,7 +312,7 @@
     "WSLV.MI": {
       "ticker": "WSLV.MI",
       "price": 53.41,
-      "prevClose": 56.119998931884766,
+      "prevClose": 53.540000915527344,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,

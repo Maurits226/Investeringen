@@ -1,9 +1,9 @@
 {
-  "updated": "2026-09-29T10:52:41.668996+00:00",
+  "updated": "2026-09-29T11:00:32.691055+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
-      "price": 540.2,
+      "price": 541.2,
       "prevClose": 528.5,
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
@@ -36,7 +36,7 @@
     },
     "MTE.DE": {
       "ticker": "MTE.DE",
-      "price": 943.4,
+      "price": 944.9,
       "prevClose": 915.2000122070312,
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
@@ -58,7 +58,7 @@
     },
     "TL0.DE": {
       "ticker": "TL0.DE",
-      "price": 316.2,
+      "price": 316.35,
       "prevClose": 316.8999938964844,
       "currency": "EUR",
       "name": "Tesla, Inc.",
@@ -102,7 +102,7 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 145.46,
+      "price": 145.58,
       "prevClose": 140.8800048828125,
       "currency": "EUR",
       "name": "Siemens Energy AG",
@@ -135,7 +135,7 @@
     },
     "ABEA.DE": {
       "ticker": "ABEA.DE",
-      "price": 301.8,
+      "price": 301.75,
       "prevClose": 299.5,
       "currency": "EUR",
       "name": "Alphabet Inc.",
@@ -212,7 +212,7 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 203.5,
+      "price": 203.35,
       "prevClose": 202.35000610351562,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
@@ -245,7 +245,7 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1592.0,
+      "price": 1592.8,
       "prevClose": 1537.0,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
@@ -267,7 +267,7 @@
     },
     "MSF.DE": {
       "ticker": "MSF.DE",
-      "price": 448.4,
+      "price": 448.15,
       "prevClose": 447.8999938964844,
       "currency": "EUR",
       "name": "Microsoft Corporation",
@@ -278,7 +278,7 @@
     },
     "QDVE.DE": {
       "ticker": "QDVE.DE",
-      "price": 47.25,
+      "price": 47.26,
       "prevClose": 47.125,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
@@ -300,7 +300,7 @@
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",
-      "price": 131.06,
+      "price": 131.09,
       "prevClose": 131.02999877929688,
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
@@ -311,7 +311,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 53.46,
+      "price": 53.4,
       "prevClose": 56.119998931884766,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",

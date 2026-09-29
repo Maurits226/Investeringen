@@ -1,9 +1,9 @@
 {
-  "updated": "2026-09-29T10:50:34.956626+00:00",
+  "updated": "2026-09-29T10:52:41.668996+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
-      "price": 540.4,
+      "price": 540.2,
       "prevClose": 528.5,
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
@@ -102,7 +102,7 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 145.24,
+      "price": 145.46,
       "prevClose": 140.8800048828125,
       "currency": "EUR",
       "name": "Siemens Energy AG",
@@ -212,7 +212,7 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 203.35,
+      "price": 203.5,
       "prevClose": 202.35000610351562,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
@@ -245,7 +245,7 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1591.4,
+      "price": 1592.0,
       "prevClose": 1537.0,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
@@ -267,7 +267,7 @@
     },
     "MSF.DE": {
       "ticker": "MSF.DE",
-      "price": 448.25,
+      "price": 448.4,
       "prevClose": 447.8999938964844,
       "currency": "EUR",
       "name": "Microsoft Corporation",
@@ -278,7 +278,7 @@
     },
     "QDVE.DE": {
       "ticker": "QDVE.DE",
-      "price": 47.23,
+      "price": 47.25,
       "prevClose": 47.125,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",

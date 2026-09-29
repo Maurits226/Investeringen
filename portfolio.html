@@ -97,6 +97,13 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     min-width: 0;
   }
+  .mkt { cursor: pointer; transition: border-color .15s, transform .15s, opacity .15s; }
+  .mkt:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .mkt:active { transform: translateY(0); }
+  .mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mkt.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .markets.filtering .mkt:not(.active) { opacity: .5; }
+  .markets.filtering .mkt:not(.active):hover { opacity: 1; }
   .mkt-top { display: flex; align-items: center; gap: 8px; }
   .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
@@ -308,6 +315,12 @@
         <option value="Stocks">Stocks</option>
         <option value="ETF's">ETF's</option>
         <option value="Gold & Silver">Edelmetalen</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Beurs</span>
+      <select id="mktSel">
+        <option value="all">Alle</option>
       </select>
     </div>
     <div class="tb-group">
@@ -901,10 +914,12 @@ async function render() {
   const sortBy = document.getElementById('sortSel').value;
   const catBy = document.getElementById('catSel').value;
   const statusBy = document.getElementById('statusSel').value;
+  const mktBy = document.getElementById('mktSel').value;
 
   // Filter toepassen: categorie EN status samen
   function passesFilter(r) {
     if (catBy !== 'all' && (r.p.section || 'Overig') !== catBy) return false;
+    if (mktBy !== 'all' && exchangeKeyOf(r.p.ticker) !== mktBy) return false;
     if (statusBy !== 'all') {
       const m = metrics(r.p, r.q);
       if (statusBy === 'signals' && !m.alert) return false;
@@ -1132,13 +1147,30 @@ function renderMarkets() {
     tijden[a].closeMin - tijden[b].closeMin ||
     EXCHANGES[a].name.localeCompare(EXCHANGES[b].name));
 
+  // Beurs-dropdown in de toolbar bijwerken (alleen als de lijst verandert,
+  // zodat een geopende dropdown niet elke minuut dichtklapt)
+  const mktSel = document.getElementById('mktSel');
+  const sig = keys.join(',');
+  if (mktSel && mktSel.dataset.sig !== sig) {
+    const keuze = mktSel.value;
+    mktSel.innerHTML = '<option value="all">Alle</option>' +
+      keys.map(k => `<option value="${k}">${EXCHANGES[k].name}</option>`).join('');
+    mktSel.value = keys.includes(keuze) ? keuze : 'all';
+    mktSel.dataset.sig = sig;
+  }
+  const actief = mktSel ? mktSel.value : 'all';
+  box.classList.toggle('filtering', actief !== 'all');
+
   box.innerHTML = keys.map(key => {
     const ex = EXCHANGES[key];
     const st = status[key];
     const tekst = st.open
       ? `<b>open</b> · sluit ${fmtMoment(st.at, now)}`
       : `<b>gesloten</b>${st.at ? ' · opent ' + fmtMoment(st.at, now) : ''}`;
-    return `<div class="mkt ${st.open ? 'open' : 'closed'}">
+    const aan = actief === key;
+    return `<div class="mkt ${st.open ? 'open' : 'closed'}${aan ? ' active' : ''}" data-mkt="${key}"
+      role="button" tabindex="0" aria-pressed="${aan}"
+      title="${aan ? 'Toon weer alle posities' : 'Toon alleen posities op ' + ex.name}">
       <div class="mkt-top">
         <span class="mkt-dot"></span>
         <span class="mkt-name">${ex.name}</span>
@@ -1160,6 +1192,30 @@ function renderMarkets() {
   });
 }
 
+function toggleMarket(key) {
+  const sel = document.getElementById('mktSel');
+  sel.value = (sel.value === key) ? 'all' : key;
+  renderMarkets();                       // direct visuele feedback
+  render().then(() => {
+    // Staat de lijst buiten beeld (bv. op de telefoon), scroll er dan naartoe
+    const tb = document.querySelector('.toolbar');
+    if (sel.value !== 'all' && tb && tb.getBoundingClientRect().top > window.innerHeight - 140) {
+      tb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+}
+(function () {
+  const box = document.getElementById('markets');
+  box.addEventListener('click', e => {
+    const el = e.target.closest('.mkt');
+    if (el) toggleMarket(el.dataset.mkt);
+  });
+  box.addEventListener('keydown', e => {
+    const el = e.target.closest('.mkt');
+    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleMarket(el.dataset.mkt); }
+  });
+})();
+
 renderMarkets();
 setInterval(renderMarkets, 60 * 1000);
 
@@ -1174,6 +1230,7 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById('sortSel').onchange = render;
 document.getElementById('catSel').onchange = render;
 document.getElementById('statusSel').onchange = render;
+document.getElementById('mktSel').onchange = render;
 
 // Toon de synchronisatiestatus
 function updateSyncBadge() {
@@ -1227,6 +1284,7 @@ document.getElementById('resetFilters').onclick = () => {
   document.getElementById('sortSel').value = 'section';
   document.getElementById('catSel').value = 'all';
   document.getElementById('statusSel').value = 'all';
+  document.getElementById('mktSel').value = 'all';
   render();
 };
 

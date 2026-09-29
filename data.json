@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-29T08:04:41.510057+00:00",
+  "updated": "2026-09-29T08:10:34.871719+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -14,7 +14,7 @@
     },
     "SPX.DE": {
       "ticker": "SPX.DE",
-      "price": 129.1,
+      "price": 129.0,
       "prevClose": 129.39999389648438,
       "currency": "EUR",
       "name": "Space Exploration Technologies Corp.",
@@ -25,7 +25,7 @@
     },
     "1YD.DE": {
       "ticker": "1YD.DE",
-      "price": 309.4,
+      "price": 308.7,
       "prevClose": 308.5,
       "currency": "EUR",
       "name": "Broadcom Inc.",
@@ -36,7 +36,7 @@
     },
     "MTE.DE": {
       "ticker": "MTE.DE",
-      "price": 945.0,
+      "price": 944.4,
       "prevClose": 946.2000122070312,
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
@@ -47,7 +47,7 @@
     },
     "1ZB.DE": {
       "ticker": "1ZB.DE",
-      "price": 235.0,
+      "price": 234.0,
       "prevClose": 249.5,
       "currency": "EUR",
       "name": "Bloom Energy Corporation",
@@ -80,7 +80,7 @@
     },
     "E7S.DE": {
       "ticker": "E7S.DE",
-      "price": 229.25,
+      "price": 231.1,
       "prevClose": 230.5,
       "currency": "EUR",
       "name": "Constellation Energy Corporation",
@@ -91,7 +91,7 @@
     },
     "AMZ.DE": {
       "ticker": "AMZ.DE",
-      "price": 217.45,
+      "price": 217.25,
       "prevClose": 218.4499969482422,
       "currency": "EUR",
       "name": "Amazon.com, Inc.",
@@ -102,7 +102,7 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 142.9,
+      "price": 142.7,
       "prevClose": 142.60000610351562,
       "currency": "EUR",
       "name": "Siemens Energy AG",
@@ -113,7 +113,7 @@
     },
     "LAR0.DE": {
       "ticker": "LAR0.DE",
-      "price": 275.3,
+      "price": 276.4,
       "prevClose": 272.8500061035156,
       "currency": "EUR",
       "name": "Lam Research Corporation",
@@ -135,7 +135,7 @@
     },
     "ABEA.DE": {
       "ticker": "ABEA.DE",
-      "price": 301.85,
+      "price": 301.55,
       "prevClose": 302.04998779296875,
       "currency": "EUR",
       "name": "Alphabet Inc.",
@@ -146,7 +146,7 @@
     },
     "AP2.DE": {
       "ticker": "AP2.DE",
-      "price": 430.35,
+      "price": 431.6,
       "prevClose": 420.6000061035156,
       "currency": "EUR",
       "name": "Applied Materials, Inc.",
@@ -212,7 +212,7 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 203.05,
+      "price": 202.8,
       "prevClose": 196.77999877929688,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
@@ -223,7 +223,7 @@
     },
     "PTX.DE": {
       "ticker": "PTX.DE",
-      "price": 164.58,
+      "price": 164.8,
       "prevClose": 167.97999572753906,
       "currency": "EUR",
       "name": "Palantir Technologies Inc.",
@@ -245,7 +245,7 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1587.4,
+      "price": 1585.0,
       "prevClose": 1522.5999755859375,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
@@ -267,7 +267,7 @@
     },
     "MSF.DE": {
       "ticker": "MSF.DE",
-      "price": 447.45,
+      "price": 447.8,
       "prevClose": 450.95001220703125,
       "currency": "EUR",
       "name": "Microsoft Corporation",
@@ -289,7 +289,7 @@
     },
     "VHYL.MI": {
       "ticker": "VHYL.MI",
-      "price": 80.55,
+      "price": 80.48,
       "prevClose": 80.54000091552734,
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
@@ -300,7 +300,7 @@
     },
     "VUAA.MI": {
       "ticker": "VUAA.MI",
-      "price": 131.07,
+      "price": 130.96,
       "prevClose": 131.02999877929688,
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
@@ -311,7 +311,7 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 53.44,
+      "price": 53.42,
       "prevClose": 56.119998931884766,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
@@ -322,7 +322,7 @@
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 338.49,
+      "price": 338.15,
       "prevClose": null,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

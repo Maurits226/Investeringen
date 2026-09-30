@@ -272,17 +272,9 @@ const dagTijd = iso => iso ? dag(iso) + ' ' + tijd(iso) : '–';
 const localDay = iso => { const d = toDate(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 let ui = { show: 'signal', view: 'day', sbFilter: 'all', sbSort: 'new' };
-try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
-const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify({ show: ui.show, view: ui.view, sbFilter: ui.sbFilter, sbSort: ui.sbSort, day: ui.day })); } catch (e) {} };
-// Elke dag schone lei: filters terug naar standaard en de nieuwste dag geselecteerd
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-function dailyReset() {
-  if (ui.day === todayKey()) return false;
-  Object.assign(ui, { show: 'signal', view: 'day', sbFilter: 'all', sbSort: 'new', day: todayKey() });
-  saveUI();
-  return true;
-}
-dailyReset();
+// Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
+try { ui = { ...ui, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
+const saveUI = () => { try { sessionStorage.setItem(UI_KEY, JSON.stringify({ show: ui.show, view: ui.view, sbFilter: ui.sbFilter, sbSort: ui.sbSort })); } catch (e) {} };
 
 let index = [], live = { history: [], items: [] }, trades = [], dayCache = {}, current = null, newestSeen = null;
 
@@ -687,10 +679,8 @@ load(true);
 setInterval(() => { if (ui.view === 'score' || (index.length && current === index[0].date)) load(); }, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
-  if (dailyReset()) { load(true); return; }
   if (index.length && current === index[0].date) load();
 });
-setInterval(() => { if (dailyReset()) load(true); }, 60 * 1000);
 document.getElementById('pageTitle').textContent = CFG.title;
 document.getElementById('pageSub').textContent = CFG.sub;
 </script>

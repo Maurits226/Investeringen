@@ -399,7 +399,8 @@ function pool() {
 }
 
 function fillSectors() {
-  const sel = $('sectorSel'), keep = sel.value;
+  const sel = $('sectorSel'), keep = sel.dataset.want || sel.value;
+  delete sel.dataset.want;
   const secs = [...new Set((DATA.items || []).map(i => i.sector).filter(Boolean))]
     .sort((a, b) => (SECTOR_NL[a] || a).localeCompare(SECTOR_NL[b] || b, 'nl'));
   sel.innerHTML = '<option value="all">Alle</option>' + secs.map(s => `<option value="${esc(s)}">${esc(SECTOR_NL[s] || s)}</option>`).join('');
@@ -412,8 +413,14 @@ const QUICK = {
   exp:    { label: 'Verwacht rendement ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
 };
 
+const F_KEY = 'screener_filters';
+function saveFilters() {
+  try { sessionStorage.setItem(F_KEY, JSON.stringify({ sort: $('sortSel').value, sector: $('sectorSel').value,
+    region: $('regionSel').value, min: $('minSel').value, q: $('searchInp').value, quick })); } catch (e) {}
+}
 function render() {
   if (!DATA) return;
+  saveFilters();
   const all = pool();
   const sortBy = $('sortSel').value, sector = $('sectorSel').value, region = $('regionSel').value;
   const min = +$('minSel').value, q = $('searchInp').value.trim().toLowerCase();
@@ -605,22 +612,24 @@ function resetAll() {
 let tSearch;
 $('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
 $('resetBtn').onclick = resetAll;
-// Elke dag schone lei: filters terug naar standaard, zodat je nooit data mist door een vergeten filter
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-let filterDay = todayKey();
-function dailyReset() {
-  if (filterDay === todayKey()) return false;
-  filterDay = todayKey();
-  $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all';
-  $('minSel').value = '0'; $('searchInp').value = ''; quick = null; openSet.clear();
-  return true;
-}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
-  if (dailyReset() || Date.now() - lastLoad > 10 * 60 * 1000) load();
+  if (Date.now() - lastLoad > 10 * 60 * 1000) load();
 });
-setInterval(() => { if (dailyReset()) load(); }, 60 * 1000);
 window.addEventListener('storage', e => { if (e.key === 'portfolio_positions') render(); });
+// Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
+try {
+  const f = JSON.parse(sessionStorage.getItem(F_KEY) || 'null');
+  if (f) {
+    ['sortSel', 'regionSel', 'minSel'].forEach((id, i) => {
+      const v = [f.sort, f.region, f.min][i];
+      if (v != null && [...$(id).options].some(o => o.value === v)) $(id).value = v;
+    });
+    if (f.sector) $('sectorSel').dataset.want = f.sector;
+    $('searchInp').value = f.q || '';
+    quick = f.quick || null;
+  }
+} catch (e) {}
 load();
 </script>
 </body>

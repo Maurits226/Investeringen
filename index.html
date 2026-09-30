@@ -89,9 +89,6 @@
     'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille'
   };
   let world = 'inv', view = 'overzicht';
-  // Elke nieuwe dag start op Mijn investeringen · Overzicht
-  const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  let shownDay = todayKey();
 
   function show(w, v) {
     world = WORLDS.includes(w) ? w : 'inv';
@@ -109,8 +106,8 @@
       f.classList.toggle('active', on);
     });
     document.title = TITLE[id];
+    try { sessionStorage.setItem('active_tab', id); } catch (e) {}
     if (location.hash !== '#' + HASH[id]) history.replaceState(null, '', '#' + HASH[id]);
-    try { localStorage.setItem('active_tab', id); localStorage.setItem('active_tab_day', todayKey()); } catch (e) {}
   }
   function fromKey(key) {
     const id = FROM_HASH[key] || key;
@@ -123,20 +120,12 @@
   document.querySelectorAll('.seg.view button').forEach(b => b.addEventListener('click', () => show(world, b.dataset.view)));
   window.addEventListener('hashchange', () => show(...fromKey(location.hash.slice(1))));
 
-  let start = location.hash.slice(1), savedDay = null;
-  try { savedDay = localStorage.getItem('active_tab_day'); } catch (e) {}
-  if (savedDay !== todayKey()) start = 'inv-overzicht';            // nieuwe dag: terug naar de startpagina
-  else if (!FROM_HASH[start]) { try { start = localStorage.getItem('active_tab') || ''; } catch (e) {} }
-  show(...fromKey(start));
-
-  // Blijft het dashboard over middernacht open, of kom je de volgende dag terug: ook dan naar de startpagina
-  function newDayCheck() {
-    if (shownDay === todayKey()) return;
-    shownDay = todayKey();
-    show('inv', 'overzicht');
-  }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) newDayCheck(); });
-  setInterval(newDayCheck, 60 * 1000);
+  // Nieuw tabblad of browser opnieuw geopend: startpagina Mijn investeringen · Overzicht.
+  // Verversen binnen hetzelfde tabblad: je blijft waar je was.
+  let start = null;
+  try { start = sessionStorage.getItem('active_tab'); } catch (e) {}
+  if (start && FROM_HASH[location.hash.slice(1)]) start = FROM_HASH[location.hash.slice(1)];
+  show(...fromKey(start || 'inv-overzicht'));
 </script>
 </body>
 </html>

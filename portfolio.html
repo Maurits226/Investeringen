@@ -921,6 +921,7 @@ async function render() {
   const catBy = document.getElementById('catSel').value;
   const statusBy = document.getElementById('statusSel').value;
   const mktBy = document.getElementById('mktSel').value;
+  try { sessionStorage.setItem('portfolio_filters', JSON.stringify({ sort: sortBy, cat: catBy, status: statusBy, mkt: mktBy })); } catch (e) {}
 
   // Filter toepassen: categorie EN status samen
   function passesFilter(r) {
@@ -1163,11 +1164,13 @@ function renderMarkets() {
   const mktSel = document.getElementById('mktSel');
   const sig = keys.join(',');
   if (mktSel && mktSel.dataset.sig !== sig) {
-    const keuze = mktSel.value;
+    const keuze = mktSel.dataset.want || mktSel.value;
+    const wanted = !!mktSel.dataset.want; delete mktSel.dataset.want;
     mktSel.innerHTML = '<option value="all">Alle</option>' +
       keys.map(k => `<option value="${k}">${EXCHANGES[k].name}</option>`).join('');
     mktSel.value = keys.includes(keuze) ? keuze : 'all';
     mktSel.dataset.sig = sig;
+    if (wanted && mktSel.value !== 'all') setTimeout(render, 0);   // bewaarde beurskeuze toepassen
   }
   const actief = mktSel ? mktSel.value : 'all';
   box.classList.toggle('filtering', actief !== 'all');
@@ -1234,22 +1237,27 @@ setInterval(render, 5 * 60 * 1000);
 
 // Ook verversen zodra je terugkeert naar het tabblad
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { dailyReset(); render(); }
+  if (!document.hidden) render();
 });
 
-// Elke dag schone lei: filters terug naar standaard, zodat je nooit data mist door een vergeten filter
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-let filterDay = todayKey();
-function dailyReset() {
-  if (filterDay === todayKey()) return false;
-  filterDay = todayKey();
-  ['catSel', 'statusSel', 'mktSel'].forEach(id => { const el = document.getElementById(id); if (el) el.value = 'all'; });
-  document.getElementById('sortSel').value = 'section';
-  return true;
-}
-setInterval(() => { if (dailyReset()) render(); }, 60 * 1000);
+
 
 // Sorteren en filteren: opnieuw renderen bij wijziging
+// Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
+try {
+  const f = JSON.parse(sessionStorage.getItem('portfolio_filters') || 'null');
+  if (f) {
+    [['sortSel', f.sort], ['catSel', f.cat], ['statusSel', f.status]].forEach(([id, v]) => {
+      const el = document.getElementById(id);
+      if (v != null && [...el.options].some(o => o.value === v)) el.value = v;
+    });
+    const ms = document.getElementById('mktSel');
+    if (f.mkt && f.mkt !== 'all') {
+      if ([...ms.options].some(o => o.value === f.mkt)) ms.value = f.mkt;
+      else ms.dataset.want = f.mkt;          // beurslijst nog niet opgebouwd: toepassen zodra die er is
+    }
+  }
+} catch (e) {}
 document.getElementById('sortSel').onchange = render;
 document.getElementById('catSel').onchange = render;
 document.getElementById('statusSel').onchange = render;

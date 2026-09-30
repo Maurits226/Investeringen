@@ -139,6 +139,38 @@
     height: 38px; padding: 0 11px; border-radius: 9px; font-size: 13px; width: 100%; min-width: 0; cursor: pointer;
   }
   .toolbar select:hover { border-color: var(--accent); outline: none; }
+  /* Portefeuillecheck */
+  .pcheck { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; transition: border-color .15s; }
+  .pcheck:hover, .pcheck[open] { border-color: rgba(79,143,240,.5); }
+  .pcheck > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13.5px; }
+  .pcheck > summary::-webkit-details-marker { display: none; }
+  .pcheck .h-sub { color: var(--muted); font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  .pcheck .h-sub b { color: var(--warn); font-weight: 600; }
+  .pcheck .h-btn { margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .pcheck .h-btn::after { content: ' ▾'; } .pcheck[open] .h-btn::after { content: ' ▴'; }
+  .pcheck .h-less { display: none; } .pcheck[open] .h-more { display: none; } .pcheck[open] .h-less { display: inline; }
+  .pc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 2px 14px 14px; }
+  .pc { position: relative; overflow: hidden; border-radius: 12px; padding: 13px 15px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); --mark: var(--accent); }
+  .pc::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
+  .pc.warn { --mark: var(--warn); } .pc.ok { --mark: var(--up); } .pc.violet { --mark: #a78bfa; }
+  .pc-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .pc-k span { text-transform: none; letter-spacing: 0; font-family: 'IBM Plex Mono', monospace; }
+  .pc-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed #26282b; }
+  .pc-row:last-child { border-bottom: 0; }
+  .pc-row small { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .pc-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+  .pc-score { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+  .pc-mini { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 6px; }
+  .pc-mini i { width: 6px; height: 12px; border-radius: 1px; background: var(--panel); position: relative; overflow: hidden; display: inline-block; }
+  .pc-mini i b { position: absolute; left: 0; right: 0; bottom: 0; }
+  .trend-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .switch input { display: none; }
+  .switch i { width: 30px; height: 17px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); position: relative; }
+  .switch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--muted); transition: left .15s, background .15s; }
+  .switch input:checked + i { background: rgba(79,143,240,.25); border-color: rgba(79,143,240,.6); }
+  .switch input:checked + i::after { left: 15px; background: var(--accent); }
+  @media (max-width: 760px) { .pc-grid { grid-template-columns: 1fr; } }
   .tb-row2 { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
   .tb-count { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; white-space: nowrap; }
   .tb-reset {
@@ -295,6 +327,12 @@
 
   <div class="markets" id="markets"></div>
 
+  <details class="pcheck" id="pcheck" hidden>
+    <summary>🩺 Portefeuillecheck <span class="h-sub" id="pcSub"></span>
+      <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
+    <div class="pc-grid" id="pcGrid"></div>
+  </details>
+
   <div class="summary" id="summary"></div>
 
   <div class="toolbar">
@@ -333,6 +371,7 @@
       </select>
     </div>
     <div class="tb-row2">
+      <label class="switch" title="Koopdrempel afgestemd op de beweeglijkheid van elk aandeel (halve jaarbeweeglijkheid, tussen 8% en 35%). Uit = je vaste drempel."><input type="checkbox" id="smartChk"><i></i>Slimme koopdrempel</label>
       <button id="resetFilters" class="tb-reset">Reset filters</button>
       <span class="tb-count" id="tbCount"></span>
     </div>
@@ -600,13 +639,20 @@ function stepsReached(plPct) {
   return Math.floor(plPct / 50);
 }
 
+// Slimme koopdrempel: halve jaarbeweeglijkheid, tussen 8% en 35% (een wild aandeel krijgt meer ruimte dan een rustig)
+function smartOn() { try { return localStorage.getItem('buy_mode') !== 'vast'; } catch (e) { return true; } }
+function thresholdFor(p, q) {
+  if (smartOn() && q && q.vol) return Math.round(Math.max(8, Math.min(35, q.vol * 0.5)));
+  return p.thresh;
+}
+
 // Kerngetallen per positie, gebruikt voor sorteren en filteren
 function metrics(p, q) {
   if (!q) return { plPct: -Infinity, drop: -Infinity, alert: false, openSell: false };
   const isWatch = p.watch || p.cost == null;
   const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
   const drop = q.high52 ? ((q.high52 - q.price) / q.high52) * 100 : 0;
-  const alert = drop >= p.thresh;
+  const alert = drop >= thresholdFor(p, q);
   // Openstaande verkoop? (winsttrede bereikt en nog niet/again te realiseren)
   let openSell = false;
   if (!isWatch) {
@@ -651,6 +697,107 @@ const pct = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 let dataCache = null;
 let dataUpdated = null;
 
+// ---- Portefeuillecheck: ETF-doorkijk, kwaliteit (Score 2.0), trend, kwartaalcijfers, branches ----
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let extra = { refs: [], etf: null, sig: null, at: 0 };
+async function loadExtra() {
+  if (Date.now() - extra.at < 15 * 60 * 1000) return;
+  const get = async u => { try { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+  const [scr, etf, sig] = await Promise.all([get('screener.json'), get('etf_holdings.json'), get('signals.json')]);
+  extra = { refs: (scr && scr.refs) || [], branches: (scr && scr.branches) || {}, weights: scr && scr.weights,
+            etf: etf && etf.etfs, sig, at: Date.now() };
+}
+const normName = n => String(n || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
+  .split(/\s+/).filter(w => w && !['inc', 'corp', 'corporation', 'co', 'plc', 'nv', 'se', 'sa', 'ag', 'holdings', 'holding', 'group', 'class', 'the', 'ltd', 'a', 'com'].includes(w)).slice(0, 2).join(' ');
+function renderCheck() {
+  const box = document.getElementById('pcheck');
+  if (!box) return;
+  const sig = extra.sig || {};
+  const usOf = {};                                   // euro-ticker -> Amerikaanse ticker (uit de Patroonradar)
+  (sig.items || []).concat(sig.errors || []).forEach(i => { if (i.pattern_symbol) usOf[i.symbol.toUpperCase()] = i.pattern_symbol.toUpperCase(); });
+  const earnOf = {};
+  (sig.items || []).forEach(i => { const e = i.context && i.context.earnings; if (e && e.days != null) earnOf[i.symbol.toUpperCase()] = e; });
+  const stocks = positions.filter(p => !p.watch && p.cost != null && p.section === 'Stocks');
+  const etfs = positions.filter(p => !p.watch && p.section === "ETF's");
+  const refOf = p => {
+    const t = p.ticker.toUpperCase(), us = usOf[t];
+    return extra.refs.find(r => (r.eu || '').toUpperCase() === t || r.sym === t || (us && r.sym === us));
+  };
+  const qn = p => { const q = getQuote(p.ticker); return q ? q.name : p.ticker; };
+  const cards = [];
+  let issues = 0;
+
+  // 1. ETF-doorkijk
+  if (extra.etf) {
+    const rows = [];
+    etfs.forEach(e => {
+      const d = extra.etf[e.ticker.toUpperCase()];
+      if (!d) return;
+      const hits = d.holdings.filter(h => stocks.some(p => {
+        const us = usOf[p.ticker.toUpperCase()];
+        return (us && us === h.sym) || normName(qn(p)) === normName(h.name);
+      }));
+      if (hits.length) {
+        issues++;
+        const short = n => String(n || '').replace(/\b(Corporation|Corp\.?|Inc\.?|Incorporated|Holdings?|plc|N\.V\.|SE|AG|Class [A-C]|Common Stock|Ltd\.?)\b/gi, '').replace(/[,.]+\s*$/, '').replace(/\s+/g, ' ').trim();
+        rows.push(`<div class="pc-row"><span><b>${e.ticker.split('.')[0]}</b> bevat ook ${hits.map(h => `${esc(short(h.name))} <small>${h.w.toFixed(1).replace('.', ',')}%</small>`).join(', ')}</span></div>`);
+      }
+    });
+    cards.push(`<div class="pc ${rows.length ? 'warn' : 'ok'}"><div class="pc-k">ETF-doorkijk <span>${rows.length ? 'dubbele blootstelling' : 'geen overlap'}</span></div>
+      ${rows.join('') || '<div class="pc-note">Je ETF\'s bevatten geen van je losse aandelen in hun grootste posities.</div>'}
+      <div class="pc-note">Grootste posities van je ETF's${Object.values(extra.etf).some(d => d.proxy) ? ' (deels via een tegenhanger met dezelfde index)' : ''}. Zit een bedrijf zowel los als via een ETF in je portefeuille, dan weegt het zwaarder dan je denkt.</div></div>`);
+  }
+
+  // 2. Kwaliteit van je posities (Score 2.0)
+  const scored = stocks.map(p => ({ p, r: refOf(p) })).filter(x => x.r).sort((a, b) => a.r.score - b.r.score);
+  if (scored.length) {
+    const weak = scored.filter(x => x.r.score < 50);
+    issues += weak.length;
+    const col = v => v == null ? 'var(--line)' : v >= 75 ? 'var(--up)' : v >= 50 ? 'var(--accent)' : v >= 30 ? 'var(--warn)' : 'var(--down)';
+    const mini = pl => ['F', 'Q', 'G', 'V', 'M'].map(k => `<i><b style="height:${(pl || {})[k] || 0}%;background:${col((pl || {})[k])}"></b></i>`).join('');
+    cards.push(`<div class="pc ${weak.length ? 'warn' : 'ok'}"><div class="pc-k">Kwaliteit van je posities <span>${scored.length} gescoord</span></div>
+      ${scored.slice(0, 8).map(x => `<div class="pc-row"><span>${esc(x.r.name)}</span><span><span class="pc-score" style="color:${col(x.r.score)}">${Math.round(x.r.score)}</span><span class="pc-mini" title="Formuleblad · Kwaliteit · Groei · Waardering · Momentum">${mini(x.r.pillars)}</span></span></div>`).join('')}
+      <div class="pc-note">Zelfde Score 2.0 als bij Kansen portefeuille (percentiel in de markt). Zwakste eerst${weak.length ? `; <b style="color:var(--warn)">${weak.length} onder de 50</b>` : ''}.</div></div>`);
+  }
+
+  // 3. Trend
+  const below = stocks.filter(p => { const q = getQuote(p.ticker); return q && q.sma200 && q.price < q.sma200; });
+  issues += below.length;
+  cards.push(`<div class="pc ${below.length ? 'warn' : 'ok'}"><div class="pc-k">Trend <span>${stocks.length - below.length} van ${stocks.length} boven 200-daags gem.</span></div>
+    ${below.map(p => ({ p, q: getQuote(p.ticker) })).sort((a, b) => a.q.price / a.q.sma200 - b.q.price / b.q.sma200).slice(0, 8)
+        .map(({ q }) => `<div class="pc-row"><span>${esc(q.name)}</span><small>${((q.price / q.sma200 - 1) * 100).toFixed(1).replace('.', ',')}% onder</small></div>`).join('')
+      || '<div class="pc-note">Al je aandelen zitten in een stijgende trend.</div>'}
+    ${below.length > 8 ? `<div class="pc-note">en nog ${below.length - 8} andere.</div>` : ''}
+    <div class="pc-note">Onder het 200-daags gemiddelde = dalende trend. Een koopsignaal daar is riskanter (vallend mes).</div></div>`);
+
+  // 4. Kwartaalcijfers binnenkort
+  const soon = stocks.map(p => ({ p, e: earnOf[p.ticker.toUpperCase()] || ((refOf(p) || {}).earn_days != null ? { days: refOf(p).earn_days, date: refOf(p).earnings } : null) }))
+    .filter(x => x.e && x.e.days >= 0 && x.e.days <= 14).sort((a, b) => a.e.days - b.e.days);
+  issues += soon.length;
+  cards.push(`<div class="pc ${soon.length ? 'warn' : 'ok'}"><div class="pc-k">Kwartaalcijfers <span>komende 14 dagen</span></div>
+    ${soon.map(x => `<div class="pc-row"><span>${esc(qn(x.p))}</span><small>${x.e.days === 0 ? 'vandaag' : 'over ' + x.e.days + ' dagen'}${x.e.date ? ' · ' + new Date(x.e.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</small></div>`).join('')
+      || '<div class="pc-note">Geen cijfers binnen twee weken.</div>'}
+    <div class="pc-note">Rond cijfers kan de koers hard springen; liever niet vlak ervoor kopen.</div></div>`);
+
+  // 5. Branchespreiding
+  const labels = { tech: 'Technologie', fin: 'Financieel', zorg: 'Gezondheidszorg', energie: 'Energie & energietransitie' };
+  const cnt = {};
+  stocks.forEach(p => { const r = refOf(p); const k = (r && r.branch) ? labels[r.branch] : 'Overig / onbekend'; cnt[k] = (cnt[k] || 0) + 1; });
+  if (etfs.length) cnt["ETF's"] = etfs.length;
+  const tot = Object.values(cnt).reduce((a, b) => a + b, 0) || 1;
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]);
+  const named = top.filter(([k]) => k !== "ETF's" && k !== 'Overig / onbekend');
+  const heavy = named.length && named[0][1] / tot > 0.5;
+  if (heavy) issues++;
+  cards.push(`<div class="pc violet"><div class="pc-k">Branchespreiding <span>${tot} posities</span></div>
+    ${top.map(([k, v]) => `<div class="pc-row"><span>${esc(k)}</span><small>${v} · ${Math.round(v / tot * 100)}%</small></div>`).join('')}
+    <div class="pc-note">${heavy ? `<b style="color:var(--warn)">Meer dan de helft zit in ${esc(named[0][0].toLowerCase())}.</b> ` : ''}Telt het aantal posities, niet de waarde (aantallen staan nu op 1).</div></div>`);
+
+  document.getElementById('pcGrid').innerHTML = cards.join('');
+  document.getElementById('pcSub').innerHTML = issues ? `<b>${issues} ${issues === 1 ? 'aandachtspunt' : 'aandachtspunten'}</b> · ETF-doorkijk · kwaliteit · trend · cijfers · spreiding` : 'alles op orde · ETF-doorkijk · kwaliteit · trend · cijfers · spreiding';
+  box.hidden = false;
+}
+
 async function loadData() {
   // cache-buster zodat de browser niet een oude versie vasthoudt
   const r = await fetch('data.json?t=' + Date.now());
@@ -670,6 +817,7 @@ function getQuote(ticker) {
     name: q.name || ticker,
     high52: q.high52,
     low52: q.low52,
+    vol: q.vol, sma50: q.sma50, sma200: q.sma200,
     source: 'github'
   };
 }
@@ -698,7 +846,9 @@ function positionCard(p, q, err) {
   const isWatch = p.watch || p.cost == null;
   const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
   const plAbs = isWatch ? 0 : (q.price - p.cost) * (p.qty || 1);
-  const alert = dropFromHigh >= p.thresh;
+  const thr = thresholdFor(p, q);
+  const alert = dropFromHigh >= thr;
+  const trendUp = q.sma200 ? q.price > q.sma200 : null;
   const rangePos = Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100));
 
   if (alert) {
@@ -807,8 +957,11 @@ function positionCard(p, q, err) {
         <div class="bar-marker" style="left:${rangePos}%"></div>
       </div>
       <div class="drop-tag" style="color:${alert?'var(--down)':'var(--muted)'}">
-        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${p.thresh}%
+        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${thr}%${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${p.thresh}%">(slim)</span>` : ''}
       </div>
+      ${alert && trendUp != null ? `<div class="trend-tag" style="color:${trendUp ? 'var(--up)' : 'var(--warn)'}">${trendUp
+        ? '✓ dip in een stijgende trend (boven 200-daags gemiddelde)'
+        : '⚠ onder het 200-daags gemiddelde: dalende trend, voorzichtig'}</div>` : ''}
     </div>
     ${profitBlock}
     <div class="p-actions">
@@ -887,6 +1040,7 @@ async function render() {
   } catch (e) {
     loadError = true;
   }
+  loadExtra().then(renderCheck).catch(() => {});
 
   const results = positions.map(p => {
     const q = getQuote(p.ticker);
@@ -1258,6 +1412,8 @@ try {
     }
   }
 } catch (e) {}
+document.getElementById('smartChk').checked = smartOn();
+document.getElementById('smartChk').onchange = e => { try { localStorage.setItem('buy_mode', e.target.checked ? 'slim' : 'vast'); } catch (err) {} render(); };
 document.getElementById('sortSel').onchange = render;
 document.getElementById('catSel').onchange = render;
 document.getElementById('statusSel').onchange = render;

@@ -130,6 +130,33 @@
   .sb-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
   .sb-tools select { font-size: 13px; }
   .sb-tools .cnt { margin-left: auto; font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  /* Analyse & reflectie */
+  .an { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; transition: border-color .15s; }
+  .an:hover, .an[open] { border-color: rgba(79,143,240,.5); }
+  .an > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13.5px; }
+  .an > summary::-webkit-details-marker { display: none; }
+  .an .h-sub { color: var(--muted); font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  .an .h-btn { margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .an .h-btn::after { content: ' ▾'; } .an[open] .h-btn::after { content: ' ▴'; }
+  .an .h-less { display: none; } .an[open] .h-more { display: none; } .an[open] .h-less { display: inline; }
+  .an-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 2px 14px 14px; }
+  .an-c { position: relative; overflow: hidden; border-radius: 12px; padding: 13px 15px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); --mark: var(--accent); }
+  .an-c::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
+  .an-c.v { --mark: #a78bfa; } .an-c.g { --mark: var(--up); } .an-c.o { --mark: var(--warn); }
+  .an-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .an-k span { text-transform: none; letter-spacing: 0; font-family: 'IBM Plex Mono', monospace; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .kpi small { display: block; font-size: 10.5px; color: var(--muted); }
+  .kpi b { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600; }
+  .an-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .an-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; padding: 3px 0; }
+  .an-t th:not(:first-child), .an-t td:not(:first-child) { text-align: right; font-family: 'IBM Plex Mono', monospace; padding-left: 12px; white-space: nowrap; }
+  .an-t td { padding: 4px 0; border-top: 1px dashed #26282b; }
+  .an-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+  .an-note b { color: var(--text); font-weight: 600; }
+  .prog { height: 6px; border-radius: 4px; background: var(--panel); overflow: hidden; margin: 4px 0 8px; }
+  .prog i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  @media (max-width: 900px) { .an-grid { grid-template-columns: 1fr; } }
   .sb-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
   /* Scorebord per richting: kaart in dezelfde stijl als het beursklimaat */
   .sb-dir { position: relative; overflow: hidden; border-radius: 14px; padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 10px;
@@ -259,6 +286,7 @@ const GH_OWNER = 'Maurits226', GH_REPO = 'Investeringen', GH_BRANCH = 'main';
 const UI_KEY = CFG.ui;
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', { style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+const nf = (v, d = 1) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (n, d = 1) => n == null ? '–' : (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 function toDate(iso) {
@@ -517,6 +545,86 @@ function trackHTML(h, st, mini) {
   return `${bar}<div class="track-l"><span class="s">stop ${pct(st.stopPct)}</span><span>start</span><span class="t">doel ${pct(st.doelPct)}</span></div>`;
 }
 const UITKOMST = { open: 'loopt', doel: 'doel gehaald', stop: 'stop geraakt', verlopen: 'termijn verstreken' };
+let changes = null;
+async function loadChanges() {
+  if (changes) return changes;
+  try { const r = await fetch('modelwijzigingen.json?t=' + Date.now(), { cache: 'no-store' }); changes = r.ok ? await r.json() : []; }
+  catch (e) { changes = []; }
+  return changes;
+}
+// Analyse & reflectie: hoe goed zijn de adviezen, waar werkt het model wel en niet, en wanneer mag je iets aanpassen
+function analyseHTML(all) {
+  const res = h => h.outcome === 'open' ? null : h.result_pct;
+  const closed = all.filter(h => ['doel', 'stop', 'verlopen'].includes(h.outcome) && h.result_pct != null);
+  const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const f = (v, d = 1) => v == null ? '—' : pct(v, d);
+  const stat = xs => {
+    const d = xs.filter(h => h.outcome === 'doel').length, s = xs.filter(h => h.outcome === 'stop').length;
+    const r = xs.map(res).filter(v => v != null);
+    return { n: xs.length, hit: d + s ? d / (d + s) * 100 : null, avg: avg(r) };
+  };
+  const win = avg(closed.filter(h => h.outcome === 'doel').map(res)), loss = avg(closed.filter(h => h.outcome === 'stop').map(res));
+  const pos = closed.map(res).filter(v => v > 0).reduce((a, b) => a + b, 0), neg = -closed.map(res).filter(v => v < 0).reduce((a, b) => a + b, 0);
+  const all_ = stat(closed);
+  const kpi = `<div class="an-c"><div class="an-k">Kerncijfers <span>${closed.length} afgerond</span></div>
+    <div class="kpis">
+      <div class="kpi"><small>Trefkans (doel vs stop)</small><b>${all_.hit == null ? '—' : Math.round(all_.hit) + '%'}</b></div>
+      <div class="kpi"><small>Verwachte waarde per advies</small><b class="${all_.avg >= 0 ? 'c-up' : 'c-down'}">${f(all_.avg)}</b></div>
+      <div class="kpi"><small>Gemiddelde winst (doel)</small><b class="c-up">${f(win)}</b></div>
+      <div class="kpi"><small>Gemiddeld verlies (stop)</small><b class="c-down">${f(loss)}</b></div>
+      <div class="kpi"><small>Winstfactor (winst / verlies)</small><b>${neg ? (pos / neg).toFixed(2).replace('.', ',') : pos ? '∞' : '—'}</b></div>
+      <div class="kpi"><small>Lopend nu</small><b>${all.filter(h => h.outcome === 'open').length}</b></div>
+    </div>
+    <div class="an-note">Winstfactor boven 1,5 en een positieve verwachte waarde betekent dat het model na kosten iets oplevert.</div></div>`;
+  const table = (title, groups, cls, note) => `<div class="an-c ${cls}"><div class="an-k">${title} <span>afgerond</span></div>
+    <table class="an-t"><tr><th></th><th>n</th><th>trefkans</th><th>gem.</th></tr>
+    ${groups.filter(([, xs]) => xs.length).map(([k, xs]) => { const s = stat(xs); return `<tr><td>${esc(k)}</td><td>${s.n}</td><td>${s.hit == null ? '—' : Math.round(s.hit) + '%'}</td><td class="${s.avg >= 0 ? 'c-up' : 'c-down'}">${f(s.avg)}</td></tr>`; }).join('')
+      || '<tr><td colspan="4" style="color:var(--muted)">Nog geen afgeronde adviezen.</td></tr>'}</table>${note ? `<div class="an-note">${note}</div>` : ''}</div>`;
+  const REG = { calm: 'Rustig & stijgend', neutral: 'Neutraal', off: 'Risico-uit' };
+  const byDir = [['Koopadviezen', closed.filter(h => h.dir === 'up')], [SET === 'top250' ? 'Nog niet kopen' : 'Verkoopadviezen', closed.filter(h => h.dir === 'down')]];
+  const byReg = ['calm', 'neutral', 'off'].map(k => [REG[k], closed.filter(h => h.regime === k)]).concat([['Onbekend (van vóór deze analyse)', closed.filter(h => !h.regime)]]);
+  const pc = {};
+  closed.forEach(h => (h.patterns || []).forEach(p => (pc[p] = pc[p] || []).push(h)));
+  const byPat = Object.entries(pc).sort((a, b) => b[1].length - a[1].length).slice(0, 6);
+  const buckets = [['5–8%', 5, 8], ['8–12%', 8, 12], ['meer dan 12%', 12, 1e9]].map(([k, lo, hi]) => {
+    const xs = closed.filter(h => h.projected_pct != null && Math.abs(h.projected_pct) >= lo && Math.abs(h.projected_pct) < hi);
+    return { k, n: xs.length, exp: avg(xs.map(h => Math.abs(h.projected_pct))), act: avg(xs.map(res)) };
+  });
+  const calib = `<div class="an-c o"><div class="an-k">Kalibratie <span>verwacht vs werkelijk</span></div>
+    <table class="an-t"><tr><th>verwachte beweging</th><th>n</th><th>verwacht</th><th>werkelijk</th></tr>
+    ${buckets.map(b => `<tr><td>${b.k}</td><td>${b.n}</td><td>${b.exp == null ? '—' : '+' + nf(b.exp, 1) + '%'}</td><td class="${b.act >= 0 ? 'c-up' : 'c-down'}">${f(b.act)}</td></tr>`).join('')}</table>
+    <div class="an-note">Liggen de werkelijke resultaten ver onder de verwachting, dan zijn de koersdoelen te optimistisch.</div></div>`;
+  const buys = closed.filter(h => h.dir === 'up' && h.bench_pct != null);
+  const mkt = `<div class="an-c g"><div class="an-k">Tegen de markt <span>Nasdaq 100, zelfde periode</span></div>
+    <div class="kpis">
+      <div class="kpi"><small>Koopadviezen gemiddeld</small><b class="${avg(buys.map(res)) >= 0 ? 'c-up' : 'c-down'}">${f(avg(buys.map(res)))}</b></div>
+      <div class="kpi"><small>Nasdaq 100 gemiddeld</small><b>${f(avg(buys.map(h => h.bench_pct)))}</b></div>
+      <div class="kpi"><small>Verschil per advies</small><b class="${avg(buys.map(h => res(h) - h.bench_pct)) >= 0 ? 'c-up' : 'c-down'}">${f(avg(buys.map(h => res(h) - h.bench_pct)))}</b></div>
+      <div class="kpi"><small>Beter dan de markt</small><b>${buys.length ? Math.round(buys.filter(h => res(h) > h.bench_pct).length / buys.length * 100) + '%' : '—'}</b></div>
+    </div>
+    <div class="an-note">Een advies is pas echt goed als het meer oplevert dan gewoon de markt aanhouden (${buys.length} koopadviezen met vergelijking).</div></div>`;
+  // Reflectie: genoeg data? en wanneer kijk je terug?
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextQ = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 1);
+  const dfmt = d => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' });
+  const need = 30, nUp = closed.filter(h => h.dir === 'up').length, nDn = closed.filter(h => h.dir === 'down').length;
+  const ch = (changes || []).slice(-5).reverse();
+  const refl = `<div class="an-c v"><div class="an-k">Reflectie <span>wanneer bijsturen?</span></div>
+    <div class="an-note" style="margin-top:0">Koopadviezen: <b>${nUp} van ${need}</b> afgerond</div><div class="prog"><i style="width:${Math.min(100, nUp / need * 100)}%"></i></div>
+    <div class="an-note" style="margin-top:0">${SET === 'top250' ? 'Nog niet kopen' : 'Verkoopadviezen'}: <b>${nDn} van ${need}</b> afgerond</div><div class="prog"><i style="width:${Math.min(100, nDn / need * 100)}%"></i></div>
+    <div class="an-note"><b>Wekelijks</b> 5 minuten: afgeronde adviezen en rare uitschieters.<br>
+      <b>Maandelijks</b> (volgende: ${dfmt(nextMonth)}): deze analyse per richting, klimaat en patroon.<br>
+      <b>Per kwartaal</b> (volgende: ${dfmt(nextQ)}): pas dan instellingen aanpassen, en alleen als er minstens ${need} afgeronde adviezen per richting zijn. Eén ding tegelijk veranderen.</div>
+    ${ch.length ? `<div class="an-note"><b>Laatste modelwijzigingen</b><br>${ch.map(c => `${esc(new Date(c.datum).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }))} · ${esc(c.wijziging)}`).join('<br>')}</div>` : ''}
+  </div>`;
+  const hitTxt = all_.hit == null ? 'nog geen afgeronde adviezen' : `trefkans ${Math.round(all_.hit)}% · verwachte waarde ${f(all_.avg)}`;
+  return `<details class="an" id="anBox"${ui.anOpen ? ' open' : ''}><summary>📊 Analyse &amp; reflectie <span class="h-sub">${closed.length} afgerond · ${hitTxt}</span>
+      <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
+    <div class="an-grid">${kpi}${table('Per richting', byDir, '')}${table('Per beursklimaat bij start', byReg, 'v', 'Werkt het model beter in een rustige markt? Dan kun je in risico-uit terughoudender zijn.')}
+      ${table('Per patroon', byPat, 'g', 'De drie sterkste patronen per advies. Welke patronen leveren echt iets op?')}${calib}${mkt}${refl}</div></details>`;
+}
+
 function scoreHist() {
   return (live.history || []).filter(h => h.plan && !skipCat(((live.items || []).find(i => i.symbol === h.symbol) || {}).category));
 }
@@ -572,12 +680,16 @@ function renderScore() {
   }).join('');
   box.innerHTML = `
     <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}${dirLine('down', SET === 'top250' ? 'Nog-niet-kopen-adviezen' : 'Verkoopadviezen')}</div>
+    ${analyseHTML(all)}
     <div class="sb-tools">
       <select id="sbFilter"><option value="all">Alle adviezen</option><option value="open">Lopend</option><option value="doel">Doel gehaald</option><option value="stop">Stop geraakt</option><option value="verlopen">Termijn verstreken</option><option value="mine">Door jou opgevolgd</option></select>
       <select id="sbSort"><option value="new">Datum (nieuw → oud)</option><option value="best">Resultaat (hoog → laag)</option><option value="worst">Resultaat (laag → hoog)</option></select>
       <span class="cnt">${list.length} van ${all.length}</span>
     </div>
     <div class="h-list">${rows || '<div class="empty">Geen adviezen met dit filter.</div>'}</div>`;
+  const an = document.getElementById('anBox');
+  if (an) an.ontoggle = () => { ui.anOpen = an.open; };
+  if (!changes) loadChanges().then(() => { if (ui.view === 'score') renderScore(); });
   document.getElementById('sbFilter').value = ui.sbFilter;
   document.getElementById('sbSort').value = ui.sbSort;
 }

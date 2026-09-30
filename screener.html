@@ -121,6 +121,51 @@
   .ring { position: relative; width: 58px; height: 58px; }
   .ring svg { width: 58px; height: 58px; transform: rotate(-90deg); }
   .ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 600; font-size: 16px; }
+  /* Jouw branches: kaarten met referentie-ETF */
+  .branches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .br {
+    position: relative; overflow: hidden; border-radius: 14px; padding: 14px 16px 12px; cursor: pointer; text-align: left;
+    background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); color: inherit; font: inherit;
+    display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, transform .15s; --mark: var(--accent);
+  }
+  .br::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
+  .br:hover { border-color: var(--mark); transform: translateY(-2px); }
+  .br.active { border-color: var(--mark); box-shadow: 0 0 0 1px var(--mark); }
+  .br[data-b="tech"] { --mark: #4f8ff0; } .br[data-b="fin"] { --mark: #f5b544; }
+  .br[data-b="zorg"] { --mark: #3ecf8e; } .br[data-b="energie"] { --mark: #a78bfa; }
+  .br-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .br-k i { width: 7px; height: 7px; border-radius: 50%; background: var(--mark); }
+  .br-main { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .br-n { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .br-n small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .br-etf { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+  .br-etf b { color: var(--text); font-weight: 500; }
+  .br-best { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .br-best b { color: var(--text); font-weight: 600; }
+  /* Deelscores */
+  .pil-mini { display: flex; gap: 2px; justify-content: center; margin-top: 4px; }
+  .pil-mini i { width: 9px; height: 16px; border-radius: 2px; background: var(--panel-2); position: relative; overflow: hidden; }
+  .pil-mini i b { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); }
+  .pillars { display: grid; gap: 8px; margin-bottom: 16px; }
+  .pil { display: grid; grid-template-columns: 170px minmax(0,1fr) 40px; gap: 10px; align-items: center; font-size: 13px; }
+  .pil small { display: block; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+  .pil-bar { height: 8px; border-radius: 5px; background: var(--panel-2); overflow: hidden; }
+  .pil-bar i { display: block; height: 100%; border-radius: 5px; }
+  .pil-val { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: -4px 0 16px; font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+  .metrics span { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed #26282b; padding: 3px 0; }
+  .metrics b { color: var(--text); font-weight: 500; }
+  .tag.ref { color: var(--violet, #a78bfa); border-color: rgba(167,139,250,.45); }
+  .tag.earn { color: var(--warn); border-color: rgba(245,181,68,.45); }
+  .stock.is-ref { opacity: .82; border-style: dashed; }
+  .stock.is-ref .rank { font-size: 12px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .switch input { display: none; }
+  .switch i { width: 30px; height: 17px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); position: relative; transition: background .15s; }
+  .switch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--muted); transition: left .15s, background .15s; }
+  .switch input:checked + i { background: rgba(167,139,250,.25); border-color: rgba(167,139,250,.6); }
+  .switch input:checked + i::after { left: 15px; background: #a78bfa; }
+  @media (max-width: 860px) { .branches { grid-template-columns: 1fr 1fr; } }
   .ring-sub { font-size: 10px; color: var(--muted); font-family: var(--mono); text-align: center; margin-top: 3px; white-space: nowrap; }
 
   .blk .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
@@ -227,37 +272,38 @@
   </header>
 
   <div id="banner"></div>
+  <div class="branches" id="branches"></div>
   <div class="summary" id="summary"></div>
 
   <details class="howto">
     <summary>🧮 Hoe komt de score tot stand?
-      <span class="h-sub">welke bedrijven · formuleblad · kwaliteit · verwacht rendement</span>
+      <span class="h-sub">welke bedrijven · vijf pijlers · sector-vergelijking · verwacht rendement</span>
       <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
     <div class="howto-body">
       <div>
         <h4>Welke bedrijven</h4>
         Het hele aanbod: <b>alle Amerikaanse bedrijven boven $2 mld</b> beurswaarde en <b>alle eurozone-bedrijven
-        boven €1 mld</b> op hun thuisbeurs, ruim 2.000 in totaal. Die lijst wordt wekelijks ververst. Bedrijven die in
-        een andere valuta rapporteren vallen af. Je ziet alleen wie <b>85 of hoger</b> scoort (max. 500), zonder je eigen posities.
+        boven €1 mld</b> op hun thuisbeurs, ruim 2.000 in totaal, wekelijks ververst. Alleen euro en dollar.
+        Je ziet wie <b>85 of hoger</b> scoort (max. 500), zonder je eigen posities; die kun je als referentie aanzetten.
       </div>
       <div>
-        <h4>Formuleblad · 75%</h4>
-        Tien criteria uit je rekenblad, elk <b>0, 5 of 10 punten</b>: omzetgroei, operationele marge, groei van
-        cash &amp; beleggingen, current ratio, cash/schuld, short interest, institutioneel bezit, schaalbaarheid,
-        koers sinds eerste notering en K/W. Ontbreekt een cijfer (bv. short interest bij Europese aandelen), dan telt
-        dat criterium niet mee in plaats van 0 punten te geven.
+        <h4>Score 2.0 · vijf pijlers</h4>
+        <b>Formuleblad 30%</b> (je 10 criteria, 0/5/10 punten) · <b>Kwaliteit 20%</b> (brutowinst/bezit, rendement op kapitaal,
+        vrije kasstroom, kasconversie, verwatering + moat/CEO/recessie) · <b>Groei 20%</b> (omzet, winst, verwachting volgend jaar)
+        · <b>Waardering 15%</b> (verwachte K/W, PEG, kasstroomrendement, EV/EBITDA) · <b>Momentum 15%</b> (12 maanden,
+        afstand tot de top, boven 200-daags gemiddelde, bijstellingen door analisten).
       </div>
       <div>
-        <h4>Kwaliteit · 25%</h4>
-        Drie van de 7 kerncriteria: <b>moat</b> (concurrentievoordeel), <b>CEO-kwaliteit</b> en <b>recessiebestendig</b>, elk 0–10.
-        Voor de bekendste bedrijven is dit een oordeel uit <code>kwaliteit.json</code> (daar pas je het aan).
-        Anders een schatting uit de cijfers (marges, rendement op eigen vermogen, insiderbezit, groei, sector, beta),
-        herkenbaar aan de gestreepte balk.
+        <h4>Eerlijk vergelijken</h4>
+        Kwaliteit, groei, waardering en momentum worden vergeleken met <b>bedrijven uit dezelfde sector</b> (percentiel 0–100),
+        zodat een snelgroeiend techbedrijf niet wordt afgestraft voor een hogere K/W. De <b>totaalscore</b> is je plek in de markt:
+        85 = beter dan 85% van alle gescande bedrijven.
       </div>
       <div>
         <h4>Verwacht rendement · 12 mnd</h4>
-        Gemiddeld <b>koersdoel van analisten</b> (minstens 3) plus dividendrendement. Zonder analisten een
-        schatting op basis van de omzetgroei. Amerikaanse bedrijven staan in dollars, eurozone-bedrijven in euro's. Dit is geen koopadvies.
+        Gemiddeld <b>koersdoel van analisten</b> (minstens 3) plus dividendrendement, anders een schatting op basis van de
+        omzetgroei. Per branche zie je de <b>referentie-ETF</b> (QDVE, QDVH, QDVG, IQQH) en per bedrijf of het die ETF over
+        12 maanden versloeg. Dit is geen koopadvies.
       </div>
     </div>
   </details>
@@ -269,7 +315,10 @@
         <option value="score">Totaalscore (hoog → laag)</option>
         <option value="exp">Verwacht rendement (hoog → laag)</option>
         <option value="formule">Formuleblad (hoog → laag)</option>
-        <option value="kwal">Kwaliteit (hoog → laag)</option>
+        <option value="Q">Kwaliteit (hoog → laag)</option>
+        <option value="G">Groei (hoog → laag)</option>
+        <option value="V">Waardering (hoog → laag)</option>
+        <option value="M">Momentum (hoog → laag)</option>
         <option value="name">Naam (A → Z)</option>
       </select>
     </div>
@@ -295,6 +344,7 @@
     </div>
     <div class="tb-row2">
       <label class="tb-search"><input id="searchInp" type="search" placeholder="Zoek op naam of ticker" autocomplete="off"></label>
+      <label class="switch" title="Laat je eigen posities zien als referentie (tellen niet mee in de 500)"><input type="checkbox" id="refChk"><i></i>Mijn posities als referentie</label>
       <button id="resetBtn" class="tb-reset">Reset filters</button>
       <span class="tb-count" id="tbCount"></span>
     </div>
@@ -331,6 +381,19 @@ const CRIT = {
   ipo:        ['Koers sinds eerste notering', 'hoger = 10 · gelijk = 5 · lager = 0'],
   kw:         ['Koers/winst (K/W)', '<10 = 10 · 10–30 = 5 · >30 = 0']
 };
+const PIL = { F: ['Formuleblad', 'je 10 criteria'], Q: ['Kwaliteit', 'rendement, kasstroom, moat'],
+  G: ['Groei', 'omzet en winst'], V: ['Waardering', 'goedkoop t.o.v. sector'], M: ['Momentum', 'trend en analisten'] };
+const METRIC_NL = {
+  gp_assets: ['Brutowinst / bezit', '%'], roic: ['Rendement op kapitaal', '%'], fcf_margin: ['Vrije kasstroom / omzet', '%'],
+  cash_conv: ['Kasstroom / nettowinst', 'x'], dilution: ['Verwatering aandelen', '%'],
+  rev_cagr3: ['Omzetgroei 3 jaar', '%'], rev_yoy: ['Omzetgroei laatste jaar', '%'], eps_g: ['Winstgroei', '%'], fwd_g: ['Verwachte groei volgend jaar', '%'],
+  fpe: ['Verwachte K/W', 'x'], peg: ['PEG', 'x'], fcf_yield: ['Kasstroomrendement', '%'], ev_ebitda: ['EV / EBITDA', 'x'],
+  chg12: ['Koers 12 maanden', '%'], near_high: ['Afstand tot 52w-top', 'top'], revisions: ['Bijstellingen analisten', 'rev']
+};
+const METRIC_PIL = { Q: ['gp_assets', 'roic', 'fcf_margin', 'cash_conv', 'dilution'], G: ['rev_cagr3', 'rev_yoy', 'eps_g', 'fwd_g'],
+  V: ['fpe', 'peg', 'fcf_yield', 'ev_ebitda'], M: ['chg12', 'near_high', 'revisions'] };
+const PIL_COLOR = v => v == null ? 'var(--line)' : v >= 75 ? 'var(--up)' : v >= 50 ? 'var(--accent)' : v >= 30 ? 'var(--warn)' : 'var(--down)';
+let branchSel = null;           // actieve branchekaart
 const STEPS = ['Cash > schuld', 'Omzetgroei ≥ 10%', 'Marge ≥ 15%', 'Omzet groeit harder dan kosten', 'Moat', 'CEO-kwaliteit', 'Recessiebestendig'];
 
 let DATA = null, lastLoad = 0;
@@ -397,18 +460,25 @@ function pool() {
     watch: it.watch || pf.watch.has((it.eu || '').toUpperCase()) || pf.watch.has(it.sym.toUpperCase())
   }));
 }
+// Je eigen posities (referentie): alle bedrijven die je hebt, met dezelfde scoring
+function refPool() {
+  return (DATA.refs || []).map(it => Object.assign({}, it, { pos: null, ref: true }));
+}
 
 function fillSectors() {
   const sel = $('sectorSel'), keep = sel.dataset.want || sel.value;
   delete sel.dataset.want;
   const secs = [...new Set((DATA.items || []).map(i => i.sector).filter(Boolean))]
     .sort((a, b) => (SECTOR_NL[a] || a).localeCompare(SECTOR_NL[b] || b, 'nl'));
-  sel.innerHTML = '<option value="all">Alle</option>' + secs.map(s => `<option value="${esc(s)}">${esc(SECTOR_NL[s] || s)}</option>`).join('');
-  sel.value = secs.includes(keep) ? keep : 'all';
+  const br = Object.entries(DATA.branches || {});
+  sel.innerHTML = '<option value="all">Alle</option>'
+    + (br.length ? `<optgroup label="Jouw branches"><option value="b:mine">★ Alle 4 branches</option>${br.map(([k, b]) => `<option value="b:${k}">★ ${esc(b.label)}</option>`).join('')}</optgroup>` : '')
+    + '<optgroup label="Sectoren">' + secs.map(s => `<option value="${esc(s)}">${esc(SECTOR_NL[s] || s)}</option>`).join('') + '</optgroup>';
+  sel.value = [...sel.options].some(o => o.value === keep) ? keep : 'all';
 }
 
 const QUICK = {
-  strong: { label: 'Topscore ≥ 90', sub: 'bedrijven met de hoogste cijfers', test: it => it.score >= 90 },
+  strong: { label: 'Topscore ≥ 90', sub: 'beter dan 90% van de markt', test: it => it.score >= 90 },
   steps:  { label: '6+ van 7 stappen', sub: 'voldoen aan bijna alle kerncriteria', test: it => stepsOk(it) >= 6 },
   exp:    { label: 'Verwacht rendement ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
 };
@@ -416,7 +486,7 @@ const QUICK = {
 const F_KEY = 'screener_filters';
 function saveFilters() {
   try { sessionStorage.setItem(F_KEY, JSON.stringify({ sort: $('sortSel').value, sector: $('sectorSel').value,
-    region: $('regionSel').value, min: $('minSel').value, q: $('searchInp').value, quick })); } catch (e) {}
+    region: $('regionSel').value, min: $('minSel').value, q: $('searchInp').value, quick, refs: $('refChk').checked })); } catch (e) {}
 }
 function render() {
   if (!DATA) return;
@@ -434,6 +504,26 @@ function render() {
   $('banner').innerHTML = DATA.pending > 0
     ? `<div class="banner">De eerste scan loopt nog: ${DATA.scanned} van ${DATA.universe} stocks bekeken. De lijst vult zich bij de volgende runs vanzelf aan.</div>` : '';
 
+  // Jouw branches met referentie-ETF
+  const brs = Object.entries(DATA.branches || {});
+  $('branches').innerHTML = brs.map(([k, b]) => {
+    const inb = all.filter(it => it.branch === k);
+    const best = inb[0];
+    const on = $('sectorSel').value === 'b:' + k;
+    return `<button class="br ${on ? 'active' : ''}" data-b="${k}" title="Toon alleen ${esc(b.label.toLowerCase())}">
+      <div class="br-k"><i></i>${esc(b.label)}</div>
+      <div class="br-main"><span class="br-n">${inb.length}<small>kansen</small></span></div>
+      <div class="br-etf"><b>${esc((b.etf || '').split('.')[0])}</b> ${b.ret12 != null ? `<span class="${cls(b.ret12)}">${pct(b.ret12)}</span> 12 mnd` : '—'}${b.ret3m != null ? ` · <span class="${cls(b.ret3m)}">${pct(b.ret3m)}</span> 3 mnd` : ''}</div>
+      <div class="br-best">${best ? `beste: <b>${esc(best.name)}</b> (${Math.round(best.score)})` : 'nog geen kansen'}</div>
+    </button>`;
+  }).join('');
+  $('branches').hidden = !brs.length;
+  $('branches').querySelectorAll('.br').forEach(b => b.onclick = () => {
+    const v = 'b:' + b.dataset.b;
+    $('sectorSel').value = $('sectorSel').value === v ? 'all' : v;
+    render();
+  });
+
   // Tegels
   $('summary').innerHTML = Object.entries(QUICK).map(([k, t]) =>
     `<button class="stat ${quick === k ? 'active' : ''}" data-q="${k}">
@@ -442,8 +532,13 @@ function render() {
   $('summary').querySelectorAll('.stat').forEach(b => b.onclick = () => { quick = quick === b.dataset.q ? null : b.dataset.q; render(); });
 
   // Filteren
-  let list = all.filter(it =>
-    (sector === 'all' || it.sector === sector) &&
+  const inSector = it => sector === 'all' ? true
+    : sector === 'b:mine' ? !!it.branch
+    : sector.startsWith('b:') ? it.branch === sector.slice(2)
+    : it.sector === sector;
+  const base = $('refChk').checked ? all.concat(refPool()) : all;
+  let list = base.filter(it =>
+    inSector(it) &&
     (region === 'all' || it.region === region) &&
     it.score >= min &&
     (!quick || QUICK[quick].test(it)) &&
@@ -453,7 +548,10 @@ function render() {
   const sorters = {
     score: byDefault,
     formule: (a, b) => b.formule - a.formule || byDefault(a, b),
-    kwal: (a, b) => b.kwal - a.kwal || byDefault(a, b),
+    Q: (a, b) => ((b.pillars || {}).Q ?? -1) - ((a.pillars || {}).Q ?? -1) || byDefault(a, b),
+    G: (a, b) => ((b.pillars || {}).G ?? -1) - ((a.pillars || {}).G ?? -1) || byDefault(a, b),
+    V: (a, b) => ((b.pillars || {}).V ?? -1) - ((a.pillars || {}).V ?? -1) || byDefault(a, b),
+    M: (a, b) => ((b.pillars || {}).M ?? -1) - ((a.pillars || {}).M ?? -1) || byDefault(a, b),
     exp: (a, b) => expOf(b) - expOf(a) || byDefault(a, b),
     steps: (a, b) => stepsOk(b) - stepsOk(a) || byDefault(a, b),
     pe: (a, b) => pe(a) - pe(b) || byDefault(a, b),
@@ -461,7 +559,8 @@ function render() {
   };
   list.sort(sorters[sortBy] || sorters.score);
 
-  $('tbCount').textContent = list.length === all.length ? `${all.length} stocks` : `${list.length} van ${all.length} getoond`;
+  const nRef = list.filter(x => x.ref).length, nList = list.length - nRef;
+  $('tbCount').textContent = (nList === all.length ? `${all.length} stocks` : `${nList} van ${all.length} getoond`) + (nRef ? ` + ${nRef} eigen` : '');
 
   const box = $('cards');
   if (!list.length) {
@@ -477,9 +576,10 @@ function bindOne(el, list) {
   el.addEventListener('click', e => {
     if (e.target.closest('.detail') && !e.target.closest('.toggle')) return;
     const s = el.dataset.sym;
-    openSet.has(s) ? openSet.delete(s) : openSet.add(s);
-    el.outerHTML = card(list.find(x => x.sym === s));
-    bindOne(document.querySelector(`.stock[data-sym="${CSS.escape(s)}"]`), list);
+    const key = (el.dataset.ref === '1' ? 'ref:' : '') + s;
+    openSet.has(key) ? openSet.delete(key) : openSet.add(key);
+    el.outerHTML = card(list.find(x => x.sym === s && !!x.ref === (el.dataset.ref === '1')));
+    bindOne(document.querySelector(`.stock[data-sym="${CSS.escape(s)}"][data-ref="${el.dataset.ref}"]`), list);
   });
   bindCopy(el);
 }
@@ -504,23 +604,28 @@ function ring(score) {
 }
 
 function card(it) {
-  const open = openSet.has(it.sym);
+  const open = openSet.has((it.ref ? 'ref:' : '') + it.sym);
   const e = it.exp || {};
   const tick = isUSD(it) ? it.sym : (it.eu || it.sym);
   const beurs = isUSD(it) ? (it.us_exch || 'VS-beurs') : it.exch;
   const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
   const tags = [
+    it.ref ? '<span class="tag ref">in portefeuille · referentie</span>' : '',
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
+    it.earn_days != null && it.earn_days <= 14 ? `<span class="tag earn" title="Kwartaalcijfers: koers kan hard bewegen">cijfers ${it.earn_days === 0 ? 'vandaag' : 'over ' + it.earn_days + ' d'}</span>` : '',
+    it.rs ? `<span class="tag ${it.rs.pp >= 0 ? '' : ''}" title="Rendement 12 maanden t.o.v. referentie-ETF ${esc(it.rs.etf)} (in euro)">vs ${esc(it.rs.etf)} <span class="${cls(it.rs.pp)}">${it.rs.pp > 0 ? '+' : ''}${nf(it.rs.pp, 0)} pp</span></span>` : '',
     isUSD(it) && it.eu && !it.approx ? `<span class="tag">€-notering: ${esc(it.eu)}</span>` : ''
   ].join('');
-  return `<div class="stock ${tier(it.score)} ${open ? 'open' : ''}" data-sym="${esc(it.sym)}">
-    <div class="rank ${it.pos <= 10 ? 'top' : ''}">#${it.pos}</div>
+  const pil = it.pillars || {};
+  const mini = ['F', 'Q', 'G', 'V', 'M'].map(k => `<i title="${PIL[k][0]} ${pil[k] == null ? '—' : Math.round(pil[k])}"><b style="height:${pil[k] || 0}%;background:${PIL_COLOR(pil[k])}"></b></i>`).join('');
+  return `<div class="stock ${tier(it.score)} ${open ? 'open' : ''} ${it.ref ? 'is-ref' : ''}" data-sym="${esc(it.sym)}" data-ref="${it.ref ? 1 : 0}">
+    <div class="rank ${it.pos && it.pos <= 10 ? 'top' : ''}">${it.ref ? 'eigen' : '#' + it.pos}</div>
     <div class="s-name">
       <div class="s-title" title="${esc(it.name)}">${esc(it.name)}</div>
       <div class="s-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[it.sector] || it.sector || '—')}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ''}
     </div>
-    <div>${ring(it.score)}<div class="ring-sub">F${Math.round(it.formule)} · K${it.kwal}</div></div>
+    <div>${ring(it.score)}<div class="pil-mini" title="Formuleblad · Kwaliteit · Groei · Waardering · Momentum">${mini}</div></div>
     <div class="row2">
       <div class="blk"><div class="k">Koers</div><div class="v">${money(it, it.price)}</div>
         <div class="s ${cls(it.day)}">${it.day == null ? '&nbsp;' : pct(it.day, 2) + ' vandaag'}</div></div>
@@ -576,8 +681,24 @@ function detail(it) {
       : e.src === 'dividend' ? `Alleen dividendrendement bekend (${nf(e.div, 1)}%).` : 'Onvoldoende gegevens voor een verwachting.';
   const cd = it.cashdebt || [];
   const tick = isUSD(it) ? it.sym : (it.eu || it.sym);
+  const pil = it.pillars || {}, mp = it.mp || {}, mv = it.m || {};
+  const W = DATA.weights || {};
+  const mval = (k, v) => {
+    if (v == null) return '—';
+    if (k === 'fpe' && v >= 9999) return 'verlies';
+    if (k === 'near_high') return nf(100 - v, 0) + '% onder';
+    if (k === 'revisions') return (v > 0 ? '+' : '') + nf(v, 0);
+    return METRIC_NL[k][1] === 'x' ? nf(v, 1) + '×' : (v > 0 && ['rev_cagr3', 'rev_yoy', 'eps_g', 'fwd_g', 'chg12', 'dilution'].includes(k) ? '+' : '') + nf(v, 1) + '%';
+  };
+  const pillars = ['F', 'Q', 'G', 'V', 'M'].map(k => `<div class="pil"><div>${PIL[k][0]}<small>${PIL[k][1]} · ${Math.round((W[k] || 0) * 100)}%</small></div>
+      <div class="pil-bar"><i style="width:${pil[k] || 0}%;background:${PIL_COLOR(pil[k])}"></i></div><div class="pil-val">${pil[k] == null ? '—' : Math.round(pil[k])}</div></div>`).join('');
+  const metrics = ['Q', 'G', 'V', 'M'].map(pl => METRIC_PIL[pl].filter(k => mv[k] != null).map(k =>
+      `<span title="${PIL[pl][0]} · percentiel binnen de sector: ${mp[k] == null ? '—' : Math.round(mp[k])}">${METRIC_NL[k][0]} <b>${mval(k, mv[k])}${mp[k] != null ? ` <em style="color:${PIL_COLOR(mp[k])};font-style:normal">P${Math.round(mp[k])}</em>` : ''}</b></span>`).join('')).join('');
   return `<div class="detail">
     <div>
+      <div class="d-k">Scoreopbouw <span>totaal ${Math.round(it.score)} · beter dan ${Math.round(it.score)}% van de markt</span></div>
+      <div class="pillars">${pillars}</div>
+      ${metrics ? `<div class="metrics">${metrics}</div>` : ''}
       <div class="d-k">Formuleblad <span>${Math.round(it.formule)}/100 · ${it.n_crit}/10 criteria met data</span></div>
       ${crit}
     </div>
@@ -589,6 +710,7 @@ function detail(it) {
       <ul class="checklist">${it.steps.map((s, i) => `<li><b class="${s === 1 ? 'c-up' : s === 0 ? 'c-down' : ''}">${s === 1 ? '✓' : s === 0 ? '✕' : '?'}</b>${i + 1}. ${STEPS[i]}</li>`).join('')}</ul>
       <div class="d-k">Verwacht rendement <span class="${cls(e.pct)}">${pct(e.pct)}</span></div>
       <p class="note" style="margin-bottom:14px">${expTxt}</p>
+      ${it.rs || it.earnings ? `<p class="note" style="margin:-6px 0 14px">${it.rs ? `12 maanden t.o.v. referentie-ETF <b>${esc(it.rs.etf)}</b>: <span class="${cls(it.rs.pp)}">${it.rs.pp > 0 ? '+' : ''}${nf(it.rs.pp, 1)} procentpunt</span> (in euro).` : ''}${it.earnings ? ` Volgende kwartaalcijfers: <b>${new Date(it.earnings).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</b>.` : ''}</p>` : ''}
       <div class="facts">
         <div><div class="k">Marktwaarde</div><div class="v">${it.mcap ? bn(it, it.mcap) : '—'}</div></div>
         <div><div class="k">Cash</div><div class="v">${bn(it, cd[0])}</div></div>
@@ -603,12 +725,12 @@ function detail(it) {
 }
 
 function resetAll() {
-  $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all';
+  $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all'; $('refChk').checked = false;
   $('minSel').value = '0'; $('searchInp').value = ''; quick = null;
   render();
 }
 
-['sortSel', 'sectorSel', 'regionSel', 'minSel'].forEach(id => $(id).onchange = render);
+['sortSel', 'sectorSel', 'regionSel', 'minSel', 'refChk'].forEach(id => $(id).onchange = render);
 let tSearch;
 $('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
 $('resetBtn').onclick = resetAll;
@@ -628,6 +750,7 @@ try {
     if (f.sector) $('sectorSel').dataset.want = f.sector;
     $('searchInp').value = f.q || '';
     quick = f.quick || null;
+    $('refChk').checked = !!f.refs;
   }
 } catch (e) {}
 load();

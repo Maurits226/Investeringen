@@ -45,7 +45,34 @@ DYN_REFRESH_DAYS = 7
 DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven boven $2 mld, grootste eerst
 DYN_EU = {"min_cap": 1e9, "limit": 200,                    # eurozone: per thuisbeurs boven €1 mld
           "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS"]}
-OK_FIN_CUR = {"USD", "EUR"}  # bedrijven die in een andere valuta rapporteren (bv. Taiwanese ADR's) vallen af
+OK_FIN_CUR = {"USD", "EUR"}
+# Score 2.0: vijf pijlers. Formuleblad is absoluut (0-100), de andere vier zijn percentielen binnen de sector.
+PILLAR_W = {"F": 0.30, "Q": 0.20, "G": 0.20, "V": 0.15, "M": 0.15}
+MIN_PEERS = 15               # minder bedrijven in een sector? Dan vergelijken met de hele markt
+METRICS = {                  # kenmerk: (pijler, hoger = beter)
+    "gp_assets": ("Q", True), "roic": ("Q", True), "fcf_margin": ("Q", True), "cash_conv": ("Q", True),
+    "dilution": ("Q", False),
+    "rev_cagr3": ("G", True), "rev_yoy": ("G", True), "eps_g": ("G", True), "fwd_g": ("G", True),
+    "fpe": ("V", False), "peg": ("V", False), "fcf_yield": ("V", True), "ev_ebitda": ("V", False),
+    "chg12": ("M", True), "near_high": ("M", True), "revisions": ("M", True),
+}
+# Jouw branches met een referentie-ETF (in euro op Xetra)
+BRANCHES = {
+    "tech":    {"label": "Technologie",     "etf": "QDVE.DE", "etf_name": "iShares S&P 500 Information Technology"},
+    "fin":     {"label": "Financieel",      "etf": "QDVH.DE", "etf_name": "iShares S&P 500 Financials"},
+    "zorg":    {"label": "Gezondheidszorg", "etf": "QDVG.DE", "etf_name": "iShares S&P 500 Health Care"},
+    "energie": {"label": "Energie & energietransitie", "etf": "IQQH.DE", "etf_name": "iShares Global Clean Energy"},
+}
+ENERGY_RE = re.compile(r"solar|renewable|electrical equipment|uranium", re.I)
+ENERGY_EXTRA = {"ENR.DE", "GEV", "BE", "NDX1.DE"}   # Siemens Energy, GE Vernova, Bloom Energy, Nordex
+# ETF-doorkijk voor je eigen ETF's: eerst het ETF zelf, anders een (Amerikaanse) tegenhanger met dezelfde index
+ETF_LOOKTHROUGH = {
+    "QDVE.DE": ["QDVE.DE", "IUIT.L", "XLK"],
+    "VUAA.MI": ["VUAA.MI", "VUAA.L", "VOO"],
+    "VHYL.MI": ["VHYL.MI", "VHYL.L", "VYM"],
+}
+ETF_REFRESH_DAYS = 7
+ETF_OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "etf_holdings.json")  # bedrijven die in een andere valuta rapporteren (bv. Taiwanese ADR's) vallen af
 TIME_BUDGET_MIN = float(os.environ.get("SCREENER_BUDGET_MIN", "45"))
 FUND_REFRESH_DAYS = 7       # fundamentele cijfers per stock hooguit wekelijks verversen
 ERROR_RETRY_H = 20          # mislukte stock pas na zoveel uur opnieuw proberen
@@ -76,7 +103,7 @@ EXCH_NAME = {
 EU_LISTING_PREF = ["GER", "FRA", "DUS"]
 US_EXCH = {"NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NYQ": "NYSE", "ASE": "NYSE American",
            "PCX": "NYSE Arca", "BTS": "Cboe"}
-CACHE_V = 2                                 # v2: sector ook uit summaryProfile
+CACHE_V = 3                                 # v3: extra cijfers voor Score 2.0 (kwaliteit, groei, waardering, momentum)
 # S&P 500-lijst (GICS) -> Yahoo-sectornamen, als Yahoo zelf geen sector geeft
 GICS_TO_YAHOO = {
     "Information Technology": "Technology", "Health Care": "Healthcare", "Financials": "Financial Services",
@@ -217,7 +244,9 @@ def fx_eurusd(y):
 TS_ANNUAL = ["TotalRevenue", "OperatingRevenue", "OperatingIncome", "OperatingExpense",
              "CashAndCashEquivalents", "OtherShortTermInvestments",
              "CashCashEquivalentsAndShortTermInvestments",
-             "CurrentAssets", "CurrentLiabilities", "TotalDebt"]
+             "CurrentAssets", "CurrentLiabilities", "TotalDebt",
+             "GrossProfit", "TotalAssets", "FreeCashFlow", "OperatingCashFlow", "NetIncome",
+             "DilutedAverageShares"]
 TS_QUARTER = ["CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments", "TotalDebt"]
 
 
@@ -255,7 +284,8 @@ def timeseries(y, sym):
 
 def summary(y, sym):
     """Kerngegevens, eigendom, analisten en profiel."""
-    mods = "price,summaryDetail,defaultKeyStatistics,financialData,assetProfile,summaryProfile"
+    mods = ("price,summaryDetail,defaultKeyStatistics,financialData,assetProfile,summaryProfile,"
+            "earningsTrend,calendarEvents")
     j = y.get(f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{quote(sym)}"
               f"?modules={mods}", crumb=True)
     r = j["quoteSummary"]["result"][0]
@@ -266,6 +296,25 @@ def summary(y, sym):
 
     pr = r.get("price") or {}
     ap = dict(r.get("summaryProfile") or {}, **{k: v for k, v in (r.get("assetProfile") or {}).items() if v})
+
+    # Analistenverwachtingen: groei volgend jaar en bijstellingen van de winstverwachting (30 dagen)
+    fwd_growth, up30, down30 = None, 0, 0
+    for t in ((r.get("earningsTrend") or {}).get("trend") or []):
+        per = t.get("period")
+        g = (t.get("growth") or {}).get("raw") if isinstance(t.get("growth"), dict) else None
+        if per == "+1y" and g is not None:
+            fwd_growth = g
+        if per in ("0y", "+1y"):
+            rv = t.get("epsRevisions") or {}
+            up30 += ((rv.get("upLast30days") or {}).get("raw") or 0) if isinstance(rv.get("upLast30days"), dict) else 0
+            down30 += ((rv.get("downLast30days") or {}).get("raw") or 0) if isinstance(rv.get("downLast30days"), dict) else 0
+    ed = (((r.get("calendarEvents") or {}).get("earnings") or {}).get("earningsDate") or [])
+    earn = None
+    for e in ed:
+        ts_ = e.get("raw") if isinstance(e, dict) else None
+        if ts_:
+            earn = datetime.fromtimestamp(ts_, tz=timezone.utc).date().isoformat()
+            break
     return {
         "name": pr.get("longName") or pr.get("shortName") or sym,
         "cur": pr.get("currency"),
@@ -290,6 +339,19 @@ def summary(y, sym):
         "gm": raw("financialData", "grossMargins"),
         "om": raw("financialData", "operatingMargins"),
         "roe": raw("financialData", "returnOnEquity"),
+        "fcf": raw("financialData", "freeCashflow"),
+        "ocf": raw("financialData", "operatingCashflow"),
+        "rev_ttm": raw("financialData", "totalRevenue"),
+        "eps_g": raw("financialData", "earningsGrowth"),
+        "rev_g": raw("financialData", "revenueGrowth"),
+        "peg": raw("defaultKeyStatistics", "pegRatio"),
+        "ev_ebitda": raw("defaultKeyStatistics", "enterpriseToEbitda"),
+        "chg52": raw("defaultKeyStatistics", "52WeekChange"),
+        "sma50": raw("summaryDetail", "fiftyDayAverage"),
+        "sma200": raw("summaryDetail", "twoHundredDayAverage"),
+        "fwd_growth": fwd_growth,
+        "rev_up": up30, "rev_down": down30,
+        "earnings": earn,
         "sector": ap.get("sector"),
         "industry": ap.get("industry"),
         "country": ap.get("country"),
@@ -351,9 +413,105 @@ def batch_quotes(y, syms):
                 "pe": q.get("trailingPE"), "hi52": q.get("fiftyTwoWeekHigh"),
                 "lo52": q.get("fiftyTwoWeekLow"), "mcap": q.get("marketCap"),
                 "day": q.get("regularMarketChangePercent"),
+                "chg52": q.get("fiftyTwoWeekChangePercent"), "fpe": q.get("forwardPE"),
+                "sma50": q.get("fiftyDayAverage"), "sma200": q.get("twoHundredDayAverage"),
             }
         time.sleep(SLEEP)
     return out
+
+
+def branch_of(sym, sector, industry):
+    if sym in ENERGY_EXTRA:
+        return "energie"
+    if sector == "Technology":
+        return "tech"
+    if sector == "Financial Services":
+        return "fin"
+    if sector == "Healthcare":
+        return "zorg"
+    if sector in ("Energy", "Utilities") or ENERGY_RE.search(industry or ""):
+        return "energie"
+    return None
+
+
+def returns_from_chart(pts):
+    """Rendement 12 maanden en 3 maanden uit een dagreeks."""
+    if len(pts) < 30:
+        return None, None
+    last = pts[-1][1]
+    r12 = last / pts[0][1] - 1
+    r3 = last / pts[-min(63, len(pts))][1] - 1
+    return r12, r3
+
+
+def benchmarks(y):
+    """Referentie-ETF's per branche + EUR/USD over 12 maanden (om dollarrendementen naar euro om te rekenen)."""
+    out = {}
+    for key, b in BRANCHES.items():
+        try:
+            pts, meta = chart(y, b["etf"], "1y", "1d")
+            r12, r3 = returns_from_chart(pts)
+            out[key] = dict(b, price=rnd(meta.get("regularMarketPrice") or (pts[-1][1] if pts else None), 2),
+                            ret12=rnd(r12 * 100 if r12 is not None else None, 1),
+                            ret3m=rnd(r3 * 100 if r3 is not None else None, 1))
+        except Exception as e:  # noqa: BLE001
+            print(f"  referentie-ETF {b['etf']} niet opgehaald: {e}")
+            out[key] = dict(b)
+        time.sleep(SLEEP)
+    fxchg = None
+    try:
+        pts, _ = chart(y, "EURUSD=X", "1y", "1d")
+        fxchg = pts[-1][1] / pts[0][1] - 1 if len(pts) > 30 else None
+    except Exception:  # noqa: BLE001
+        pass
+    return out, fxchg
+
+
+def etf_lookthrough(y, prev):
+    """Grootste posities van je ETF's (weekelijks). Resultaat naar etf_holdings.json."""
+    if prev and age_h(prev.get("at")) < ETF_REFRESH_DAYS * 24 and prev.get("etfs"):
+        return prev
+    res = {"at": iso(), "etfs": {}}
+    for etf, cands in ETF_LOOKTHROUGH.items():
+        for cand in cands:
+            try:
+                j = y.get(f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{quote(cand)}?modules=topHoldings",
+                          crumb=True)
+                th = (j["quoteSummary"]["result"][0].get("topHoldings") or {}).get("holdings") or []
+                hold = [{"sym": (h.get("symbol") or "").upper(), "name": h.get("holdingName"),
+                         "w": rnd(((h.get("holdingPercent") or {}).get("raw") or 0) * 100, 2)} for h in th]
+                hold = [h for h in hold if h["w"]]
+                if hold:
+                    res["etfs"][etf] = {"src": cand, "proxy": cand != etf, "holdings": hold}
+                    break
+            except Exception:  # noqa: BLE001
+                pass
+            time.sleep(SLEEP)
+        if etf not in res["etfs"]:
+            print(f"  ETF-doorkijk {etf}: geen posities gevonden")
+    if not res["etfs"] and prev:
+        return prev
+    return res
+
+
+def pct_ranks(items, key, higher, group_of):
+    """Percentiel (0-100) per bedrijf binnen zijn groep; te kleine groepen vergelijken met de hele markt."""
+    from bisect import bisect_left, bisect_right
+    vals = [(it, it["m"].get(key)) for it in items if it["m"].get(key) is not None]
+    groups = {}
+    for it, v in vals:
+        groups.setdefault(group_of(it), []).append(v)
+    groups = {g: sorted(v) for g, v in groups.items()}
+    allv = sorted(v for _, v in vals)
+    for it, v in vals:
+        g = groups.get(group_of(it)) or []
+        ref = g if len(g) >= MIN_PEERS else allv
+        n = len(ref)
+        if not n:
+            continue
+        lo, hi = bisect_left(ref, v), bisect_right(ref, v)
+        p = (lo + 0.5 * (hi - lo)) / n * 100
+        it["mp"][key] = round(p if higher else 100 - p, 1)
 
 
 # ── Universum en eigen posities ──────────────────────────────────────────
@@ -517,8 +675,8 @@ def needs_refresh(c, region):
         return not c or age_h(c.get("err_at")) > ERROR_RETRY_H
     if age_h(c["f"]) > FUND_REFRESH_DAYS * 24:
         return True
-    if not c.get("sector") and not c.get("skip") and c.get("v", 1) < CACHE_V:
-        return True                               # sector ontbrak: eenmalig opnieuw ophalen
+    if not c.get("skip") and c.get("v", 1) < CACHE_V:
+        return True                               # oudere cache: eenmalig opnieuw ophalen voor de nieuwe cijfers
     if region == "VS" and not (c.get("eu") or {}).get("sym") \
             and age_h((c.get("eu") or {}).get("checked")) > LISTING_RETRY_DAYS * 24:
         return True
@@ -792,6 +950,54 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
     ]
     hi, lo = q.get("hi52") or c.get("hi52"), q.get("lo52") or c.get("lo52")
     nm = norm_name(c.get("name"))
+
+    # Ruwe kenmerken voor Score 2.0 (worden later per sector in percentielen omgezet)
+    ts = c.get("ts") or {}
+    last = lambda k: (series(ts, k) or [[None, None]])[-1][1]  # noqa: E731
+    prev = lambda k: (series(ts, k)[-2][1] if len(series(ts, k)) >= 2 else None)  # noqa: E731
+    rev = last("annualTotalRevenue") or last("annualOperatingRevenue")
+    gp, ta = last("annualGrossProfit"), last("annualTotalAssets")
+    oi, clb = last("annualOperatingIncome"), last("annualCurrentLiabilities")
+    fcf, ocf, ni = last("annualFreeCashFlow"), last("annualOperatingCashFlow"), last("annualNetIncome")
+    sh, sh0 = last("annualDilutedAverageShares"), prev("annualDilutedAverageShares")
+    mcap_n = q.get("mcap") or c.get("mcap")
+    fpe = q.get("fpe") or c.get("fpe")
+    fwd_g = c["fwd_growth"] * 100 if c.get("fwd_growth") is not None else None
+    chg12 = q.get("chg52") if q.get("chg52") is not None else (c["chg52"] * 100 if c.get("chg52") is not None else None)
+    sma200 = q.get("sma200") or c.get("sma200")
+    up, dn = c.get("rev_up") or 0, c.get("rev_down") or 0
+    m = {
+        "gp_assets": gp / ta * 100 if gp is not None and ta else None,
+        "roic": (oi * 0.79 / (ta - clb) * 100 if oi is not None and ta and clb is not None and ta - clb > 0
+                 else (c["roe"] * 100 if c.get("roe") is not None else None)),
+        "fcf_margin": (fcf / rev * 100 if fcf is not None and rev
+                       else (c["fcf"] / c["rev_ttm"] * 100 if c.get("fcf") is not None and c.get("rev_ttm") else None)),
+        "cash_conv": min(3.0, ocf / ni) if ocf is not None and ni and ni > 0 else None,
+        "dilution": (sh / sh0 - 1) * 100 if sh and sh0 else None,
+        "rev_cagr3": extra.get("rev_cagr"),
+        "rev_yoy": extra.get("rev_yoy"),
+        "eps_g": c["eps_g"] * 100 if c.get("eps_g") is not None else None,
+        "fwd_g": fwd_g,
+        # verlieslatend (negatieve verwachte K/W) = slechtste waardering
+        "fpe": (fpe if fpe and fpe > 0 else (9999 if fpe is not None else None)),
+        "peg": (fpe / fwd_g if fpe and fpe > 0 and fwd_g and fwd_g > 0
+                else (c["peg"] if c.get("peg") and c["peg"] > 0 else None)),
+        "fcf_yield": (fcf if fcf is not None else c.get("fcf")) / mcap_n * 100
+                     if (fcf is not None or c.get("fcf") is not None) and mcap_n else None,
+        "ev_ebitda": c["ev_ebitda"] if c.get("ev_ebitda") and c["ev_ebitda"] > 0 else None,
+        "chg12": chg12,
+        "near_high": price_native / hi * 100 if hi else None,
+        "revisions": (up - dn) / (up + dn) * 100 if up + dn > 0 else None,
+    }
+    m = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in m.items()}
+    above200 = (price_native > sma200) if sma200 else None
+    earn = c.get("earnings")
+    earn_days = None
+    if earn:
+        try:
+            earn_days = (datetime.fromisoformat(earn).date() - now().date()).days
+        except Exception:  # noqa: BLE001
+            earn_days = None
     return {
         "sym": sym, "eu": eu_sym, "exch": exch, "name": c.get("name") or sym,
         "us_exch": US_EXCH.get(c.get("exch"), c.get("exch")) if region == "VS" else None,
@@ -803,11 +1009,14 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         "hi52": rnd(hi * k, 2) if hi else None, "lo52": rnd(lo * k, 2) if lo else None,
         "mcap": rnd(((q.get("mcap") or c.get("mcap") or 0) * k) / 1e9, 1) or None,
         "score": rnd(total, 1), "formule": rnd(score_f, 1), "n_crit": n_crit,
+        "m": m, "mp": {}, "above200": above200, "chg12": rnd(chg12, 1),
+        "branch": branch_of(sym if region == "VS" else (eu_sym or sym), c.get("sector") or gics, c.get("industry")),
+        "earnings": earn if earn_days is not None and earn_days >= 0 else None, "earn_days": earn_days if earn_days is not None and earn_days >= 0 else None,
         "kwal": kwal, "crit": crit, "q": qual, "steps": steps, "exp": exp,
         "cashdebt": [rnd(cash / 1e9 * (1 / fx if region == "VS" else 1), 2) if cash is not None else None,
                      rnd(debt / 1e9 * (1 / fx if region == "VS" else 1), 2) if debt is not None else None],
         "watch": sym in own["watch"] or (eu_sym or "") in own["watch"] or nm in own["names_watch"],
-        "_own": sym in own["own"] or (eu_sym or "") in own["own"] or (nm and nm in own["names_own"]),
+        "own": bool(sym in own["own"] or (eu_sym or "") in own["own"] or (nm and nm in own["names_own"])),
     }
 
 
@@ -835,7 +1044,8 @@ def main():
         return sym in own["own"] or ((c.get("eu") or {}).get("sym") or "") in own["own"]
 
     # 1. Fundamentele cijfers verversen: oudste eerst, binnen het tijdsbudget
-    todo = [s for s in uni if not is_owned(s) and needs_refresh(cache.get(s), uni[s]["region"])]
+    # eigen posities worden ook gescand: ze dienen als referentie en tellen mee in de vergelijking
+    todo = [s for s in uni if needs_refresh(cache.get(s), uni[s]["region"])]
     todo.sort(key=lambda s: (cache.get(s) or {}).get("f") or "")
     print(f"Te verversen: {len(todo)}")
     fails, done = 0, 0
@@ -865,7 +1075,17 @@ def main():
     prices = batch_quotes(y, syms)
     print(f"Koersen: {len(prices)} van {len(syms)}")
 
-    # 3. Scoren
+    # 3. Referentie-ETF's per branche en ETF-doorkijk
+    bench, fxchg = benchmarks(y)
+    try:
+        etf_prev = json.load(open(ETF_OUT, encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        etf_prev = None
+    etf_data = etf_lookthrough(y, etf_prev)
+    with open(ETF_OUT, "w", encoding="utf-8") as f:
+        json.dump(etf_data, f, ensure_ascii=False, separators=(",", ":"))
+
+    # 4. Scoren
     items = []
     for sym in ready:
         try:
@@ -875,15 +1095,52 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"  {sym:<10} score mislukt: {e}")
             continue
-        if it and not it.pop("_own"):
+        if it:
             items.append(it)
-    items.sort(key=lambda x: (-x["score"], -x["formule"], x["name"]))
+
+    # Score 2.0: percentielen binnen de sector, vijf pijlers, samengestelde score, totaalscore = percentiel in de markt
+    grp = lambda it: it.get("sector") or "?"  # noqa: E731
+    for key, (_, higher) in METRICS.items():
+        pct_ranks(items, key, higher, grp)
+    mean = lambda xs: sum(xs) / len(xs) if xs else None  # noqa: E731
+    for it in items:
+        mp = it["mp"]
+        by = {pl: [mp[k] for k, (p2, _) in METRICS.items() if p2 == pl and k in mp] for pl in ("Q", "G", "V", "M")}
+        qual_pct = it["kwal"] / 30 * 100
+        fin_q = mean(by["Q"])
+        mom = by["M"] + ([100.0 if it["above200"] else 0.0] if it["above200"] is not None else [])
+        pil = {"F": it["formule"],
+               "Q": 0.5 * fin_q + 0.5 * qual_pct if fin_q is not None else qual_pct,
+               "G": mean(by["G"]), "V": mean(by["V"]), "M": mean(mom)}
+        wsum = sum(PILLAR_W[k] for k, v in pil.items() if v is not None)
+        it["composite"] = round(sum(PILLAR_W[k] * v for k, v in pil.items() if v is not None) / wsum, 2) if wsum else 0
+        it["pillars"] = {k: (round(v, 1) if v is not None else None) for k, v in pil.items()}
+        # relatieve sterkte t.o.v. de referentie-ETF van de branche (12 maanden, in euro)
+        b = bench.get(it.get("branch") or "")
+        if b and b.get("ret12") is not None and it.get("chg12") is not None:
+            r = it["chg12"] / 100
+            if it["region"] == "VS" and fxchg is not None:
+                r = (1 + r) / (1 + fxchg) - 1
+            it["rs"] = {"etf": b["etf"].split(".")[0], "pp": round(r * 100 - b["ret12"], 1)}
+    from bisect import bisect_left, bisect_right
+    comps = sorted(it["composite"] for it in items)
+    n = len(comps)
+    for it in items:
+        lo, hi = bisect_left(comps, it["composite"]), bisect_right(comps, it["composite"])
+        it["score"] = round((lo + 0.5 * (hi - lo)) / n * 100, 1) if n else 0
+    refs = sorted([it for it in items if it["own"]], key=lambda x: -x["score"])
+    items = [it for it in items if not it["own"]]
+    expo = lambda it: (it["exp"] or {}).get("pct") if (it["exp"] or {}).get("pct") is not None else -1e9  # noqa: E731
+    items.sort(key=lambda x: (-x["score"], -expo(x), x["name"]))
     for i, it in enumerate(items, 1):
         it["rank"] = i
+    for key in bench:
+        inb = [it for it in items if it.get("branch") == key]
+        bench[key]["n85"] = sum(1 for it in inb if it["score"] >= 85)
 
     tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
-    pending = sum(1 for s in uni if not is_owned(s) and not tried(s))
-    failed = sum(1 for s in uni if not is_owned(s) and not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
+    pending = sum(1 for s in uni if not tried(s))
+    failed = sum(1 for s in uni if not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
     out = {
         "updated": iso(),
         "fx": rnd(fx, 4),
@@ -892,7 +1149,9 @@ def main():
         "failed": failed,
         "scored": len(items),
         "pending": pending,
-        "weights": {"formule": W_FORMULE, "kwaliteit": round(1 - W_FORMULE, 2)},
+        "weights": PILLAR_W,
+        "branches": bench,
+        "refs": refs,
         "items": items[:TOP_N],
     }
     with open(OUT, "w", encoding="utf-8") as f:

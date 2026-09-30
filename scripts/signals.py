@@ -1138,8 +1138,22 @@ def instap_grens(h):
     return round(t / (1 + RISE_PCT / 100), 4) if h["dir"] == "up" else round(t / (1 - DROP_PCT / 100), 4)
 
 
-def update_history(prev_hist, items, bars_by_sym, bootstrap):
+def bench_move(returns, start_iso, end_day):
+    """Beweging van de Nasdaq 100 (%) van de dag na het advies t/m end_day: ter vergelijking in het scorebord."""
+    if not returns:
+        return None
+    s_day = _dt(start_iso).astimezone(timezone.utc).date().isoformat()
+    g, n = 1.0, 0
+    for d, r in returns.items():
+        if s_day < d <= end_day:
+            g *= 1 + r
+            n += 1
+    return round((g - 1) * 100, 2) if n else None
+
+
+def update_history(prev_hist, items, bars_by_sym, bootstrap, ctx=None):
     """Houd per advies bij: begin, status (instappen / niet meer instappen), einde en uitkomst."""
+    ctx = ctx or {}
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat(timespec="seconds")
     nl_today = datetime.now(_nl()).date().isoformat()
@@ -1158,6 +1172,12 @@ def update_history(prev_hist, items, bars_by_sym, bootstrap):
                 judge_outcome(h, bars_by_sym[h["symbol"]], prices.get(h["symbol"]), today)
             except Exception as e:  # noqa: BLE001  – geschiedenis mag de radar nooit laten vastlopen
                 print(f"  geschiedenis {h['symbol']}: {e}")
+        # markt ter vergelijking: Nasdaq 100 over dezelfde periode (tot de uitkomst of tot vandaag)
+        if h.get("outcome") and (h.get("outcome") == "open" or h.get("bench_pct") is None):
+            try:
+                h["bench_pct"] = bench_move(ctx.get("bench"), h["start"], h.get("outcome_at") or today)
+            except Exception:  # noqa: BLE001
+                pass
 
     # 2) een actief advies vervalt (gaat naar het archief van vandaag) als het een uitkomst heeft,
     #    of als er minder dan RISE_PCT/DROP_PCT over is tot het doel van het advies
@@ -1196,7 +1216,12 @@ def update_history(prev_hist, items, bars_by_sym, bootstrap):
              "dir": it["direction"], "start": now_iso, "last_seen": now_iso, "end": None, "end_reason": None,
              "price": it["price"], "currency": it.get("currency", "EUR"), "projected_pct": it.get("projected_pct"),
              "score": it.get("score"), "plan": dict(it["plan"]),
-             "outcome": "open", "outcome_at": None, "result_pct": 0.0, "best_pct": 0.0}
+             "outcome": "open", "outcome_at": None, "result_pct": 0.0, "best_pct": 0.0,
+             # context bij de start, voor de analyse in het scorebord
+             "regime": ctx.get("regime"),
+             "patterns": [p["label"] for p in sorted(it.get("patterns") or [], key=lambda p: -abs(p.get("w") or 0))
+                          if p.get("dir") == it["direction"]
+                          and p["label"] not in ("Markt in risico-uit-stand", "Rustige, stijgende markt")][:3]}
         if bootstrap and not it.get("new_signal"):
             h["bootstrap"] = True                      # stond er al vóór de geschiedenis begon
         hist.append(h)
@@ -1236,7 +1261,8 @@ def _snap_item(it):
 
 _ADV_KEYS = ("id", "symbol", "name", "dir", "start", "end", "end_reason", "closed_on", "price", "currency",
              "projected_pct", "score", "plan", "outcome", "outcome_at", "result_pct", "best_pct", "bootstrap",
-             "status", "status_reason", "instap_grens", "worst_pct", "days", "last_price")
+             "status", "status_reason", "instap_grens", "worst_pct", "days", "last_price",
+             "regime", "patterns", "bench_pct")
 
 
 def _day_advices(history, day):
@@ -1356,7 +1382,9 @@ def main():
                 agg[d][k] += it["backtest"][d][k]
 
     try:
-        history = update_history(prev.get("history"), items, bars_by_sym, bootstrap="history" not in prev)
+        history = update_history(prev.get("history"), items, bars_by_sym, bootstrap="history" not in prev,
+                                 ctx={"regime": (world.get("regime") or {}).get("state"),
+                                      "bench": (returns or {}).get("nasdaq") or {}})
     except Exception as e:  # noqa: BLE001
         print(f"  geschiedenis niet bijgewerkt: {e}")
         history = prev.get("history", [])

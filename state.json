@@ -1,91 +1,10 @@
 {
-  "Stocks|45C.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "2-9-2026"
-      },
-      {
-        "level": 2,
-        "pct": 20,
-        "date": "3-9-2026"
-      }
-    ]
-  },
-  "Stocks|1ZB.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "3-9-2026"
-      }
-    ]
-  },
-  "Stocks|ASML.AS": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "3-9-2026"
-      }
-    ]
-  },
-  "Stocks|AP2.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "3-9-2026"
-      }
-    ]
-  },
-  "Stocks|ABEA.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "3-9-2026"
-      }
-    ]
-  },
-  "Stocks|NVD.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "3-9-2026"
-      }
-    ]
-  },
-  "ETF's|QDVE.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "29-9-2026",
-        "price": 47.25
-      }
-    ]
-  },
-  "Stocks|MTE.DE": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "29-9-2026",
-        "price": 943.5
-      }
-    ]
-  },
-  "Stocks|ANET": {
-    "sells": [
-      {
-        "level": 1,
-        "pct": 10,
-        "date": "29-9-2026",
-        "price": 204.92
-      }
-    ]
-  }
+  "vault": 1,
+  "alg": "AES-GCM-256",
+  "kdf": "PBKDF2-SHA256",
+  "iter": 210000,
+  "salt": "7BM8xqn1AE9RqR6dhWE8jw==",
+  "iv": "rPZlLbnHUYiorp8I",
+  "data": "naZiCH3rI1/3FFYERDSYYpkIQnuBHHjy+UMWnet9Em+9AvtfHECw8vzpF195XiKDg/IxMhWDC3ATghi4HD82CCSLQhhETzZn8b0+UUgkdAdS7Noet1vyYyyes7XHkZ5RLFc64/ZbXvFYsjcvjYknUzLVJKFl62dYrCknvrTwzH/WlR/QXYCnn+2yd2eMTQKDZ46AyHu+oGPQWv+TdmLtR3l8g0sOERWIBEoTfoWDWhXIiyvArrVdM2e+w3ZTFoaH84t7ctTL1Dnc5sJuVLZ19E22/dHlm7IBLEEv4n4N27/XR4fygoDpvqKJA+jrZvyEr5/R/nq1RUFHRpXwcIHFX8etDI96rmLOWpIarhTPe8Celzvp4rqaE45Qoq5BkL14ONsR7cz4i4UYdEX6I+B7XAk6vLVwnOciaEKhlWhH3JzLV7o6/wf0L0nbZI4Y2iTvqih13ut6pE0yjuB9QLXe4ZUNYb8ayFJ518JihsOjJnxoxC4wqx8686dTpDJDhfSmiqavvZDLDa7beFSrh+g0nvZ+VnH8eCntRjvMCVmm8LXrYZg1xNIxUsthCKXpcWIX0w364a9v2oV6Lp3kUq85LiHTa5dC2HQaAjYfPKVc+jFSUGNQ/TGgVp9eJYvFQdmyJB9+bBYgfxUKadt2Q4HkDVv+bqsiyzoIQjPlXFSeQsM5hUXPiN5Fblqni3NMhBDkwXlRqLAUMChhv1U/0BxEFsCiPMb/NyFyE1v9LmA+Z49HAJSN2ixn+t1HY1siq3laLckSHrBUbgw1OweiYfuhTlozRWK63YeJBZDw4dwyjJRfjj9u+ZsqZMSoK7ot/qVbDIWDAtRJDgwKb2AkKGMNyqVmRXyjFFcPbczCHvC7WxJ20YG/ExrnI8NMfKHvFxur6D0ier/nj3jbN+y6Qb9ZM28/JCxjCpQyFECVsQ9q7TF+nTVNuWVu74zQZ1oZkPLvuXSX5eaip9NsxQuE98lGMGejv2GE/HUWg2ZNOH1crHlYkIM64ClTqV7kPfluvOsHc2Ah2wJWxjle/YdLNiQ4ALPqioOlzDWYtHz+Z7miLw9DxH3e5tv1c/i+zahKV+Qew9A18mxguPxgXOt49juQAFVAjA961j/WMydrO/W2rxzdv5PRo48l10FPcstF7m1jx1X8nHH7VXWg61NM1P5gxBLnz/mwCFnqnaUxHMOQ6GiKYU8M13Vv+JULqzSZnuKubSJzPW7Mj9WKDqIpCpzrHzhYJ7bQiFqBLoFkW3reySHJPylqDIZ81CUFifOi4AmAxbeTLyigc8CIvC98REc1q9Lq1NZ+PlMCaW3Qhh82pUPElHFZ64OALrK1bqrIFzn4tpNMSXtM55C+6hYXgHsiiq7CPBqjbnfnOdsR779UNe7BS+mOA8R7ivOS7wi3bJ8LEcJHoVZO+7sj67L59YGIEZiEQUIgswCyCPYSWceaz4juTVBjW/CfdZNBuYio+mr7jN3g8ojJCBUd0psZ5Kf8aaoiLLDJEfrdyKNv1N6FzbX60mLQW6FGaahydjXrjyB/HDQKQ4F/ize5zkfhdPSl2+cVoSpW+3ikZkBw3mFeJmcZ/fT4KptX96DK/nfX86Htj1B3pXnCJ7/6yg+hSn9niFPh9Xz0aYq47bRAY/KLrBSsS6MM6zohA5d5jzdfCnoIXPsaqt3ZGzhALjCJaVTp9k1Tn30LCSIglyji8/MMwfuM1cg+RrYjppm0BPIOg+IZ3kqp/EYxfUViOWfdn8iJQfOXd+nii/gPoQJl7iqlPDwQ8TMZ8OEqNM5Fy+rENmsB7GsIhpN807edzqVPFh2935gF8xG8yzbapBnaUOq3ia6ZwPq0SsxUCxYJojOfBvIYtaXphDV0sRWziI1h1gxjKduPOXzoL3MVCIVvUYbS44KK+CtZ4btGyu0vRBA12f7LTLnZt6cVD+Ctze1xlbeK5M35NjDhHA1FLtsv7qS+Cao5",
+  "note": "Versleuteld. Alleen te openen met de juiste sleutel."
 }

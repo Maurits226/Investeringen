@@ -223,8 +223,9 @@ def enrich(tickers):
         t["label"] = p.get("label")
         t["watch"] = bool(p.get("watch")) or (t.get("category") or "").lower() == "watchlist"
         t["name"] = t.get("name") or names.get(sym)
+        # geen aankoopprijs of aantal: signals.json is openbaar (die staan versleuteld in state.json)
         t["position"] = {"ticker": sym, "section": t["category"], "label": t["label"], "watch": t["watch"],
-                         "cost": p.get("cost"), "qty": p.get("qty"), "thresh": p.get("thresh")}
+                         "thresh": p.get("thresh")}
     return tickers, info.get("__version__", 0)
 
 

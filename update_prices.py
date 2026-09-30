@@ -5,6 +5,7 @@ en schrijft het resultaat naar data.json.
 Draait op GitHub Actions (server-side, dus geen CORS-probleem).
 """
 import json
+import math
 import time
 import urllib.request
 import urllib.error
@@ -67,6 +68,14 @@ def fetch_one(ticker):
         else:
             prev_close = last_c
 
+    # Beweeglijkheid (jaarbasis) en trend: voor slimme koopdrempels en de trendcheck in het dashboard
+    vol = None
+    rets = [math.log(b / a) for a, b in zip(closes, closes[1:]) if a and b]
+    if len(rets) >= 60:
+        mu = sum(rets) / len(rets)
+        vol = math.sqrt(sum((r - mu) ** 2 for r in rets) / (len(rets) - 1)) * math.sqrt(252) * 100
+    sma = lambda n: (sum(closes[-n:]) / n) if len(closes) >= n else None  # noqa: E731
+
     return {
         "ticker": ticker,
         "price": meta.get("regularMarketPrice"),
@@ -74,6 +83,9 @@ def fetch_one(ticker):
         "currency": meta.get("currency", "USD"),
         "name": meta.get("longName") or meta.get("shortName") or ticker,
         "high52": high52,
+        "vol": round(vol, 1) if vol else None,
+        "sma50": round(sma(50), 4) if sma(50) else None,
+        "sma200": round(sma(200), 4) if sma(200) else None,
         "low52": low52,
         "exchange": meta.get("exchangeName"),
         "exchangeFull": meta.get("fullExchangeName"),

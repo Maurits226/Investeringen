@@ -301,10 +301,10 @@
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
         <option value="section">Categorie (standaard)</option>
-        <option value="name">Naam (A-Z)</option>
-        <option value="result">Resultaat (hoog-laag)</option>
+        <option value="result">Resultaat (hoog → laag)</option>
         <option value="signal">Dichtst bij koopsignaal</option>
         <option value="sellsignal">Dichtst bij verkoopsignaal</option>
+        <option value="name">Naam (A → Z)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -326,7 +326,7 @@
     <div class="tb-group">
       <span class="tb-label">Status</span>
       <select id="statusSel">
-        <option value="all">Alles</option>
+        <option value="all">Alle</option>
         <option value="signals">Koopsignalen</option>
         <option value="open">Openstaande verkoop</option>
       </select>
@@ -1231,8 +1231,20 @@ setInterval(render, 5 * 60 * 1000);
 
 // Ook verversen zodra je terugkeert naar het tabblad
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) render();
+  if (!document.hidden) { dailyReset(); render(); }
 });
+
+// Elke dag schone lei: filters terug naar standaard, zodat je nooit data mist door een vergeten filter
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+let filterDay = todayKey();
+function dailyReset() {
+  if (filterDay === todayKey()) return false;
+  filterDay = todayKey();
+  ['catSel', 'statusSel', 'mktSel'].forEach(id => { const el = document.getElementById(id); if (el) el.value = 'all'; });
+  document.getElementById('sortSel').value = 'section';
+  return true;
+}
+setInterval(() => { if (dailyReset()) render(); }, 60 * 1000);
 
 // Sorteren en filteren: opnieuw renderen bij wijziging
 document.getElementById('sortSel').onchange = render;

@@ -442,7 +442,7 @@
     <div class="tb-group">
       <span class="tb-label">Status</span>
       <select id="statusSel">
-        <option value="all">Alles</option>
+        <option value="all">Alle</option>
         <option value="up">Koopsignaal</option>
         <option value="down">Verkoopsignaal</option>
         <option value="new">Nieuw signaal</option>
@@ -491,6 +491,16 @@ try { ui = { ...ui, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } cat
 if (!['section', 'name', 'result', 'rank'].includes(ui.sort) || (ui.sort === 'rank' && SET !== 'top250')) ui.sort = 'section';
 if (!['all', 'up', 'down', 'flat', 'new'].includes(ui.status)) ui.status = 'all';
 const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
+// Elke dag schone lei: filters terug naar standaard, zodat je nooit data mist door een vergeten filter
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function dailyReset() {
+  if (ui.day === todayKey()) return false;
+  Object.assign(ui, { sort: 'section', cat: 'all', status: 'all', mkt: 'all', day: todayKey() });
+  saveUI();
+  const s = document.getElementById('sortSel'); if (s) s.value = ui.sort;
+  return true;
+}
+dailyReset();
 
 // Posities van het portfolio (zelfde website, dus zelfde localStorage):
 // zo kloppen categorie, label en watchlist ook voor posities die je later toevoegt.
@@ -1363,7 +1373,8 @@ if (SET === 'top250') document.querySelector('#statusSel option[value="down"]').
 document.getElementById('sortSel').value = ui.sort;
 load().then(syncTrades);
 setInterval(load, 5 * 60 * 1000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); syncTrades(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { dailyReset(); load(); syncTrades(); } });
+setInterval(() => { if (dailyReset()) render(); }, 60 * 1000);   // ook als de pagina over middernacht open blijft
 </script>
 </body>
 </html>

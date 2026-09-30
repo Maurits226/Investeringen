@@ -590,7 +590,21 @@ function resetAll() {
 let tSearch;
 $('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
 $('resetBtn').onclick = resetAll;
-document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastLoad > 10 * 60 * 1000) load(); });
+// Elke dag schone lei: filters terug naar standaard, zodat je nooit data mist door een vergeten filter
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+let filterDay = todayKey();
+function dailyReset() {
+  if (filterDay === todayKey()) return false;
+  filterDay = todayKey();
+  $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all';
+  $('minSel').value = '0'; $('searchInp').value = ''; quick = null; openSet.clear();
+  return true;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (dailyReset() || Date.now() - lastLoad > 10 * 60 * 1000) load();
+});
+setInterval(() => { if (dailyReset()) load(); }, 60 * 1000);
 window.addEventListener('storage', e => { if (e.key === 'portfolio_positions') render(); });
 load();
 </script>

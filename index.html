@@ -27,7 +27,11 @@
     display: flex; gap: 4px; min-width: 0;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px;
   }
-  .seg.world { flex: 2 1 0; }
+  .seg.world { flex: 2.6 1 0; }
+  .seg button.home { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding-left: 12px; padding-right: 14px; }
+  .seg button.home svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .seg.world button.home.active { background: var(--accent); color: #0d1117; }
+  .navwrap.is-home .seg.view button { color: #5d6166; }
   .seg.view { flex: 3 1 0; }
   .seg button {
     flex: 1; min-width: 0; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
@@ -44,6 +48,8 @@
     nav.tabs { padding: 10px 12px; }
     .navwrap { flex-direction: column; gap: 6px; }
     .seg button { font-size: 13.5px; padding: 9px 6px; }
+    .seg button.home .lbl { display: none; }
+    .seg button.home { padding: 9px 11px; }
   }
   main { flex: 1 1 auto; position: relative; min-height: 0; }
   iframe {
@@ -57,6 +63,8 @@
   <nav class="tabs">
     <div class="navwrap">
       <div class="seg world" role="tablist" aria-label="Portefeuille">
+        <button role="tab" data-world="home" class="home" title="Vandaag: je dag in één oogopslag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg><span class="lbl">Vandaag</span></button>
         <button role="tab" data-world="inv">Mijn investeringen</button>
         <button role="tab" data-world="top">Kansen portefeuille</button>
       </div>
@@ -68,6 +76,7 @@
     </div>
   </nav>
   <main>
+    <iframe id="home" title="Vandaag" data-src="vandaag.html"></iframe>
     <iframe id="inv-overzicht" title="Investeringen" src="portfolio.html"></iframe>
     <iframe id="inv-radar" title="Patroonradar · Investeringen" data-src="signals.html"></iframe>
     <iframe id="inv-archief" title="Archief · Investeringen" data-src="archief.html"></iframe>
@@ -79,26 +88,34 @@
   // Twee niveaus: wereld (je eigen investeringen of de Top 250) × scherm (overzicht, radar, archief)
   const WORLDS = ['inv', 'top'], VIEWS = ['overzicht', 'radar', 'archief'];
   const HASH = {            // mooie adressen, ook de oude (#patroonradar, #archief, #top250) blijven werken
+    'home': 'vandaag',
     'inv-overzicht': 'investeringen', 'inv-radar': 'patroonradar', 'inv-archief': 'archief',
     'top-overzicht': 'top250', 'top-radar': 'top250-radar', 'top-archief': 'top250-archief'
   };
   const FROM_HASH = Object.fromEntries(Object.entries(HASH).map(([k, v]) => [v, k]));
   FROM_HASH.signalen = 'inv-radar';
   const TITLE = {
+    'home': 'Vandaag',
     'inv-overzicht': 'Investeringen', 'inv-radar': 'Patroonradar · Investeringen', 'inv-archief': 'Archief · Investeringen',
     'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille'
   };
   let world = 'inv', view = 'overzicht';
 
+  let atHome = false;
   function show(w, v) {
-    world = WORLDS.includes(w) ? w : 'inv';
-    view = VIEWS.includes(v) ? v : 'overzicht';
-    const id = world + '-' + view;
+    atHome = w === 'home';
+    if (!atHome) {
+      world = WORLDS.includes(w) ? w : 'inv';
+      view = VIEWS.includes(v) ? v : 'overzicht';
+    }
+    const id = atHome ? 'home' : world + '-' + view;
+    document.querySelector('.navwrap').classList.toggle('is-home', atHome);
     document.querySelectorAll('.seg.world button').forEach(b => {
-      const on = b.dataset.world === world; b.classList.toggle('active', on); b.setAttribute('aria-selected', on);
+      const on = atHome ? b.dataset.world === 'home' : b.dataset.world === world;
+      b.classList.toggle('active', on); b.setAttribute('aria-selected', on);
     });
     document.querySelectorAll('.seg.view button').forEach(b => {
-      const on = b.dataset.view === view; b.classList.toggle('active', on); b.setAttribute('aria-selected', on);
+      const on = !atHome && b.dataset.view === view; b.classList.toggle('active', on); b.setAttribute('aria-selected', on);
     });
     document.querySelectorAll('main iframe').forEach(f => {
       const on = f.id === id;
@@ -111,21 +128,23 @@
   }
   function fromKey(key) {
     const id = FROM_HASH[key] || key;
+    if (id === 'home') return ['home'];
     const [w, v] = String(id || '').split('-');
     return [w, v];
   }
 
   // Wissel je van wereld, dan blijf je op hetzelfde scherm (radar → radar)
   document.querySelectorAll('.seg.world button').forEach(b => b.addEventListener('click', () => show(b.dataset.world, view)));
+  // Vanaf Vandaag een scherm kiezen: dat scherm van de laatst gebruikte lijst
   document.querySelectorAll('.seg.view button').forEach(b => b.addEventListener('click', () => show(world, b.dataset.view)));
   window.addEventListener('hashchange', () => show(...fromKey(location.hash.slice(1))));
 
-  // Nieuw tabblad of browser opnieuw geopend: startpagina Mijn investeringen · Overzicht.
+  // Nieuw tabblad of browser opnieuw geopend: startscherm Vandaag.
   // Verversen binnen hetzelfde tabblad: je blijft waar je was.
   let start = null;
   try { start = sessionStorage.getItem('active_tab'); } catch (e) {}
   if (start && FROM_HASH[location.hash.slice(1)]) start = FROM_HASH[location.hash.slice(1)];
-  show(...fromKey(start || 'inv-overzicht'));
+  show(...fromKey(start || 'home'));
 </script>
 </body>
 </html>

@@ -461,6 +461,7 @@
 
 </div>
 
+<script src="vault.js"></script>
 <script>
 // Welke radar: je eigen investeringen (standaard) of de Top 250 (signals.html?set=top250)
 const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top250' : 'investeringen';
@@ -1037,7 +1038,7 @@ function entryInfo(it) {
 const GH_OWNER = 'Maurits226', GH_REPO = 'Investeringen', GH_BRANCH = 'main', GH_TRADES_FILE = 'radar.json';
 const TRADES_KEY = 'radar_trades';
 let trades = (() => { try { const t = JSON.parse(localStorage.getItem(TRADES_KEY) || '[]'); return Array.isArray(t) ? t : []; } catch (e) { return []; } })();
-let tradesSha = null, syncState = '';
+let tradesSha = null, syncState = '', tradesPlain = false;
 const saveTradesLocal = () => { try { localStorage.setItem(TRADES_KEY, JSON.stringify(trades)); } catch (e) {} };
 const ghToken = () => { try { return localStorage.getItem('gh_token') || ''; } catch (e) { return ''; } };
 const openTrades = () => trades.filter(t => !t.deleted && t.status === 'open' && (t.set || 'investeringen') === SET);
@@ -1056,14 +1057,18 @@ async function fetchRemoteTrades() {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const j = await r.json();
   tradesSha = j.sha;
-  const bin = atob(j.content.replace(/\n/g, ''));
-  const parsed = JSON.parse(new TextDecoder('utf-8').decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+  let parsed = JSON.parse(Vault.b64ToText(j.content));
+  tradesPlain = !Vault.isLocked(parsed);
+  if (!tradesPlain) {
+    if (!ghToken()) throw new Error('versleuteld, geen token');
+    parsed = await Vault.unlock(parsed, ghToken());      // gooit een fout bij een verkeerde token
+  }
   return Array.isArray(parsed.trades) ? parsed.trades : [];
 }
 async function pushTrades() {
-  const bytes = new TextEncoder().encode(JSON.stringify({ trades }, null, 2));
-  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
-  const body = { message: 'Patroonradar: opgevolgde adviezen bijgewerkt', content: btoa(bin), branch: GH_BRANCH };
+  // versleuteld opslaan (zie vault.js): alleen te lezen met jouw token
+  const locked = await Vault.lock({ trades }, ghToken());
+  const body = { message: 'Patroonradar: opgevolgde adviezen bijgewerkt (versleuteld)', content: Vault.textToB64(JSON.stringify(locked, null, 2)), branch: GH_BRANCH };
   if (tradesSha) body.sha = tradesSha;
   const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_TRADES_FILE}`, {
     method: 'PUT', body: JSON.stringify(body),
@@ -1080,7 +1085,7 @@ async function syncTrades() {
     for (let poging = 0; poging < 2; poging++) {
       const remote = await fetchRemoteTrades();
       const merged = mergeTrades(remote, trades);
-      const changed = JSON.stringify(merged) !== JSON.stringify(mergeTrades(remote, []));
+      const changed = JSON.stringify(merged) !== JSON.stringify(mergeTrades(remote, [])) || (tradesPlain && remote.length > 0);
       trades = merged; saveTradesLocal();
       if (!changed || !ghToken()) break;
       try { await pushTrades(); break; } catch (e) { if (poging) throw e; }   // tegelijk gewijzigd op ander apparaat: opnieuw

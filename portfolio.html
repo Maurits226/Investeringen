@@ -440,45 +440,48 @@
   </div>
 </dialog>
 
+<script src="vault.js"></script>
 <script>
+// Aankoopprijzen en aantallen staan NIET in deze openbare lijst, maar versleuteld in state.json
+// (zie vault.js). Deze lijst bevat alleen welke posities er zijn en hun koopdrempel.
 const DEFAULT = [
   // Watchlist: geen aankoopprijs, alleen volgen
   { ticker: 'SPX.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
 
   // Stocks
-  { ticker: 'AMD.DE',  section: 'Stocks', cost: 397.10, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: '1YD.DE',  section: 'Stocks', cost: 281.19, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'MTE.DE',  section: 'Stocks', cost: 593.70, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: '1ZB.DE',  section: 'Stocks', cost: 105.06, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'TL0.DE',  section: 'Stocks', cost: 302.67, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: '49V.DE',  section: 'Stocks', cost: 166.72, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'E7S.DE',  section: 'Stocks', cost: 229.79, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'AMZ.DE',  section: 'Stocks', cost: 173.11, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'ENR.DE',  section: 'Stocks', cost: 147.74, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'LAR0.DE', section: 'Stocks', cost: 268.90, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'ZETA',    section: 'Stocks', cost: 21.43,  qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'ABEA.DE', section: 'Stocks', cost: 156.05, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'AP2.DE',  section: 'Stocks', cost: 170.29, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'ANET',    section: 'Stocks', cost: 126.74, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: '45C.DE',  section: 'Stocks', cost: 89.44,  qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'GOS.DE',  section: 'Stocks', cost: 739.00, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'CMC.DE',  section: 'Stocks', cost: 255.59, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'DWD.DE',  section: 'Stocks', cost: 147.57, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'NVD.DE',  section: 'Stocks', cost: 87.76,  qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'PTX.DE',  section: 'Stocks', cost: 123.29, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'TSFA.DU', section: 'Stocks', cost: 313.50, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'ASML.AS', section: 'Stocks', cost: 704.60, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'UU2.DE',  section: 'Stocks', cost: 853.60, qty: 1, thresh: 20, cur: 'native' },
-  { ticker: 'MSF.DE',  section: 'Stocks', cost: 353.15, qty: 1, thresh: 20, cur: 'native' },
+  { ticker: 'AMD.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: '1YD.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'MTE.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: '1ZB.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'TL0.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: '49V.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'E7S.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'AMZ.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'ENR.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'LAR0.DE', section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'ZETA',    section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'ABEA.DE', section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'AP2.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'ANET',    section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: '45C.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'GOS.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'CMC.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'DWD.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'NVD.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'PTX.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'TSFA.DU', section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'ASML.AS', section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'UU2.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'MSF.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
 
   // ETF's
-  { ticker: 'QDVE.DE', section: "ETF's", label: 'S&P 500 Information Technology', cost: 29.983, qty: 1, thresh: 10, cur: 'native' },
-  { ticker: 'VHYL.MI', section: "ETF's", label: 'Vanguard High Dividend', cost: 81.669, qty: 1, thresh: 10, cur: 'native' },
-  { ticker: 'VUAA.MI', section: "ETF's", label: 'S&P 500', cost: 93.02,  qty: 1, thresh: 10, cur: 'native' },
+  { ticker: 'QDVE.DE', section: "ETF's", label: 'S&P 500 Information Technology', thresh: 10, cur: 'native' },
+  { ticker: 'VHYL.MI', section: "ETF's", label: 'Vanguard High Dividend', thresh: 10, cur: 'native' },
+  { ticker: 'VUAA.MI', section: "ETF's", label: 'S&P 500', thresh: 10, cur: 'native' },
 
   // Gold & Silver
-  { ticker: 'WSLV.MI', section: 'Gold & Silver', label: 'Silver', cost: 64.32,  qty: 1, thresh: 10, cur: 'native' },
-  { ticker: 'PHAU.AS', section: 'Gold & Silver', label: 'Gold', cost: 364.33, qty: 1, thresh: 10, cur: 'native' }
+  { ticker: 'WSLV.MI', section: 'Gold & Silver', label: 'Silver', thresh: 10, cur: 'native' },
+  { ticker: 'PHAU.AS', section: 'Gold & Silver', label: 'Gold', thresh: 10, cur: 'native' }
 ];
 
 // Volgorde waarin de secties getoond worden
@@ -487,7 +490,7 @@ const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 // Verhoog dit nummer wanneer de standaardlijst wijzigt; dan wordt de lijst zelf
 // opnieuw ingeladen. Je gerealiseerde verkopen en aangepaste aankoopprijzen
 // (opgeslagen onder 'portfolio_state') blijven daarbij behouden.
-const DEFAULT_VERSION = 34;
+const DEFAULT_VERSION = 35;
 
 // Geef elke DEFAULT-positie een stabiel id (sectie + ticker), zodat we per
 // positie de verkoop-historie en prijsaanpassingen kunnen bewaren.
@@ -522,9 +525,29 @@ function loadStateLocal() {
 function saveStateLocal() {
   try { localStorage.setItem('portfolio_state', JSON.stringify(userState)); } catch (e) {}
 }
+function applyState(p) {
+  const st = userState[posId(p)];
+  if (st && st.cost != null) p.cost = st.cost;
+  if (st && st.qty != null) p.qty = st.qty;
+}
+// Samenvoegen: GitHub is leidend, maar lokaal bekende aankoopprijzen vullen ontbrekende aan
+function mergeState(remote, local) {
+  const out = {};
+  new Set([...Object.keys(remote || {}), ...Object.keys(local || {})]).forEach(id => {
+    const r = (remote || {})[id], l = (local || {})[id];
+    if (!r) { out[id] = l; return; }
+    if (!l || typeof r !== 'object') { out[id] = r; return; }
+    out[id] = { ...l, ...r };
+    if (r.cost == null && l.cost != null) out[id].cost = l.cost;
+    if (r.qty == null && l.qty != null) out[id].qty = l.qty;
+    if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
+  });
+  return out;
+}
 
 let userState = loadStateLocal();
 let stateSha = null;          // sha van state.json op GitHub (nodig om te schrijven)
+let stateLocked = false;      // false | 'geen-token' | 'verkeerde-token'
 let syncStatus = 'local';     // 'local' | 'synced' | 'error' | 'syncing'
 
 // Lees state.json van GitHub (werkt ook zonder token, want repo is public)
@@ -540,32 +563,44 @@ async function loadStateFromGitHub() {
     const j = await r.json();
     stateSha = j.sha;
     // base64 -> UTF-8 tekst (robuust met €, accenten)
-    const bin = atob(j.content.replace(/\n/g, ''));
-    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
-    const text = new TextDecoder('utf-8').decode(bytes);
-    return JSON.parse(text);
+    const parsed = JSON.parse(Vault.b64ToText(j.content));
+    stateLocked = false;
+    if (Vault.isLocked(parsed)) {
+      if (!token) { stateLocked = 'geen-token'; return null; }
+      try { return await Vault.unlock(parsed, token); }
+      catch (e) { stateLocked = 'verkeerde-token'; return null; }   // token vervangen op een ander apparaat?
+    }
+    return parsed;                                                  // oude, nog niet versleutelde versie
   } catch (e) {
     return null;
   }
 }
 
-// Schrijf userState naar GitHub (vereist token)
-async function saveStateToGitHub() {
+// Alleen de sha ophalen (nodig om te schrijven), zonder te ontsleutelen
+async function refreshStateSha() {
+  const token = getToken();
+  const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`,
+    { headers: Object.assign({ Accept: 'application/vnd.github+json' }, token ? { Authorization: 'Bearer ' + token } : {}) });
+  stateSha = r.status === 404 ? null : (r.ok ? (await r.json()).sha : stateSha);
+}
+
+// Schrijf userState versleuteld naar GitHub (vereist token).
+// force = bewust opnieuw versleutelen met een nieuwe token (de gegevens in het geheugen zijn dan al ontsleuteld).
+async function saveStateToGitHub(force = false) {
   const token = getToken();
   if (!token) return false;
   try {
     syncStatus = 'syncing'; updateSyncBadge();
-    // Haal eerst de laatste sha op (kan gewijzigd zijn op ander apparaat)
-    await loadStateFromGitHub();
+    // Eerst de laatste sha ophalen (kan gewijzigd zijn op een ander apparaat)
+    await refreshStateSha();
     const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}`;
-    // UTF-8 tekst -> base64 (robuust met €, accenten)
-    const text = JSON.stringify(userState, null, 2);
-    const bytes = new TextEncoder().encode(text);
-    let bin = '';
-    bytes.forEach(b => bin += String.fromCharCode(b));
+    // Niet overschrijven als we de versie op GitHub niet konden openen (dan zou je gegevens van een ander apparaat wissen)
+    if (stateLocked === 'verkeerde-token' && !force) throw new Error('state.json is versleuteld met een andere token');
+    // Versleutelen met de token, daarna als tekst naar GitHub
+    const locked = await Vault.lock(userState, token);
     const body = {
-      message: 'Update portfolio state ' + new Date().toISOString(),
-      content: btoa(bin),
+      message: 'Update portfolio state (versleuteld) ' + new Date().toISOString(),
+      content: Vault.textToB64(JSON.stringify(locked, null, 2)),
       branch: GH_BRANCH
     };
     if (stateSha) body.sha = stateSha;
@@ -595,11 +630,26 @@ function saveState() {
   if (getToken()) saveStateToGitHub();
 }
 
+// Eenmalige migratie: aankoopprijzen die nog in de oude lokale lijst staan, gaan naar de state
+// (die versleuteld naar GitHub gaat), zodat ze niet verloren gaan nu ze uit de openbare lijst zijn.
+let migrated = false;
+function migrateCosts(list) {
+  (list || []).forEach(p => {
+    if (!p || p.cost == null) return;
+    const id = posId(p);
+    const st = userState[id] || (userState[id] = {});
+    if (st.cost == null) { st.cost = p.cost; migrated = true; }
+    if (p.qty != null && st.qty == null && p.qty !== 1) { st.qty = p.qty; migrated = true; }
+  });
+  if (migrated) saveStateLocal();
+}
+
 function loadPositions() {
   let base;
   try {
     const savedVer = parseInt(localStorage.getItem('portfolio_version') || '0');
     const saved = localStorage.getItem('portfolio_positions');
+    if (saved) migrateCosts(JSON.parse(saved));
     if (saved && savedVer >= DEFAULT_VERSION) {
       base = JSON.parse(saved);
     }
@@ -611,11 +661,8 @@ function loadPositions() {
       localStorage.setItem('portfolio_version', String(DEFAULT_VERSION));
     } catch (e) {}
   }
-  // Pas opgeslagen aangepaste aankoopprijzen toe
-  base.forEach(p => {
-    const st = userState[posId(p)];
-    if (st && st.cost != null) p.cost = st.cost;
-  });
+  // Pas de (versleuteld bewaarde) aankoopprijzen en aantallen toe
+  base.forEach(p => applyState(p));
   return base;
 }
 function savePositions() {
@@ -1427,7 +1474,8 @@ function updateSyncBadge() {
     synced:  { cls: 'sync-btn synced',  txt: '✓ Gesynct',  title: 'Gesynchroniseerd met GitHub — klik om te wijzigen' },
     local:   { cls: 'sync-btn',         txt: '⟳ Sync uit',  title: 'Synchronisatie met GitHub instellen' },
     error:   { cls: 'sync-btn error',   txt: '⚠ Sync-fout', title: 'Synchronisatie mislukt — klik om opnieuw te proberen' },
-    syncing: { cls: 'sync-btn syncing', txt: '⟳ Bezig…',   title: 'Bezig met synchroniseren' }
+    syncing: { cls: 'sync-btn syncing', txt: '⟳ Bezig…',   title: 'Bezig met synchroniseren' },
+    locked:  { cls: 'sync-btn error',   txt: '🔒 Token nodig', title: 'Je gegevens op GitHub zijn versleuteld met een andere token. Klik om je huidige token in te voeren.' }
   };
   const s = map[syncStatus] || map.local;
   btn.className = s.cls;
@@ -1442,7 +1490,17 @@ document.getElementById('syncBtn').onclick = async () => {
     const keuze = confirm('Synchronisatie is actief op dit apparaat.\n\nOK = token vervangen\nAnnuleren = token verwijderen (terug naar alleen dit apparaat)');
     if (keuze) {
       const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...):', '');
-      if (nieuw) { setToken(nieuw.trim()); await saveStateToGitHub(); alert('Token opgeslagen en gesynchroniseerd.'); }
+      if (nieuw) {
+        // Had dit apparaat de gegevens al open (juiste oude token)? Dan versleutelen we ze opnieuw met de nieuwe token.
+        const hadOpen = stateLocked !== 'verkeerde-token';
+        setToken(nieuw.trim());
+        if (!hadOpen) {
+          const remote = await loadStateFromGitHub();      // op een ander apparaat al omgezet? Dan opent de nieuwe token hem
+          if (remote) { userState = mergeState(remote, userState); saveStateLocal(); positions.forEach(applyState); render(); }
+        }
+        const ok = await saveStateToGitHub(hadOpen || stateLocked !== 'verkeerde-token');
+        alert(ok ? 'Token opgeslagen. Je gegevens zijn versleuteld met de nieuwe token.' : 'Kon niet opslaan — controleer de token.');
+      }
     } else {
       setToken('');
       syncStatus = 'local'; updateSyncBadge();
@@ -1457,8 +1515,8 @@ document.getElementById('syncBtn').onclick = async () => {
     // Bij het aanzetten: haal eerst remote op, en als die er niet is, push de lokale
     const remote = await loadStateFromGitHub();
     if (remote && typeof remote === 'object') {
-      userState = remote; saveStateLocal();
-      positions.forEach(p => { const st = userState[posId(p)]; if (st && st.cost != null) p.cost = st.cost; });
+      userState = mergeState(remote, userState); saveStateLocal();
+      positions.forEach(applyState);
       render();
     }
     const ok = await saveStateToGitHub();
@@ -1478,15 +1536,26 @@ document.getElementById('resetFilters').onclick = () => {
 // Bij opstart: probeer de state van GitHub te halen (bron van waarheid bij
 // meerdere apparaten). Lukt dat, gebruik die; anders val terug op lokaal.
 async function initSync() {
+  let wasPlain = false;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`,
+      { headers: getToken() ? { Authorization: 'Bearer ' + getToken() } : {} });
+    if (r.ok) wasPlain = !Vault.isLocked(JSON.parse(Vault.b64ToText((await r.json()).content)));
+  } catch (e) {}
   const remote = await loadStateFromGitHub();
   if (remote && typeof remote === 'object') {
-    userState = remote;
+    const merged = mergeState(remote, userState);
+    const changed = JSON.stringify(merged) !== JSON.stringify(remote);
+    userState = merged;
     saveStateLocal();
-    positions.forEach(p => {
-      const st = userState[posId(p)];
-      if (st && st.cost != null) p.cost = st.cost;
-    });
+    positions.forEach(applyState);
     syncStatus = getToken() ? 'synced' : 'local';
+    // oude onversleutelde versie of nieuwe gegevens (migratie)? Meteen versleuteld terugschrijven
+    if (getToken() && (wasPlain || changed || migrated)) saveStateToGitHub();
+  } else if (stateLocked === 'verkeerde-token') {
+    syncStatus = 'locked';
+  } else if (getToken() && (migrated || wasPlain)) {
+    saveStateToGitHub();
   }
   updateSyncBadge();
   render();

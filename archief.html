@@ -266,6 +266,7 @@
   </div>
 </div>
 
+<script src="vault.js"></script>
 <script>
 // Welk archief: je eigen investeringen (standaard) of de Top 250 (archief.html?set=top250)
 const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top250' : 'investeringen';
@@ -321,8 +322,9 @@ async function loadTrades() {
     const tk = localStorage.getItem('gh_token'); if (tk) headers.Authorization = 'Bearer ' + tk;
     const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/radar.json?ref=${GH_BRANCH}&t=${Date.now()}`, { headers, cache: 'no-store' });
     if (r.ok) {
-      const bin = atob((await r.json()).content.replace(/\n/g, ''));
-      remote = JSON.parse(new TextDecoder('utf-8').decode(Uint8Array.from(bin, c => c.charCodeAt(0)))).trades || [];
+      let parsed = JSON.parse(Vault.b64ToText((await r.json()).content));
+      if (Vault.isLocked(parsed)) parsed = tk ? await Vault.unlock(parsed, tk) : {};   // versleuteld: alleen met je token
+      remote = parsed.trades || [];
     }
   } catch (e) {}
   const m = {};

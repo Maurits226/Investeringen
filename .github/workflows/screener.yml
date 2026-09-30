@@ -1,12 +1,12 @@
 name: Top 250
 
-# Fundamentele cijfers veranderen per kwartaal, dus twee runs per dag is ruim.
-# De eerste keer vullen duurt 1-2 runs (elke run max ~45 min, oudste stocks eerst).
-# Handmatig starten kan via Actions → Top 250 → Run workflow.
+# Kansen portefeuille. Breed universum (~2.000+ bedrijven), fundamentele cijfers per stock
+# wekelijks ververst. Vier runs per dag: de eerste volledige scan duurt zo ongeveer 1 à 2 dagen,
+# daarna is elke run vooral koersen bijwerken. Handmatig starten: Actions → Top 250 → Run workflow.
 
 on:
   schedule:
-    - cron: "40 5,15 * * *"      # 07:40 en 17:40 NL-zomertijd
+    - cron: "40 3,9,15,21 * * *"   # 05:40, 11:40, 17:40 en 23:40 NL-zomertijd
   workflow_dispatch:
   push:
     branches: [ main ]

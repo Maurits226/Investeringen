@@ -2,9 +2,12 @@
 """
 Top 250 — genereert screener.json voor screener.html.
 
-Zoekt kansen BUITEN je portefeuille: ~500 Amerikaanse bedrijven (S&P 500 + extra's)
-en ~250 bedrijven uit de eurozone. Alleen euro- en dollarbedrijven; andere valuta
-(pond, frank, kroon, ...) worden overgeslagen.
+Zoekt kansen BUITEN je portefeuille in een breed universum:
+  * alle Amerikaanse bedrijven boven $2 mld marktwaarde (Yahoo-screener, ~1.500) + de S&P 500
+  * alle eurozone-bedrijven boven €1 mld op hun thuisbeurs (Xetra, Parijs, Amsterdam, Milaan,
+    Madrid, Brussel, Helsinki, Dublin, Wenen, Lissabon)
+  * plus screener_universe.txt voor eigen toevoegingen
+Alleen euro- en dollarbedrijven: bedrijven die in een andere valuta noteren of rapporteren vallen af.
 
 Per stock:
   * Formuleblad (Investments_formuleblad.xlsx) — 10 criteria van 0/5/10 punten
@@ -36,7 +39,13 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 # ── Instellingen ─────────────────────────────────────────────────────────
-TOP_N = 320                 # in screener.json; de pagina toont er 250 na het verbergen van eigen posities
+TOP_N = 650                 # in screener.json; de pagina toont max. 500 met score 85+ na het verbergen van eigen posities
+# Breed universum via de Yahoo-screener: de grootste bedrijven van de markt, wekelijks ververst
+DYN_REFRESH_DAYS = 7
+DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven boven $2 mld, grootste eerst
+DYN_EU = {"min_cap": 1e9, "limit": 200,                    # eurozone: per thuisbeurs boven €1 mld
+          "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS"]}
+OK_FIN_CUR = {"USD", "EUR"}  # bedrijven die in een andere valuta rapporteren (bv. Taiwanese ADR's) vallen af
 TIME_BUDGET_MIN = float(os.environ.get("SCREENER_BUDGET_MIN", "45"))
 FUND_REFRESH_DAYS = 7       # fundamentele cijfers per stock hooguit wekelijks verversen
 ERROR_RETRY_H = 20          # mislukte stock pas na zoveel uur opnieuw proberen
@@ -145,6 +154,25 @@ class Yahoo:
             except Exception:  # noqa: BLE001
                 pass
         return ""
+
+    def post(self, url, payload, crumb=True, tries=3):
+        last = None
+        for i in range(tries):
+            full = url + (("&" if "?" in url else "?") + "crumb=" + quote(self._get_crumb()) if crumb else "")
+            req = urllib.request.Request(full, data=json.dumps(payload).encode(),
+                                         headers={"Content-Type": "application/json"})
+            try:
+                with self.op.open(req, timeout=30) as r:
+                    return json.load(r)
+            except urllib.error.HTTPError as e:
+                last = e
+                if e.code in (401, 403):
+                    self.crumb = None
+                time.sleep(3 * (i + 1))
+            except Exception as e:  # noqa: BLE001
+                last = e
+                time.sleep(3 * (i + 1))
+        raise RuntimeError(str(last))
 
     def get(self, url, crumb=False, tries=3):
         last = None
@@ -258,6 +286,7 @@ def summary(y, sym):
         "tgt_px": raw("financialData", "currentPrice"),
         "n_an": raw("financialData", "numberOfAnalystOpinions"),
         "rating": (r.get("financialData") or {}).get("recommendationKey"),
+        "fcur": (r.get("financialData") or {}).get("financialCurrency"),
         "gm": raw("financialData", "grossMargins"),
         "om": raw("financialData", "operatingMargins"),
         "roe": raw("financialData", "returnOnEquity"),
@@ -328,7 +357,54 @@ def batch_quotes(y, syms):
 
 
 # ── Universum en eigen posities ──────────────────────────────────────────
-def load_universe(cache):
+def yahoo_screen(y, operands, limit):
+    """Yahoo-screener: aandelen die aan de voorwaarden voldoen, grootste marktwaarde eerst."""
+    out, offset = [], 0
+    while len(out) < limit:
+        payload = {"offset": offset, "size": 250, "sortField": "intradaymarketcap", "sortType": "DESC",
+                   "quoteType": "EQUITY", "userId": "", "userIdType": "guid",
+                   "query": {"operator": "AND", "operands": operands}}
+        j = y.post("https://query2.finance.yahoo.com/v1/finance/screener?lang=en-US&region=US&formatted=false", payload)
+        res = ((j.get("finance") or {}).get("result") or [{}])[0]
+        quotes = res.get("quotes") or []
+        for q in quotes:
+            if q.get("symbol"):
+                out.append({"sym": q["symbol"].upper(), "name": q.get("longName") or q.get("shortName"),
+                            "cur": q.get("currency"), "exch": q.get("exchange")})
+        offset += len(quotes)
+        if not quotes or offset >= (res.get("total") or 0):
+            break
+        time.sleep(SLEEP)
+    return out[:limit]
+
+
+def dynamic_universe(y, dyn):
+    """Breed universum (VS + eurozone) uit de Yahoo-screener; wekelijks ververst, anders uit de cache."""
+    if dyn and age_h(dyn.get("at")) < DYN_REFRESH_DAYS * 24 and dyn.get("us"):
+        return dyn
+    try:
+        us = yahoo_screen(y, [{"operator": "EQ", "operands": ["region", "us"]},
+                              {"operator": "GT", "operands": ["intradaymarketcap", DYN_US["min_cap"]]}], DYN_US["limit"])
+        us = [q for q in us if "." not in q["sym"] and (q["cur"] or "USD") == "USD"]
+        eu = []
+        for ex in DYN_EU["exchanges"]:
+            try:
+                got = yahoo_screen(y, [{"operator": "EQ", "operands": ["exchange", ex]},
+                                       {"operator": "GT", "operands": ["intradaymarketcap", DYN_EU["min_cap"]]}], DYN_EU["limit"])
+                eu += [q for q in got if "." in q["sym"] and q["sym"].rsplit(".", 1)[1] in EU_SUFFIX
+                       and (q["cur"] or "EUR") == "EUR"]
+            except Exception as e:  # noqa: BLE001
+                print(f"  screener {ex} mislukt: {e}")
+        if len(us) < 100:
+            raise RuntimeError(f"te weinig VS-resultaten ({len(us)})")
+        dyn = {"at": iso(), "us": [[q["sym"], q["name"]] for q in us], "eu": [[q["sym"], q["name"]] for q in eu]}
+        print(f"Yahoo-screener: {len(us)} VS, {len(eu)} eurozone")
+    except Exception as e:  # noqa: BLE001
+        print(f"Yahoo-screener niet gelukt ({e}); vorige lijst gebruikt")
+    return dyn or {}
+
+
+def load_universe(cache, y=None, dyn=None):
     uni = {}
     try:
         with urllib.request.urlopen(urllib.request.Request(SP500_URL, headers={"User-Agent": UA}),
@@ -343,6 +419,21 @@ def load_universe(cache):
         for s, c in cache.items():
             if c.get("src") == "S&P 500":
                 uni[s] = {"region": "VS", "src": "S&P 500", "name": c.get("name")}
+    # Breed universum uit de Yahoo-screener (grootste bedrijven van de markt)
+    if y is not None:
+        dyn = dynamic_universe(y, dyn)
+        eu_names = {norm_name(n) for _, n in dyn.get("eu", []) if n}
+        for sym, name in dyn.get("us", []):
+            if sym in uni:
+                continue
+            if norm_name(name) in eu_names:
+                continue                           # ADR van een eurozone-bedrijf: we nemen de thuisnotering
+            uni[sym] = {"region": "VS", "src": "screener", "name": name}
+        us_names = {norm_name(v.get("name")) for v in uni.values() if v.get("name")}
+        for sym, name in dyn.get("eu", []):
+            if sym in uni or norm_name(name) in us_names:
+                continue                           # dubbele notering van een VS-bedrijf
+            uni[sym] = {"region": "EU", "src": "screener", "name": name}
     if os.path.exists(UNIVERSE):
         with open(UNIVERSE, encoding="utf-8-sig") as f:
             for line in f:
@@ -357,7 +448,7 @@ def load_universe(cache):
                     print(f"  {s}: beurs buiten de eurozone, overgeslagen")
                     continue
                 uni.setdefault(s, {"region": "EU" if suf else "VS", "src": "lijst", "name": None})
-    return uni
+    return uni, dyn
 
 
 def norm_name(n):
@@ -441,6 +532,9 @@ def fetch_stock(y, sym, meta, old, fx):
     want = "USD" if meta["region"] == "VS" else "EUR"
     if s.get("cur") and s["cur"] != want:
         c.update({"f": iso(), "skip": f"valuta {s['cur']}", "name": s.get("name")})
+        return c
+    if s.get("fcur") and s["fcur"] not in OK_FIN_CUR:
+        c.update({"f": iso(), "skip": f"rapporteert in {s['fcur']}", "name": s.get("name")})
         return c
     c.update(s)
     c["ts"] = timeseries(y, sym)
@@ -721,10 +815,11 @@ def main():
     t0 = time.time()
     y = Yahoo()
     try:
-        cache = json.load(open(CACHE, encoding="utf-8")).get("stocks", {})
+        raw = json.load(open(CACHE, encoding="utf-8"))
+        cache, dyn = raw.get("stocks", {}), raw.get("dyn")
     except Exception:  # noqa: BLE001
-        cache = {}
-    uni = load_universe(cache)
+        cache, dyn = {}, None
+    uni, dyn = load_universe(cache, y, dyn)
     own = owned_positions()
     quality_map = load_quality()
     print(f"Universum: {len(uni)} stocks · eigen posities: {len(own['own'])} · kwaliteitsoordelen: {len(quality_map)}")
@@ -803,7 +898,7 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     with open(CACHE, "w", encoding="utf-8") as f:
-        json.dump({"updated": iso(), "stocks": compact(dict(sorted(cache.items())))}, f,
+        json.dump({"updated": iso(), "dyn": dyn, "stocks": compact(dict(sorted(cache.items())))}, f,
                   ensure_ascii=False, separators=(",", ":"))
     print(f"Klaar: {len(items)} gescoord, top {min(TOP_N, len(items))} weggeschreven · "
           f"{done} ververst · nog {pending} nooit gescand · {time.time() - t0:.0f}s")

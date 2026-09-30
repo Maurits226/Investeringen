@@ -74,7 +74,8 @@ US_LISTING_OVERRIDES = {}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RADAR_SET = (os.environ.get("RADAR_SET") or "investeringen").strip().lower()
-TOP_LIMIT = 250
+TOP_LIMIT = 300              # Kansen portefeuille: max. zoveel stocks in de radar
+TOP_MIN_SCORE = 85           # zelfde grens als het overzicht
 if RADAR_SET == "top250":
     OUT = os.path.join(ROOT, "signals_top250.json")
     ARCHIVE_DIR = "archive_top250"
@@ -97,8 +98,8 @@ TICKER_KEYS = {"ticker", "symbol", "yahoo", "yahooticker", "yahoo_symbol", "sym"
 
 # ── Tickers ──────────────────────────────────────────────────────────────
 def load_top250():
-    """De Top 250 uit screener.json, op hun euro-notering. De dollarnotering (voor het patroon)
-    is daar al bekend, dus zoeken is niet nodig."""
+    """Kansen portefeuille uit screener.json: score 85+. Amerikaanse bedrijven op hun dollarnotering
+    (zoals in het overzicht), eurozone-bedrijven op hun thuisbeurs in euro."""
     path = os.path.join(ROOT, "screener.json")
     if not os.path.exists(path):
         sys.exit("screener.json ontbreekt — draai eerst de workflow Top 250.")
@@ -108,16 +109,18 @@ def load_top250():
     for it in items:
         if len(out) >= TOP_LIMIT:
             break
-        eu = it.get("eu")
-        if not eu or it.get("approx"):
-            continue                        # geen bruikbare euro-notering: overslaan
-        out.append({"symbol": eu, "name": it.get("name"),
+        if (it.get("score") or 0) < TOP_MIN_SCORE:
+            continue
+        sym = it["sym"] if it.get("region") == "VS" else it.get("eu")
+        if not sym:
+            continue
+        out.append({"symbol": sym, "name": it.get("name"),
                     "category": SECTOR_NL.get(it.get("sector"), it.get("sector") or "Overig"),
-                    "us": it["sym"] if it.get("region") == "VS" else "",
+                    "us": "",
                     "rank": it.get("rank"), "score_top": it.get("score"), "watch": True, "label": None,
                     "position": None})
     if not out:
-        sys.exit("Geen stocks met een euro-notering in screener.json.")
+        sys.exit("Geen stocks met score 85+ in screener.json.")
     return out, "screener.json"
 
 

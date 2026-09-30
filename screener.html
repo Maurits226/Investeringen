@@ -59,7 +59,7 @@
   .howto .h-less { display: none; }
   .howto[open] .h-more { display: none; }
   .howto[open] .h-less { display: inline; }
-  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 2px 16px 14px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .howto-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; padding: 2px 16px 14px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
   .howto-body b { color: var(--text); font-weight: 600; }
   .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
 
@@ -218,7 +218,7 @@
   <header class="top">
     <div class="title-block">
       <h1><span class="pulse"></span>Kansen portefeuille</h1>
-      <p>De 250 sterkste aandelen die je nog niet hebt</p>
+      <p>De sterkste aandelen van de markt die je nog niet hebt · totaalscore 85+</p>
     </div>
     <div class="controls">
       <span class="scan-chip" id="scanChip" hidden></span>
@@ -231,9 +231,15 @@
 
   <details class="howto">
     <summary>🧮 Hoe komt de score tot stand?
-      <span class="h-sub">formuleblad · kwaliteit · verwacht rendement</span>
+      <span class="h-sub">welke bedrijven · formuleblad · kwaliteit · verwacht rendement</span>
       <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
     <div class="howto-body">
+      <div>
+        <h4>Welke bedrijven</h4>
+        Het hele aanbod: <b>alle Amerikaanse bedrijven boven $2 mld</b> beurswaarde en <b>alle eurozone-bedrijven
+        boven €1 mld</b> op hun thuisbeurs, ruim 2.000 in totaal. Die lijst wordt wekelijks ververst. Bedrijven die in
+        een andere valuta rapporteren vallen af. Je ziet alleen wie <b>85 of hoger</b> scoort (max. 500), zonder je eigen posities.
+      </div>
       <div>
         <h4>Formuleblad · 75%</h4>
         Tien criteria uit je rekenblad, elk <b>0, 5 of 10 punten</b>: omzetgroei, operationele marge, groei van
@@ -282,11 +288,9 @@
     <div class="tb-group">
       <span class="tb-label">Min. score</span>
       <select id="minSel">
-        <option value="0">Alle</option>
-        <option value="60">60+</option>
-        <option value="70">70+</option>
-        <option value="80">80+</option>
+        <option value="0">85+ (standaard)</option>
         <option value="90">90+</option>
+        <option value="95">95+</option>
       </select>
     </div>
     <div class="tb-row2">
@@ -306,7 +310,8 @@
 </div>
 
 <script>
-const LIMIT = 250;
+const LIMIT = 500;       // maximaal zoveel bedrijven in de lijst
+const MIN_SCORE = 85;    // bedrijven met een lagere totaalscore tonen we niet
 const SECTOR_NL = {
   'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
   'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', 'Industrials': 'Industrie',
@@ -386,7 +391,7 @@ async function load() {
 
 function pool() {
   const pf = portfolio();
-  const items = (DATA.items || []).filter(it => !pf.own.has((it.eu || '').toUpperCase()) && !pf.own.has(it.sym.toUpperCase()));
+  const items = (DATA.items || []).filter(it => it.score >= MIN_SCORE && !pf.own.has((it.eu || '').toUpperCase()) && !pf.own.has(it.sym.toUpperCase()));
   return items.slice().sort(byDefault).slice(0, LIMIT).map((it, i) => Object.assign({}, it, {
     pos: i + 1,
     watch: it.watch || pf.watch.has((it.eu || '').toUpperCase()) || pf.watch.has(it.sym.toUpperCase())
@@ -402,7 +407,7 @@ function fillSectors() {
 }
 
 const QUICK = {
-  strong: { label: 'Topscore ≥ 80', sub: 'bedrijven met hoge cijfers', test: it => it.score >= 80 },
+  strong: { label: 'Topscore ≥ 90', sub: 'bedrijven met de hoogste cijfers', test: it => it.score >= 90 },
   steps:  { label: '6+ van 7 stappen', sub: 'voldoen aan bijna alle kerncriteria', test: it => stepsOk(it) >= 6 },
   exp:    { label: 'Verwacht rendement ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
 };

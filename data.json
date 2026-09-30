@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-30T20:47:53.520252+00:00",
+  "updated": "2026-09-30T20:49:27.468804+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -8,6 +8,9 @@
       "currency": "EUR",
       "name": "Advanced Micro Devices, Inc.",
       "high52": 566.7,
+      "vol": 69.2,
+      "sma50": 441.107,
+      "sma200": 323.9671,
       "low52": 135.0,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -19,6 +22,9 @@
       "currency": "EUR",
       "name": "Space Exploration Technologies Corp.",
       "high52": 137.8,
+      "vol": null,
+      "sma50": null,
+      "sma200": null,
       "low52": 112.58,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -30,6 +36,9 @@
       "currency": "EUR",
       "name": "Broadcom Inc.",
       "high52": 429.55,
+      "vol": 46.1,
+      "sma50": 324.823,
+      "sma200": 316.8512,
       "low52": 255.45,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -41,6 +50,9 @@
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
       "high52": 1102.6,
+      "vol": 71.7,
+      "sma50": 826.01,
+      "sma200": 592.4396,
       "low52": 138.12,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -52,6 +64,9 @@
       "currency": "EUR",
       "name": "Bloom Energy Corporation",
       "high52": 306.5,
+      "vol": 104.3,
+      "sma50": 204.162,
+      "sma200": 180.5302,
       "low52": 66.68,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -63,6 +78,9 @@
       "currency": "EUR",
       "name": "Tesla, Inc.",
       "high52": 424.0,
+      "vol": 44.1,
+      "sma50": 300.258,
+      "sma200": 338.6522,
       "low52": 261.0,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -74,6 +92,9 @@
       "currency": "EUR",
       "name": "Vertiv Holdings Co",
       "high52": 251.7,
+      "vol": null,
+      "sma50": null,
+      "sma200": null,
       "low52": 199.78,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -85,6 +106,9 @@
       "currency": "EUR",
       "name": "Constellation Energy Corporation",
       "high52": 264.65,
+      "vol": null,
+      "sma50": null,
+      "sma200": null,
       "low52": 219.75,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -96,6 +120,9 @@
       "currency": "EUR",
       "name": "Amazon.com, Inc.",
       "high52": 249.0,
+      "vol": 34.5,
+      "sma50": 222.52,
+      "sma200": 207.8907,
       "low52": 165.88,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -107,6 +134,9 @@
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
+      "vol": 50.6,
+      "sma50": 147.5372,
+      "sma200": 153.1591,
       "low52": 94.4,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -118,6 +148,9 @@
       "currency": "EUR",
       "name": "Lam Research Corporation",
       "high52": 381.3,
+      "vol": 93.3,
+      "sma50": 263.765,
+      "sma200": 238.3567,
       "low52": 67.83,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -129,6 +162,9 @@
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 32.81,
+      "vol": 66.0,
+      "sma50": 27.9308,
+      "sma200": 21.1208,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -140,6 +176,9 @@
       "currency": "EUR",
       "name": "Alphabet Inc.",
       "high52": 350.8,
+      "vol": 31.3,
+      "sma50": 298.536,
+      "sma200": 292.2375,
       "low52": 203.3,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -151,6 +190,9 @@
       "currency": "EUR",
       "name": "Applied Materials, Inc.",
       "high52": 645.4,
+      "vol": 55.4,
+      "sma50": 421.376,
+      "sma200": 371.23,
       "low52": 170.66,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -162,6 +204,9 @@
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 214.89,
+      "vol": 54.4,
+      "sma50": 192.2096,
+      "sma200": 158.112,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -173,6 +218,9 @@
       "currency": "EUR",
       "name": "CrowdStrike Holdings Inc",
       "high52": 236.75,
+      "vol": null,
+      "sma50": null,
+      "sma200": null,
       "low52": 156.18,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -184,6 +232,9 @@
       "currency": "EUR",
       "name": "The Goldman Sachs Group, Inc.",
       "high52": 1006.0,
+      "vol": 30.8,
+      "sma50": 876.116,
+      "sma200": 829.7175,
       "low52": 634.6,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -195,6 +246,9 @@
       "currency": "EUR",
       "name": "JPMorgan Chase & Co.",
       "high52": 318.0,
+      "vol": 22.4,
+      "sma50": 306.203,
+      "sma200": 277.2757,
       "low52": 242.45,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -206,6 +260,9 @@
       "currency": "EUR",
       "name": "Morgan Stanley",
       "high52": 203.8,
+      "vol": 27.9,
+      "sma50": 182.651,
+      "sma200": 167.6389,
       "low52": 131.54,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -217,6 +274,9 @@
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 205.3,
+      "vol": 35.0,
+      "sma50": 189.1052,
+      "sma200": 172.9386,
       "low52": 144.54,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -228,6 +288,9 @@
       "currency": "EUR",
       "name": "Palantir Technologies Inc.",
       "high52": 179.0,
+      "vol": 57.7,
+      "sma50": 145.7312,
+      "sma200": 130.2651,
       "low52": 93.66,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -239,6 +302,9 @@
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 414.0,
+      "vol": 41.0,
+      "sma50": 366.97,
+      "sma200": 334.38,
       "low52": 236.0,
       "exchange": "DUS",
       "exchangeFull": "Dusseldorf"
@@ -250,6 +316,9 @@
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
+      "vol": 42.5,
+      "sma50": 1490.148,
+      "sma200": 1334.636,
       "low52": 812.1,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"
@@ -261,6 +330,9 @@
       "currency": "EUR",
       "name": "BlackRock, Inc.",
       "high52": 1048.6,
+      "vol": 26.9,
+      "sma50": 962.834,
+      "sma200": 914.022,
       "low52": 796.9,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -272,6 +344,9 @@
       "currency": "EUR",
       "name": "Microsoft Corporation",
       "high52": 478.85,
+      "vol": 32.3,
+      "sma50": 420.292,
+      "sma200": 371.537,
       "low52": 309.6,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -283,6 +358,9 @@
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
       "high52": 47.66,
+      "vol": 22.5,
+      "sma50": 44.221,
+      "sma200": 39.4899,
       "low52": 31.88,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -294,6 +372,9 @@
       "currency": "EUR",
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
+      "vol": 9.1,
+      "sma50": 81.192,
+      "sma200": 76.6976,
       "low52": 66.06,
       "exchange": "MIL",
       "exchangeFull": "Milan"
@@ -305,6 +386,9 @@
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
       "high52": 131.83,
+      "vol": 11.5,
+      "sma50": 128.2196,
+      "sma200": 119.9558,
       "low52": 106.78,
       "exchange": "MIL",
       "exchangeFull": "Milan"
@@ -316,6 +400,9 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
+      "vol": 60.0,
+      "sma50": 55.2437,
+      "sma200": 62.4056,
       "low52": 39.025,
       "exchange": "MIL",
       "exchangeFull": "Milan"
@@ -327,6 +414,9 @@
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",
       "high52": 431.3,
+      "vol": null,
+      "sma50": null,
+      "sma200": null,
       "low52": 203.23,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"

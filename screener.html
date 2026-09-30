@@ -392,9 +392,9 @@ function fillSectors() {
 }
 
 const QUICK = {
-  strong: { label: 'Topscore ≥ 80', sub: 'sterke cijfers én een sterk bedrijf', test: it => it.score >= 80 },
-  steps:  { label: '6+ van 7 stappen', sub: 'voldoet aan bijna alle kerncriteria', test: it => stepsOk(it) >= 6 },
-  exp:    { label: 'Verwacht ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
+  strong: { label: 'Topscore ≥ 80', sub: 'bedrijven met hoge cijfers', test: it => it.score >= 80 },
+  steps:  { label: '6+ van 7 stappen', sub: 'voldoen aan bijna alle kerncriteria', test: it => stepsOk(it) >= 6 },
+  exp:    { label: 'Verwacht rendement ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
 };
 
 function render() {

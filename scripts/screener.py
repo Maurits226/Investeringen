@@ -786,12 +786,15 @@ def main():
     for i, it in enumerate(items, 1):
         it["rank"] = i
 
-    pending = sum(1 for s in uni if not is_owned(s) and not (cache.get(s) or {}).get("f"))
+    tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
+    pending = sum(1 for s in uni if not is_owned(s) and not tried(s))
+    failed = sum(1 for s in uni if not is_owned(s) and not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
     out = {
         "updated": iso(),
         "fx": rnd(fx, 4),
         "universe": len(uni),
-        "scanned": sum(1 for s in uni if (cache.get(s) or {}).get("f")),
+        "scanned": sum(1 for s in uni if tried(s)),
+        "failed": failed,
         "scored": len(items),
         "pending": pending,
         "weights": {"formule": W_FORMULE, "kwaliteit": round(1 - W_FORMULE, 2)},

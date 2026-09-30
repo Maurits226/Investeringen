@@ -126,26 +126,27 @@
   }
   .exch-dot.open { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
   .exch-dot.closed { background: var(--down); }
+  /* Filterbalk: vier filters in gelijke kolommen, daaronder reset + teller */
   .toolbar {
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    margin-bottom: 20px; padding: 12px 16px;
+    display: grid; grid-template-columns: 1.4fr 1.2fr 1.1fr 1fr; gap: 14px;
+    margin-bottom: 20px; padding: 14px 16px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   }
-  .tb-group { display: flex; align-items: center; gap: 8px; }
-  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .tb-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .toolbar select {
-    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
-    background: var(--panel-2); color: var(--text); padding: 7px 11px;
-    border-radius: 9px; font-size: 13px;
+    font-family: inherit; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    height: 38px; padding: 0 11px; border-radius: 9px; font-size: 13px; width: 100%; min-width: 0; cursor: pointer;
   }
-  .toolbar select:hover { border-color: var(--accent); }
-  .tb-count { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; }
+  .toolbar select:hover { border-color: var(--accent); outline: none; }
+  .tb-row2 { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .tb-count { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; white-space: nowrap; }
   .tb-reset {
-    font-family: inherit; cursor: pointer; border: 1px solid var(--line);
-    background: var(--panel-2); color: var(--muted); padding: 7px 12px;
-    border-radius: 9px; font-size: 13px;
+    font-family: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+    height: 38px; padding: 0 14px; border-radius: 9px; font-size: 13px; white-space: nowrap;
   }
   .tb-reset:hover { border-color: var(--accent); color: var(--text); }
+  @media (max-width: 640px) { .toolbar { grid-template-columns: 1fr 1fr; gap: 10px 12px; } }
   .sync-btn {
     font-family: inherit; cursor: pointer; font-weight: 500; font-size: 13px;
     padding: 9px 15px; border-radius: 10px; transition: .15s;
@@ -331,8 +332,10 @@
         <option value="open">Openstaande verkoop</option>
       </select>
     </div>
-    <button id="resetFilters" class="tb-reset">Reset</button>
-    <span class="tb-count" id="tbCount"></span>
+    <div class="tb-row2">
+      <button id="resetFilters" class="tb-reset">Reset filters</button>
+      <span class="tb-count" id="tbCount"></span>
+    </div>
   </div>
 
   <div class="cards" id="cards"></div>

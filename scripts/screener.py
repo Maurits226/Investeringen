@@ -31,6 +31,7 @@ import io
 import json
 import os
 import re
+import unicodedata
 import sys
 import time
 import urllib.error
@@ -100,7 +101,8 @@ EXCH_NAME = {
     "BRU": "Euronext Brussel", "HEL": "Nasdaq Helsinki", "ISE": "Euronext Dublin",
     "VIE": "Wiener Börse", "LIS": "Euronext Lissabon", "STU": "Stuttgart", "MUN": "München",
 }
-EU_LISTING_PREF = ["GER", "FRA", "DUS"]
+# euro-notering voor VS-bedrijven, in deze volgorde: Nederland → Duitsland → Oostenrijk
+EU_LISTING_PREF = ["AMS", "GER", "FRA", "DUS", "VIE"]
 US_EXCH = {"NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NYQ": "NYSE", "ASE": "NYSE American",
            "PCX": "NYSE Arca", "BTS": "Cboe"}
 CACHE_V = 3                                 # v3: extra cijfers voor Score 2.0 (kwaliteit, groei, waardering, momentum)
@@ -110,7 +112,7 @@ GICS_TO_YAHOO = {
     "Consumer Discretionary": "Consumer Cyclical", "Consumer Staples": "Consumer Defensive",
     "Industrials": "Industrials", "Communication Services": "Communication Services", "Energy": "Energy",
     "Utilities": "Utilities", "Real Estate": "Real Estate", "Materials": "Basic Materials",
-}     # euro-notering voor VS-bedrijven, in deze volgorde
+}
 
 # Sector -> basispunten recessiebestendigheid (schatting als er geen handmatig oordeel is)
 SECTOR_DEFENSIVE = {
@@ -609,6 +611,72 @@ def load_universe(cache, y=None, dyn=None):
     return uni, dyn
 
 
+# ── Dubbele noteringen ───────────────────────────────────────────────────
+# Hetzelfde bedrijf staat vaak op meerdere beurzen (Xetra, Milaan, Wenen, VS, OTC).
+# Per bedrijf blijft één notering over: Nederland → Duitsland → Oostenrijk → daarna:
+# thuisbeurs in de eurozone, dan de hoofdnotering in de VS, dan overige, OTC als laatste.
+LISTING_TIER = {"AS": 0, "DE": 1, "F": 2, "DU": 3, "VI": 4}
+HOME_SUFFIX = {"France": "PA", "Italy": "MI", "Spain": "MC", "Belgium": "BR", "Finland": "HE",
+               "Ireland": "IR", "Portugal": "LS", "Netherlands": "AS", "Germany": "DE", "Austria": "VI"}
+US_MAIN = {"NASDAQ", "NYSE", "NYSE American", "NYSE Arca", "Cboe"}
+LEGAL = {"inc", "incorporated", "corp", "corporation", "co", "company", "plc", "nv", "se", "sa", "ag", "spa",
+         "sab", "cv", "de", "the", "and", "ltd", "limited", "oyj", "asa", "ab", "aktiengesellschaft",
+         "societe", "anonyme", "group", "holding", "holdings"}
+
+
+def company_key(name, country):
+    n = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    n = re.sub(r"\b([a-z])\.(?=[a-z]\.)", r"\1", n)          # S.p.A. / S.A.B. -> spa / sab
+    n = re.sub(r"[^a-z0-9 ]", " ", n)
+    words = [w for w in n.split() if w not in LEGAL and len(w) > 1]
+    return (" ".join(words), country or "") if words else None
+
+
+def listing_rank(it):
+    sym = it["sym"]
+    if it["region"] == "VS":
+        tier = 6 if (it.get("us_exch") or "") in US_MAIN else 8
+    else:
+        suf = sym.rsplit(".", 1)[1] if "." in sym else ""
+        tier = LISTING_TIER.get(suf, 5 if HOME_SUFFIX.get(it.get("country")) == suf else 7)
+    preferred = 1 if re.search(r"-P[A-Z]?$", sym) else 0     # preferente aandelen achteraan
+    no_eur = 0 if it.get("eu") and not it.get("approx") else 1  # bij gelijke beurs: met euro-notering eerst
+    return (tier, preferred, no_eur, -(it.get("mcap") or 0), sym)
+
+
+def dedupe_listings(items):
+    """Eén regel per bedrijf. Groepeert op (genormaliseerde naam, land) en op gedeelde euro-notering."""
+    parent = list(range(len(items)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    seen = {}
+    for i, it in enumerate(items):
+        keys = [("n",) + k for k in [company_key(it.get("name"), it.get("country"))] if k]
+        keys += [("s", s) for s in {it["sym"], it.get("eu")} if s]
+        for k in keys:
+            if k in seen:
+                parent[find(i)] = find(seen[k])
+            else:
+                seen[k] = i
+    groups = {}
+    for i in range(len(items)):
+        groups.setdefault(find(i), []).append(items[i])
+    out = []
+    for g in groups.values():
+        g.sort(key=listing_rank)
+        best = g[0]
+        if len(g) > 1:
+            best["own"] = any(x["own"] for x in g)
+            best["watch"] = any(x["watch"] for x in g)
+            best["alt"] = [x["sym"] for x in g[1:]]
+        out.append(best)
+    return out
+
+
 def norm_name(n):
     n = (n or "").lower()
     n = re.sub(r"[^a-z0-9 ]", " ", n)
@@ -1097,6 +1165,11 @@ def main():
             continue
         if it:
             items.append(it)
+
+    # Dubbele noteringen weg vóór het scoren, zodat een bedrijf niet meerdere keren meetelt
+    before = len(items)
+    items = dedupe_listings(items)
+    print(f"Dubbele noteringen: {before - len(items)} weggelaten, {len(items)} bedrijven over")
 
     # Score 2.0: percentielen binnen de sector, vijf pijlers, samengestelde score, totaalscore = percentiel in de markt
     grp = lambda it: it.get("sector") or "?"  # noqa: E731

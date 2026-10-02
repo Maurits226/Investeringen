@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-02T16:00:35.758678+00:00",
+  "updated": "2026-10-02T16:10:35.554674+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 32.19,
+      "price": 32.145,
       "prevClose": 32.400001525878906,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 32.81,
-      "vol": 65.7,
-      "sma50": 28.4314,
-      "sma200": 21.2635,
+      "vol": 65.8,
+      "sma50": 28.4305,
+      "sma200": 21.2633,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 205.857,
+      "price": 206.505,
       "prevClose": 204.49000549316406,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 214.89,
       "vol": 54.1,
-      "sma50": 193.387,
-      "sma200": 158.9105,
+      "sma50": 193.3999,
+      "sma200": 158.9137,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -297,14 +297,14 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 417.0,
+      "price": 420.0,
       "prevClose": 407.5,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
-      "high52": 417.0,
+      "high52": 420.0,
       "vol": 40.9,
-      "sma50": 368.9,
-      "sma200": 336.0375,
+      "sma50": 368.96,
+      "sma200": 336.0525,
       "low52": 236.0,
       "exchange": "DUS",
       "exchangeFull": "Dusseldorf"
@@ -395,21 +395,21 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 53.3,
+      "price": 53.28,
       "prevClose": 52.86000061035156,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
       "vol": 59.9,
-      "sma50": 55.3169,
-      "sma200": 62.408,
+      "sma50": 55.3165,
+      "sma200": 62.4079,
       "low52": 39.025,
       "exchange": "MIL",
       "exchangeFull": "Milan"
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 340.68,
+      "price": 341.08,
       "prevClose": null,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-01T23:26:17.609597+00:00",
+  "updated": "2026-10-02T02:21:11.319825+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -11,7 +11,7 @@
       "vol": 69.3,
       "sma50": 441.107,
       "sma200": 323.9671,
-      "low52": 140.12,
+      "low52": 141.44,
       "exchange": "GER",
       "exchangeFull": "XETRA"
     },
@@ -263,7 +263,7 @@
       "vol": 28.0,
       "sma50": 182.651,
       "sma200": 167.6389,
-      "low52": 131.54,
+      "low52": 131.68,
       "exchange": "GER",
       "exchangeFull": "XETRA"
     },

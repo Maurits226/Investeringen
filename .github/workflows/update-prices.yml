@@ -1,13 +1,20 @@
 name: Update stock prices
 
-# GitHub start geplande runs bij rustige repo's vaak uren te laat. Daarom blijft
-# één run tijdens handelsuren zelf doorlopen en haalt hij elke 10 minuten koersen op.
-# Buiten handelsuren doet elke geplande run één keer een update.
+# GitHub start geplande runs vaak uren te laat. Daarom start elke run aan het eind
+# zelf zijn opvolger (keten), behalve op zaterdag. Tijdens handelsuren haalt de lus
+# elke 10 minuten koersen op, daarbuiten één keer per uur.
+# De cron blijft als vangnet: breekt de keten (bv. een storing bij GitHub), dan pakt
+# de eerstvolgende geplande run het weer op.
 
 on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:      # handmatig starten via de Actions-tab
+    inputs:
+      keten:
+        description: "Gestart door de vorige run (niet aanvinken)"
+        type: boolean
+        default: false
   push:
     branches: [ main ]
     paths-ignore:         # geen koers-run starten bij alleen data/state-wijzigingen
@@ -17,11 +24,13 @@ on:
 
 permissions:
   contents: write
+  actions: write          # om de opvolger te starten
 
 concurrency:
   group: update-prices
-  # handmatig of na een push: lopende run stoppen en met de nieuwe code beginnen
-  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+  # handmatig of na een push: lopende run stoppen en met de nieuwe code beginnen;
+  # een opvolger uit de keten wacht netjes tot de huidige run klaar is
+  cancel-in-progress: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.keten) }}
 
 jobs:
   update:
@@ -37,31 +46,50 @@ jobs:
           python-version: "3.12"
 
       - name: Koersen ophalen, elke 10 minuten tijdens handelsuren
+        env:
+          KETEN: ${{ inputs.keten }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           INTERVAL=600                                  # 10 minuten
           STOP=$(( $(date +%s) + 5*3600 + 30*60 ))      # ruim binnen de limiet van 6 uur
+          # handelsuren 05:45-21:15 UTC op werkdagen (dekt zomer- en wintertijd)
+          handelstijd() { [ "$(date -u -d "@$1" +%u)" -le 5 ] && [ "$(date -u -d "@$1" +%H%M)" -ge 0545 ] && [ "$(date -u -d "@$1" +%H%M)" -le 2115 ]; }
+          keten_actief() { [ "$(date -u +%u)" -ne 6 ]; }   # op zaterdag stopt de keten
+          EERSTE=1
           # timeout: een hangende git- of python-aanroep mag de lus niet uren blokkeren
           while true; do
-            timeout 2m git pull -q --rebase origin main || git rebase --abort 2>/dev/null || true
-            timeout 8m python update_prices.py || echo "Ophalen mislukt, volgende poging over 10 min"
-            git add data.json
-            if ! git diff --staged --quiet; then
-              git commit -q -m "Update koersen $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
-              for i in 1 2 3 4 5; do
-                timeout 2m git pull -q --rebase origin main && timeout 2m git push -q origin main && break
-                git rebase --abort 2>/dev/null || true     # afgebroken pull niet half laten staan
-                sleep $((i * 7))
-              done
+            NU=$(date +%s)
+            # buiten handelsuren één keer per uur (en bij een losse start meteen)
+            if handelstijd "$NU" || [ "$(date -u -d "@$NU" +%M)" -lt 10 ] || { [ -n "$EERSTE" ] && [ "$KETEN" != "true" ]; }; then
+              timeout 2m git pull -q --rebase origin main || git rebase --abort 2>/dev/null || true
+              timeout 8m python update_prices.py || echo "Ophalen mislukt, volgende poging over 10 min"
+              git add data.json
+              if ! git diff --staged --quiet; then
+                git commit -q -m "Update koersen $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
+                for i in 1 2 3 4 5; do
+                  timeout 2m git pull -q --rebase origin main && timeout 2m git push -q origin main && break
+                  git rebase --abort 2>/dev/null || true     # afgebroken pull niet half laten staan
+                  sleep $((i * 7))
+                done
+              fi
             fi
+            EERSTE=
             NEXT=$(( ( $(date +%s) / INTERVAL + 1 ) * INTERVAL ))
-            HHMM=$(date -u -d "@$NEXT" +%H%M)
-            DOW=$(date -u -d "@$NEXT" +%u)
-            # handelsuren 05:45-21:15 UTC op werkdagen (dekt zomer- en wintertijd)
-            if [ "$NEXT" -ge "$STOP" ] || [ "$DOW" -ge 6 ] || [ "$HHMM" -lt 0545 ] || [ "$HHMM" -gt 2115 ]; then
-              echo "Klaar voor nu; de volgende geplande run neemt het over."
+            if [ "$NEXT" -ge "$STOP" ] || { ! keten_actief && ! handelstijd "$NEXT"; }; then
               break
             fi
             sleep $(( NEXT - $(date +%s) ))
           done
+
+      - name: Opvolger starten
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%u)" -ne 6 ]; then
+            timeout 2m gh workflow run update-prices.yml --ref "$GITHUB_REF_NAME" -f keten=true \
+              || echo "Opvolger starten mislukt; de geplande run neemt het over."
+          else
+            echo "Zaterdag: geen opvolger; de geplande runs nemen het over."
+          fi

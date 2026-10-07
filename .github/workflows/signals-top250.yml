@@ -3,11 +3,19 @@ name: Patroonradar top 250
 # Patroonradar voor de Top 250 (stocks die je nog niet hebt). 250 stocks is veel voor Yahoo,
 # dus deze radar ververst elk uur (op het halve uur, tussen de runs van de andere radar door).
 # De stocks komen uit screener.json (workflow Top 250).
+# GitHub start geplande runs vaak uren te laat. Daarom start elke run aan het eind
+# zelf zijn opvolger (keten), behalve op zaterdag. De cron blijft als vangnet.
 
 on:
   schedule:
     - cron: "30 5-21 * * 1-5"     # startmomenten (UTC); de lus doet de rest
+    - cron: "50 */2 * * 0"        # zondag: keten op tijd starten voor maandagochtend
   workflow_dispatch:
+    inputs:
+      keten:
+        description: "Gestart door de vorige run (niet aanvinken)"
+        type: boolean
+        default: false
   push:
     branches: [ main ]
     paths:                        # na een wijziging aan de radar direct herstarten
@@ -16,11 +24,13 @@ on:
 
 permissions:
   contents: write
+  actions: write                  # om de opvolger te starten
 
 concurrency:
   group: patroonradar-top250
-  # handmatig of na een push: lopende run stoppen en met de nieuwe code beginnen
-  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+  # handmatig of na een push: lopende run stoppen en met de nieuwe code beginnen;
+  # een opvolger uit de keten wacht netjes tot de huidige run klaar is
+  cancel-in-progress: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.keten) }}
 
 jobs:
   signals:
@@ -32,29 +42,49 @@ jobs:
       - name: Signalen Top 250 berekenen, elk uur tijdens handelsuren
         env:
           RADAR_SET: top250
+          KETEN: ${{ inputs.keten }}
+          EVENT: ${{ github.event_name }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
           INTERVAL=3600; OFFSET=1800                    # elk uur, op het halve uur
           STOP=$(( $(date +%s) + 5*3600 + 30*60 ))      # ruim binnen de limiet van 6 uur
+          # handelsuren 05:45-21:15 UTC op werkdagen (dekt zomer- en wintertijd)
+          handelstijd() { [ "$(date -u -d "@$1" +%u)" -le 5 ] && [ "$(date -u -d "@$1" +%H%M)" -ge 0545 ] && [ "$(date -u -d "@$1" +%H%M)" -le 2115 ]; }
+          keten_actief() { [ "$(date -u +%u)" -ne 6 ]; }   # op zaterdag stopt de keten
+          EERSTE=1
+          # timeout: een hangende git- of python-aanroep mag de lus niet uren blokkeren
           while true; do
-            git pull -q --rebase origin "${GITHUB_REF_NAME}" || true
-            python3 scripts/signals.py || echo "Run mislukt, volgende poging over een uur"
-            git add signals_top250.json; [ -d archive_top250 ] && git add archive_top250
-            if ! git diff --cached --quiet; then
-              git commit -q -m "Patroonradar top 250 $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
-              for i in 1 2 3 4 5; do
-                git pull -q --rebase origin "${GITHUB_REF_NAME}" && git push -q && break
-                sleep $((i * 7))
-              done
+            # buiten handelsuren alleen bij een handmatige start of na een push
+            if handelstijd "$(date +%s)" || { [ -n "$EERSTE" ] && [ "$EVENT" != "schedule" ] && [ "$KETEN" != "true" ]; }; then
+              timeout 2m git pull -q --rebase origin "${GITHUB_REF_NAME}" || git rebase --abort 2>/dev/null || true
+              timeout 30m python3 scripts/signals.py || echo "Run mislukt, volgende poging over een uur"
+              git add signals_top250.json; [ -d archive_top250 ] && git add archive_top250
+              if ! git diff --cached --quiet; then
+                git commit -q -m "Patroonradar top 250 $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
+                for i in 1 2 3 4 5; do
+                  timeout 2m git pull -q --rebase origin "${GITHUB_REF_NAME}" && timeout 2m git push -q && break
+                  git rebase --abort 2>/dev/null || true     # afgebroken pull niet half laten staan
+                  sleep $((i * 7))
+                done
+              fi
             fi
+            EERSTE=
             NEXT=$(( ( ($(date +%s) - OFFSET) / INTERVAL + 1 ) * INTERVAL + OFFSET ))
-            HHMM=$(date -u -d "@$NEXT" +%H%M)
-            DOW=$(date -u -d "@$NEXT" +%u)
-            # handelsuren 05:45-21:15 UTC op werkdagen (dekt zomer- en wintertijd)
-            if [ "$NEXT" -ge "$STOP" ] || [ "$DOW" -ge 6 ] || [ "$HHMM" -lt 0545 ] || [ "$HHMM" -gt 2115 ]; then
-              echo "Klaar voor nu; de volgende geplande run neemt het over."
+            if [ "$NEXT" -ge "$STOP" ] || { ! keten_actief && ! handelstijd "$NEXT"; }; then
               break
             fi
             sleep $(( NEXT - $(date +%s) ))
           done
+
+      - name: Opvolger starten
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%u)" -ne 6 ]; then
+            timeout 2m gh workflow run signals-top250.yml --ref "$GITHUB_REF_NAME" -f keten=true \
+              || echo "Opvolger starten mislukt; de geplande run neemt het over."
+          else
+            echo "Zaterdag: geen opvolger; de geplande runs nemen het over."
+          fi

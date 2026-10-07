@@ -42,14 +42,16 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           INTERVAL=600                                  # 10 minuten
           STOP=$(( $(date +%s) + 5*3600 + 30*60 ))      # ruim binnen de limiet van 6 uur
+          # timeout: een hangende git- of python-aanroep mag de lus niet uren blokkeren
           while true; do
-            git pull -q --rebase origin main || true
-            python update_prices.py || echo "Ophalen mislukt, volgende poging over 10 min"
+            timeout 2m git pull -q --rebase origin main || git rebase --abort 2>/dev/null || true
+            timeout 8m python update_prices.py || echo "Ophalen mislukt, volgende poging over 10 min"
             git add data.json
             if ! git diff --staged --quiet; then
               git commit -q -m "Update koersen $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
               for i in 1 2 3 4 5; do
-                git pull -q --rebase origin main && git push -q origin main && break
+                timeout 2m git pull -q --rebase origin main && timeout 2m git push -q origin main && break
+                git rebase --abort 2>/dev/null || true     # afgebroken pull niet half laten staan
                 sleep $((i * 7))
               done
             fi

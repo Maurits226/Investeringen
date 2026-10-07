@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-07T16:00:34.772156+00:00",
+  "updated": "2026-10-07T16:10:34.714874+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 33.415,
+      "price": 33.43,
       "prevClose": 32.95000076293945,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 34.8,
       "vol": 65.7,
-      "sma50": 29.1899,
-      "sma200": 21.4949,
+      "sma50": 29.1902,
+      "sma200": 21.495,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 214.36,
+      "price": 214.705,
       "prevClose": 215.36000061035156,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 216.07,
       "vol": 54.2,
-      "sma50": 195.86,
-      "sma200": 160.2355,
+      "sma50": 195.8669,
+      "sma200": 160.2372,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -395,14 +395,14 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 53.2,
+      "price": 53.18,
       "prevClose": 54.369998931884766,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
       "vol": 59.8,
-      "sma50": 55.4857,
-      "sma200": 62.3978,
+      "sma50": 55.4853,
+      "sma200": 62.3977,
       "low52": 39.025,
       "exchange": "MIL",
       "exchangeFull": "Milan"

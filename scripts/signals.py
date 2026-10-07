@@ -70,7 +70,9 @@ FACTORS = [                # wereldfactoren die koersen beïnvloeden
 ]
 WORLD_NEWS_QUERIES = ["stock market", "oil prices", "war", "Federal Reserve", "tariffs", "semiconductor stocks"]
 # Handmatig vastleggen of uitsluiten, bv. {"45C.DE": "XYZ"} of {"PHAU.AS": None}
-US_LISTING_OVERRIDES = {}
+# Goud en zilver: Yahoo heeft voor de Europese ETC's (te) weinig historie, dus het patroon
+# komt van de grote Amerikaanse ETF op hetzelfde metaal.
+US_LISTING_OVERRIDES = {"PHAU.AS": "GLD", "WSLV.MI": "SLV"}
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RADAR_SET = (os.environ.get("RADAR_SET") or "investeringen").strip().lower()
@@ -1345,7 +1347,7 @@ def main():
     bars_by_sym = {}
     for tk in tickers:
         try:
-            eu_bars, eu_meta = fetch_bars(tk["symbol"], "2y", 2)
+            eu_bars, eu_meta = fetch_bars(tk["symbol"], "2y", 1)
             bars_by_sym[tk["symbol"]] = eu_bars[-40:]
             us = find_us_listing(tk, eu_bars[-1][4], fx, cache) if fx else None
             wctx = {"regime": regime, "returns": returns, "factors": world["factors"],
@@ -1355,6 +1357,9 @@ def main():
                 try:
                     us_bars, us_meta = fetch_bars(us, US_HISTORY)
                     item = to_euro(analyse(tk, us_bars, us_meta, wctx), eu_bars, eu_meta, us)
+                    if len(eu_bars) < 20:   # eigen notering te kort om adviezen na te volgen: omgerekende VS-koersen
+                        k = eu_bars[-1][4] / us_bars[-1][4]
+                        bars_by_sym[tk["symbol"]] = [(b[0], *(x * k for x in b[1:5]), b[5]) for b in us_bars[-40:]]
                 except Exception as e:  # noqa: BLE001
                     print(f"  {tk['symbol']:<10} {us} niet bruikbaar ({e}), eigen notering gebruikt")
             if item is None:

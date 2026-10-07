@@ -3,5 +3,6 @@
   { "datum": "2026-09-29", "wijziging": "Advies vervalt direct als het signaal verdwijnt; zelfde dag terug = heropenen" },
   { "datum": "2026-09-29", "wijziging": "Advies vervalt als er minder dan 5% rendement over is tot het doel" },
   { "datum": "2026-09-30", "wijziging": "Patroonradar voor Kansen portefeuille (score 85+, max. 300)" },
-  { "datum": "2026-09-30", "wijziging": "Beursklimaat en patronen per advies vastgelegd; vergelijking met de Nasdaq 100" }
+  { "datum": "2026-09-30", "wijziging": "Beursklimaat en patronen per advies vastgelegd; vergelijking met de Nasdaq 100" },
+  { "datum": "2026-10-07", "wijziging": "Goud (PHAU.AS) en zilver (WSLV.MI): patroon via de Amerikaanse ETF (GLD en SLV), omgerekend naar de euro-koers" }
 ]

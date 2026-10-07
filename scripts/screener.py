@@ -248,7 +248,7 @@ TS_ANNUAL = ["TotalRevenue", "OperatingRevenue", "OperatingIncome", "OperatingEx
              "CashCashEquivalentsAndShortTermInvestments",
              "CurrentAssets", "CurrentLiabilities", "TotalDebt",
              "GrossProfit", "TotalAssets", "FreeCashFlow", "OperatingCashFlow", "NetIncome",
-             "DilutedAverageShares"]
+             "DilutedAverageShares", "EBITDA", "InterestExpense"]
 TS_QUARTER = ["CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments", "TotalDebt"]
 
 
@@ -357,6 +357,8 @@ def summary(y, sym):
         "sector": ap.get("sector"),
         "industry": ap.get("industry"),
         "country": ap.get("country"),
+        "emp": ap.get("fullTimeEmployees") if isinstance(ap.get("fullTimeEmployees"), (int, float)) else None,
+        "founder": any("founder" in (o.get("title") or "").lower() for o in ap.get("companyOfficers") or []) or None,
     }
 
 
@@ -751,6 +753,28 @@ def needs_refresh(c, region):
     return False
 
 
+def five_year(y, sym):
+    """Koersrendement over (maximaal) 5 jaar, maandreeks. 'yrs' = hoe lang de reeks echt is."""
+    pts, _ = chart(y, sym, "5y", "1mo")
+    if len(pts) < 12:
+        return None
+    return {"r": round(pts[-1][1] / pts[0][1] - 1, 4), "yrs": round((pts[-1][0] - pts[0][0]) / 31557600, 2)}
+
+
+def sp500_5y(y):
+    """S&P 500 over 5 jaar: in dollars (VS-bedrijven) en omgerekend naar euro (eurozone-bedrijven)."""
+    try:
+        pts, _ = chart(y, "^GSPC", "5y", "1mo")
+        r = pts[-1][1] / pts[0][1] - 1
+        time.sleep(SLEEP)
+        fpts, _ = chart(y, "EURUSD=X", "5y", "1mo")
+        fxr = fpts[-1][1] / fpts[0][1] - 1
+        return {"VS": r, "EU": (1 + r) / (1 + fxr) - 1}
+    except Exception as e:  # noqa: BLE001
+        print(f"  S&P 500 (5 jaar) niet opgehaald: {e}")
+        return None
+
+
 def fetch_stock(y, sym, meta, old, fx):
     c = {"src": meta["src"], "region": meta["region"]}
     s = summary(y, sym)
@@ -764,6 +788,11 @@ def fetch_stock(y, sym, meta, old, fx):
         return c
     c.update(s)
     c["ts"] = timeseries(y, sym)
+    time.sleep(SLEEP)
+    try:
+        c["r5"] = five_year(y, sym)
+    except Exception:  # noqa: BLE001
+        c["r5"] = (old or {}).get("r5")
     time.sleep(SLEEP)
     c["first"] = (old or {}).get("first")
     if not c["first"]:
@@ -958,6 +987,161 @@ def quality(c, extra, curated):
     return out
 
 
+# ── Scorecard 125: 13 criteria van 0-10, omgerekend naar 125 punten ──────
+# 100-125 = once-in-a-lifetime · 75-100 = watchlist / investeerbaar · onder 75 = afvallen.
+# Staat naast Score 2.0 en verandert de 85+ selectie niet.
+CARD_MAX = 125
+CARD_MIN = 10               # minstens zoveel van de 13 criteria moeten data hebben
+# Secular trend (schatting): branches die meeliften op een langetermijntrend scoren hoog
+TREND_INDUSTRY = {
+    "Semiconductors": 9, "Semiconductor Equipment & Materials": 9, "Software - Infrastructure": 9,
+    "Software - Application": 8, "Solar": 8, "Utilities - Renewable": 8, "Electrical Equipment & Parts": 8,
+    "Aerospace & Defense": 8, "Uranium": 8, "Computer Hardware": 7, "Electronic Components": 7,
+    "Internet Content & Information": 7, "Internet Retail": 7, "Biotechnology": 7, "Medical Devices": 7,
+    "Health Information Services": 7, "Financial Data & Stock Exchanges": 7, "Engineering & Construction": 7,
+    "Information Technology Services": 6, "Communication Equipment": 6, "Scientific & Technical Instruments": 6,
+    "Diagnostics & Research": 6, "Drug Manufacturers - General": 6, "Medical Instruments & Supplies": 6,
+    "Credit Services": 6, "Specialty Industrial Machinery": 6, "Waste Management": 6,
+    "Security & Protection Services": 6, "Utilities - Regulated Electric": 6, "REIT - Specialty": 6,
+    "Banks - Diversified": 4, "Banks - Regional": 4, "Insurance - Life": 4, "Packaged Foods": 3,
+    "Beverages - Non-Alcoholic": 4, "Confectioners": 4, "Beverages - Brewers": 3, "Beverages - Wineries & Distilleries": 3,
+    "Auto Manufacturers": 3, "Auto Parts": 3, "Steel": 3, "Telecom Services": 3, "Chemicals": 4,
+    "Oil & Gas Integrated": 2, "Oil & Gas E&P": 2, "Oil & Gas Refining & Marketing": 2, "Oil & Gas Midstream": 3,
+    "Department Stores": 2, "Publishing": 2, "Broadcasting": 2, "REIT - Office": 2, "Tobacco": 1, "Thermal Coal": 1,
+}
+NO_CASHDEBT = re.compile(r"^(Banks|Insurance)")   # bij banken en verzekeraars zegt cash vs schuld weinig
+
+
+def pts3(v, good, ok, high_is_good=True):
+    """0/5/10: voorbij 'good' = 10, voorbij 'ok' = 5, anders 0."""
+    if v is None:
+        return None
+    if high_is_good:
+        return 10 if v >= good else 5 if v >= ok else 0
+    return 10 if v <= good else 5 if v <= ok else 0
+
+
+def pricing_power(gm_rows):
+    """Brutomarge over 3-5 jaar: stabiel of stijgend = prijzen kunnen doorberekenen."""
+    if len(gm_rows) < 3:
+        return None, None
+    delta = (gm_rows[-1] - gm_rows[0]) * 100            # procentpunt
+    if delta >= 1:
+        p = 10
+    elif delta >= -1:
+        p = 8 if gm_rows[-1] >= 0.4 else 6
+    elif delta >= -3:
+        p = 4
+    else:
+        p = 1
+    return p, round(delta, 1)
+
+
+def scorecard(it, sp5):
+    """Scorecard 125 (eigen veld 'card'). Gebruikt percentielen uit Score 2.0, dus pas na pct_ranks."""
+    d = it.pop("_card")
+    qual, m, mp = it["q"], it["m"], it["mp"]
+    crit = []
+
+    # 1. Cash vs debt, met schuld-draagkracht: meer cash dan schuld = 10, anders netto schuld / EBITDA
+    cash, debt = d["cash"], d["debt"]
+    nd_e = cov = None
+    if NO_CASHDEBT.search(it.get("industry") or ""):
+        p1 = None
+    elif cash is None or debt is None:
+        p1 = None
+    elif cash >= debt:
+        p1 = 10
+    else:
+        ebitda = d["ebitda"] if d["ebitda"] is not None else d["oi"]     # zonder EBITDA: bedrijfsresultaat (strenger)
+        nd_e = (debt - cash) / ebitda if ebitda and ebitda > 0 else None
+        p1 = 0 if nd_e is None else 8 if nd_e <= 1 else 5 if nd_e <= 2.5 else 2 if nd_e <= 4 else 0
+        if d["oi"] is not None and d["intexp"]:
+            cov = d["oi"] / d["intexp"]
+            if cov < 3:
+                p1 = max(0, p1 - 2)                       # rente nauwelijks te dragen
+    crit.append({"k": "cashdebt", "v": rnd(cash / debt, 2) if cash is not None and debt else None, "p": p1,
+                 "nd_ebitda": rnd(nd_e, 1), "cov": rnd(cov, 1)})
+
+    # 2-6. Cijfers uit het formuleblad, met de grenzen van de scorecard
+    g = d["rev_cagr"] if d["rev_cagr"] is not None else d["rev_yoy"]
+    crit.append({"k": "omzet", "v": rnd(g, 1), "p": pts3(g, 10, 3)})
+    crit.append({"k": "marge", "v": rnd(d["margin"], 1), "p": pts3(d["margin"], 15, 5)})
+    crit.append({"k": "short", "v": rnd(d["short"], 1), "p": pts3(d["short"], 5, 10, high_is_good=False)})
+    crit.append({"k": "inst", "v": rnd(d["inst"], 0), "p": pts3(d["inst"], 50, 30)})
+    crit.append({"k": "schaal", "v": rnd(d["scale"], 1), "p": pts3(d["scale"], -2, 2, high_is_good=False)})
+
+    # 7. 5 jaar koers t.o.v. de S&P 500 (zelfde valuta)
+    r5, p7, v7 = d["r5"], None, None
+    sp = (sp5 or {}).get("VS" if it["region"] == "VS" else "EU")
+    if r5 and sp is not None and r5.get("yrs", 0) >= 4.5:
+        rel = (1 + r5["r"]) / (1 + sp)
+        p7 = 10 if rel >= 1.10 else 5 if rel >= 0.90 else 0
+        v7 = (r5["r"] - sp) * 100
+    crit.append({"k": "sp5", "v": rnd(v7, 0), "p": p7, "r": rnd(r5["r"] * 100, 0) if r5 else None,
+                 "sp": rnd(sp * 100, 0) if sp is not None else None})
+
+    # 8-13. Kwalitatief, 0-10: eigen oordeel uit kwaliteit.json, anders een schatting uit de cijfers
+    cur = d["curated"]
+    pp, gm_delta = pricing_power(d["gm"])
+    rec = qual["recessie"]["s"]
+    rec_p = round(0.7 * rec + 0.3 * pp) if pp is not None else rec
+
+    trend = TREND_INDUSTRY.get(it.get("industry") or "", 5)
+    fwd = m.get("fwd_g")
+    if fwd is not None:
+        trend += 1 if fwd >= 20 else -1 if fwd <= 0 else 0
+    if (d["rev_cagr"] or 0) >= 15:
+        trend += 1
+    cult = 5 + (2 if d["founder"] else 0)
+    ins = d["ins"]
+    if ins is not None:
+        cult += 2 if ins >= .10 else 1 if ins >= .03 else 0
+    if (d["rev_cagr"] or 0) >= 10:
+        cult += 1
+    tal_src = [x for x in (mp.get("rpe"), mp.get("roic")) if x is not None]
+    talent = round(sum(tal_src) / len(tal_src) / 10) if tal_src else None
+    est = {"trend": trend, "cultuur": cult, "talent": talent}
+
+    def q(key):
+        if isinstance(cur.get(key), (int, float)):
+            return {"s": max(0, min(10, cur[key])), "src": "oordeel"}
+        v = est[key]
+        return None if v is None else {"s": max(0, min(10, v)), "src": "schatting"}
+
+    quali = {"moat": qual["moat"], "ceo": qual["ceo"],
+             "recessie": {"s": rec_p, "src": qual["recessie"]["src"], "rec": rec, "pricing": pp, "gm_delta": gm_delta},
+             "trend": q("trend"), "cultuur": q("cultuur"), "talent": q("talent")}
+    for k, o in quali.items():
+        crit.append(dict({"k": k, "p": o["s"] if o else None}, **({kk: vv for kk, vv in (o or {}).items() if kk != "s"})))
+
+    got = [c["p"] for c in crit if c["p"] is not None]
+    if len(got) < CARD_MIN:
+        it["card"] = {"n": len(got), "crit": crit}
+        return
+    base = sum(got) / (10 * len(got)) * CARD_MAX
+
+    # Verwatering: aandelen erbij = aftrek, inkoop van eigen aandelen = bonus
+    dil, adj = m.get("dilution"), 0
+    if dil is not None:
+        adj = -6 if dil >= 5 else -3 if dil >= 2 else 3 if dil <= -2 else 0
+    total = max(0, min(CARD_MAX, base + adj))
+    it["card"] = {"s": rnd(total, 1), "base": rnd(base, 1), "adj": adj, "dil": rnd(dil, 1), "n": len(got),
+                  "lvl": "top" if total >= 100 else "watch" if total >= 75 else "low", "crit": crit}
+
+
+def valuation_check(it):
+    """Waarderingscheck: een topbedrijf kan te duur zijn. Telt niet mee in de punten."""
+    v, m = (it.get("pillars") or {}).get("V"), it["m"]
+    fpe, peg = m.get("fpe"), m.get("peg")
+    if v is None:
+        return None
+    extreme = (fpe is not None and 50 < fpe < 9999) or (peg is not None and peg > 3)
+    lvl = "zeer duur" if v < 20 and extreme else "duur" if v < 25 else "gunstig" if v >= 75 else "normaal"
+    return {"lvl": lvl, "V": rnd(v, 0), "fpe": None if fpe is None or fpe >= 9999 else rnd(fpe, 1),
+            "peg": rnd(peg, 1), "loss": fpe is not None and fpe >= 9999}
+
+
 # ── Verwacht rendement ───────────────────────────────────────────────────
 def expected(c, price_native, extra):
     div = (c.get("div") or 0) * 100
@@ -1057,7 +1241,21 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         "near_high": price_native / hi * 100 if hi else None,
         "revisions": (up - dn) / (up + dn) * 100 if up + dn > 0 else None,
     }
+    emp = c.get("emp")
+    m["rpe"] = (c.get("rev_ttm") or rev) / emp if emp and (c.get("rev_ttm") or rev) else None   # omzet per medewerker
     m = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in m.items()}
+    gp_by = dict(map(tuple, series(ts, "annualGrossProfit")))
+    rev_rows = series(ts, "annualTotalRevenue", "annualOperatingRevenue")
+    crit_v = {x["k"]: x["v"] for x in crit}
+    card_in = {
+        "cash": cash, "debt": debt, "ebitda": last("annualEBITDA"), "oi": oi,
+        "intexp": abs(last("annualInterestExpense")) if last("annualInterestExpense") else None,
+        "rev_cagr": extra.get("rev_cagr"), "rev_yoy": extra.get("rev_yoy"), "margin": extra.get("margin"),
+        "short": crit_v.get("short"), "inst": crit_v.get("instituten"), "scale": crit_v.get("schaal"),
+        "r5": c.get("r5"), "founder": c.get("founder"), "ins": c.get("ins"),
+        "gm": [gp_by[d] / r for d, r in rev_rows if r and gp_by.get(d) is not None],
+        "curated": curated or {},
+    }
     above200 = (price_native > sma200) if sma200 else None
     earn = c.get("earnings")
     earn_days = None
@@ -1085,6 +1283,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
                      rnd(debt / 1e9 * (1 / fx if region == "VS" else 1), 2) if debt is not None else None],
         "watch": sym in own["watch"] or (eu_sym or "") in own["watch"] or nm in own["names_watch"],
         "own": bool(sym in own["own"] or (eu_sym or "") in own["own"] or (nm and nm in own["names_own"])),
+        "_card": card_in,
     }
 
 
@@ -1145,6 +1344,7 @@ def main():
 
     # 3. Referentie-ETF's per branche en ETF-doorkijk
     bench, fxchg = benchmarks(y)
+    sp5 = sp500_5y(y)
     try:
         etf_prev = json.load(open(ETF_OUT, encoding="utf-8"))
     except Exception:  # noqa: BLE001
@@ -1175,6 +1375,7 @@ def main():
     grp = lambda it: it.get("sector") or "?"  # noqa: E731
     for key, (_, higher) in METRICS.items():
         pct_ranks(items, key, higher, grp)
+    pct_ranks(items, "rpe", True, grp)         # alleen voor de scorecard (talent), geen pijler
     mean = lambda xs: sum(xs) / len(xs) if xs else None  # noqa: E731
     for it in items:
         mp = it["mp"]
@@ -1188,6 +1389,8 @@ def main():
         wsum = sum(PILLAR_W[k] for k, v in pil.items() if v is not None)
         it["composite"] = round(sum(PILLAR_W[k] * v for k, v in pil.items() if v is not None) / wsum, 2) if wsum else 0
         it["pillars"] = {k: (round(v, 1) if v is not None else None) for k, v in pil.items()}
+        scorecard(it, sp5)
+        it["val"] = valuation_check(it)
         # relatieve sterkte t.o.v. de referentie-ETF van de branche (12 maanden, in euro)
         b = bench.get(it.get("branch") or "")
         if b and b.get("ret12") is not None and it.get("chg12") is not None:
@@ -1223,6 +1426,7 @@ def main():
         "scored": len(items),
         "pending": pending,
         "weights": PILLAR_W,
+        "sp5": {k: rnd(v * 100, 1) for k, v in sp5.items()} if sp5 else None,
         "branches": bench,
         "refs": refs,
         "items": items[:TOP_N],

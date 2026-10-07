@@ -117,6 +117,19 @@
   .tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .tag.watch { color: var(--accent); border-color: rgba(79,143,240,.45); }
   .tag.warn { color: var(--warn); border-color: rgba(245,181,68,.45); }
+  /* Scorecard 125 en waarderingscheck */
+  .tag.sc-top { color: var(--up); border-color: rgba(62,207,142,.5); }
+  .tag.sc-watch { color: var(--warn); border-color: rgba(245,181,68,.45); }
+  .tag.sc-low { color: var(--down); border-color: rgba(240,89,95,.4); }
+  .tag.v-hot { color: var(--down); border-color: rgba(240,89,95,.45); }
+  .tag.v-cheap { color: var(--up); border-color: rgba(62,207,142,.45); }
+  .sc-head { display: flex; align-items: baseline; gap: 10px; margin: -2px 0 10px; }
+  .sc-num { font-family: var(--mono); font-size: 26px; font-weight: 600; }
+  .sc-num small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .sc-lvl { font-size: 12px; font-weight: 600; }
+  .sc-bar { position: relative; height: 8px; border-radius: 5px; background: linear-gradient(90deg, rgba(240,89,95,.35) 0 60%, rgba(245,181,68,.35) 60% 80%, rgba(62,207,142,.35) 80%); margin-bottom: 12px; }
+  .sc-bar i { position: absolute; top: -3px; width: 3px; height: 14px; border-radius: 2px; background: var(--text); transform: translateX(-1px); }
+  .sc-adj { font-size: 11.5px; color: var(--muted); font-family: var(--mono); margin: 6px 0 16px; line-height: 1.5; }
 
   .ring { position: relative; width: 58px; height: 58px; }
   .ring svg { width: 58px; height: 58px; transform: rotate(-90deg); }
@@ -300,6 +313,16 @@
         85 = beter dan 85% van alle gescande bedrijven.
       </div>
       <div>
+        <h4>Scorecard · 125 punten</h4>
+        Naast de totaalscore: <b>13 criteria van 0–10</b>, omgerekend naar 125. Uit de cijfers: cash vs schuld (met
+        draagkracht: netto schuld / EBITDA en rentedekking), omzetgroei, operationele marge, short interest, institutioneel
+        bezit, schaalbaarheid en <b>5 jaar t.o.v. de S&amp;P 500</b>. Kwalitatief: moat, CEO, recessiebestendig &amp; pricing power,
+        <b>secular trend</b>, <b>cultuur &amp; missie</b> en <b>talent</b> (oordeel uit kwaliteit.json, anders een schatting).
+        Verwatering kost punten, inkoop van eigen aandelen levert ze op. <b>100–125</b> = once-in-a-lifetime ·
+        <b>75–100</b> = watchlist / investeerbaar · <b>onder 75</b> = afvallen. De <b>waarderingscheck</b> (duur/gunstig t.o.v.
+        de sector) telt niet mee in de punten.
+      </div>
+      <div>
         <h4>Verwacht rendement · 12 mnd</h4>
         Gemiddeld <b>koersdoel van analisten</b> (minstens 3) plus dividendrendement, anders een schatting op basis van de
         omzetgroei. Per branche zie je de <b>referentie-ETF</b> (QDVE, QDVH, QDVG, IQQH) en per bedrijf of het die ETF over
@@ -313,6 +336,7 @@
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
         <option value="score">Totaalscore (hoog → laag)</option>
+        <option value="card">Scorecard 125 (hoog → laag)</option>
         <option value="exp">Verwacht rendement (hoog → laag)</option>
         <option value="formule">Formuleblad (hoog → laag)</option>
         <option value="Q">Kwaliteit (hoog → laag)</option>
@@ -340,6 +364,14 @@
         <option value="0">85+ (standaard)</option>
         <option value="90">90+</option>
         <option value="95">95+</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Scorecard</span>
+      <select id="cardSel">
+        <option value="0">Alle</option>
+        <option value="75">75+ (watchlist)</option>
+        <option value="100">100+ (once-in-a-lifetime)</option>
       </select>
     </div>
     <div class="tb-row2">
@@ -393,6 +425,24 @@ const METRIC_NL = {
 const METRIC_PIL = { Q: ['gp_assets', 'roic', 'fcf_margin', 'cash_conv', 'dilution'], G: ['rev_cagr3', 'rev_yoy', 'eps_g', 'fwd_g'],
   V: ['fpe', 'peg', 'fcf_yield', 'ev_ebitda'], M: ['chg12', 'near_high', 'revisions'] };
 const PIL_COLOR = v => v == null ? 'var(--line)' : v >= 75 ? 'var(--up)' : v >= 50 ? 'var(--accent)' : v >= 30 ? 'var(--warn)' : 'var(--down)';
+const CARD = {
+  cashdebt: ['Cash vs schuld', 'meer cash dan schuld = 10 · anders netto schuld/EBITDA ≤1 = 8 · ≤2,5 = 5 · ≤4 = 2'],
+  omzet:    ['Omzetgroei', 'gem. 3 jaar · ≥10% = 10 · ≥3% = 5 · lager = 0'],
+  marge:    ['Operationele marge', '≥15% = 10 · ≥5% = 5 · lager = 0'],
+  short:    ['Short interest', '<5% = 10 · 5–10% = 5 · >10% = 0'],
+  inst:     ['Institutioneel bezit', '>50% = 10 · 30–50% = 5 · <30% = 0'],
+  schaal:   ['Schaalbaarheid', 'kostengroei − omzetgroei · ≤−2 = 10 · ±2 = 5 · hoger = 0'],
+  sp5:      ['5 jaar vs S&P 500', '≥10% beter = 10 · ±10% = 5 · slechter = 0'],
+  moat:     ['Moat', 'concurrentievoordeel'],
+  ceo:      ['CEO-kwaliteit', 'leiding en kapitaalallocatie'],
+  recessie: ['Recessiebestendig & pricing', '70% recessie · 30% pricing power (brutomarge)'],
+  trend:    ['Secular trend', 'lift mee op een langetermijntrend'],
+  cultuur:  ['Cultuur & missie', 'oprichter, eigenaarschap, uitvoering'],
+  talent:   ['Talent', 'omzet per medewerker, rendement op kapitaal']
+};
+const CARD_LVL = { top: ['Once-in-a-lifetime', 'sc-top', 'c-up'], watch: ['Watchlist / investeerbaar', 'sc-watch', 'c-warn'], low: ['Afvallen', 'sc-low', 'c-down'] };
+const VAL_TAG = { 'zeer duur': 'v-hot', 'duur': 'warn', 'gunstig': 'v-cheap' };
+const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;
 let branchSel = null;           // actieve branchekaart
 const STEPS = ['Cash > schuld', 'Omzetgroei ≥ 10%', 'Marge ≥ 15%', 'Omzet groeit harder dan kosten', 'Moat', 'CEO-kwaliteit', 'Recessiebestendig'];
 
@@ -486,14 +536,14 @@ const QUICK = {
 const F_KEY = 'screener_filters';
 function saveFilters() {
   try { sessionStorage.setItem(F_KEY, JSON.stringify({ sort: $('sortSel').value, sector: $('sectorSel').value,
-    region: $('regionSel').value, min: $('minSel').value, q: $('searchInp').value, quick, refs: $('refChk').checked })); } catch (e) {}
+    region: $('regionSel').value, min: $('minSel').value, card: $('cardSel').value, q: $('searchInp').value, quick, refs: $('refChk').checked })); } catch (e) {}
 }
 function render() {
   if (!DATA) return;
   saveFilters();
   const all = pool();
   const sortBy = $('sortSel').value, sector = $('sectorSel').value, region = $('regionSel').value;
-  const min = +$('minSel').value, q = $('searchInp').value.trim().toLowerCase();
+  const min = +$('minSel').value, minCard = +$('cardSel').value, q = $('searchInp').value.trim().toLowerCase();
 
   // Kop
   const d = new Date(DATA.updated);
@@ -541,6 +591,7 @@ function render() {
     inSector(it) &&
     (region === 'all' || it.region === region) &&
     it.score >= min &&
+    (!minCard || cardOf(it) >= minCard) &&
     (!quick || QUICK[quick].test(it)) &&
     (!q || [it.name, it.sym, it.eu, it.industry].some(x => (x || '').toLowerCase().includes(q))));
 
@@ -553,6 +604,7 @@ function render() {
     V: (a, b) => ((b.pillars || {}).V ?? -1) - ((a.pillars || {}).V ?? -1) || byDefault(a, b),
     M: (a, b) => ((b.pillars || {}).M ?? -1) - ((a.pillars || {}).M ?? -1) || byDefault(a, b),
     exp: (a, b) => expOf(b) - expOf(a) || byDefault(a, b),
+    card: (a, b) => cardOf(b) - cardOf(a) || byDefault(a, b),
     steps: (a, b) => stepsOk(b) - stepsOk(a) || byDefault(a, b),
     pe: (a, b) => pe(a) - pe(b) || byDefault(a, b),
     name: (a, b) => a.name.localeCompare(b.name, 'nl')
@@ -611,6 +663,8 @@ function card(it) {
   const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
   const tags = [
     it.ref ? '<span class="tag ref">in portefeuille · referentie</span>' : '',
+    it.card && it.card.s != null ? `<span class="tag ${CARD_LVL[it.card.lvl][1]}" title="Scorecard: ${CARD_LVL[it.card.lvl][0]}">scorecard ${Math.round(it.card.s)}/125</span>` : '',
+    it.val && VAL_TAG[it.val.lvl] ? `<span class="tag ${VAL_TAG[it.val.lvl]}" title="Waarderingscheck t.o.v. de sector (telt niet mee in de punten)">${esc(it.val.lvl)}</span>` : '',
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
     it.earn_days != null && it.earn_days <= 14 ? `<span class="tag earn" title="Kwartaalcijfers: koers kan hard bewegen">cijfers ${it.earn_days === 0 ? 'vandaag' : 'over ' + it.earn_days + ' d'}</span>` : '',
     it.rs ? `<span class="tag ${it.rs.pp >= 0 ? '' : ''}" title="Rendement 12 maanden t.o.v. referentie-ETF ${esc(it.rs.etf)} (in euro)">vs ${esc(it.rs.etf)} <span class="${cls(it.rs.pp)}">${it.rs.pp > 0 ? '+' : ''}${nf(it.rs.pp, 0)} pp</span></span>` : '',
@@ -703,6 +757,7 @@ function detail(it) {
       ${crit}
     </div>
     <div>
+      ${cardBlock(it)}
       <div class="d-k">Kwaliteit <span>${it.kwal}/30</span></div>
       <div class="qual">${qrow('Moat', q.moat)}${qrow('CEO-kwaliteit', q.ceo)}${qrow('Recessiebestendig', q.recessie)}</div>
       ${q.note ? `<div class="q-note">${esc(q.note)}</div>` : ''}
@@ -724,13 +779,60 @@ function detail(it) {
   </div>`;
 }
 
+function cardValue(c, it) {
+  if (c.p == null) {
+    if (c.k === 'short' && it.region === 'EU') return '<small>niet openbaar in EU</small>';
+    if (c.k === 'cashdebt' && /^(Banks|Insurance)/.test(it.industry || '')) return '<small>n.v.t. bij banken/verzekeraars</small>';
+    if (c.k === 'sp5') return '<small>nog geen 5 jaar data</small>';
+    return '<small>geen data</small>';
+  }
+  switch (c.k) {
+    case 'cashdebt': return c.v == null ? 'geen schuld' : c.v >= 1 ? nf(c.v, 1) + '× schuld'
+      : (c.nd_ebitda != null ? nf(c.nd_ebitda, 1) + '× EBITDA' : nf(c.v, 2) + '×') + (c.cov != null ? ` <small>rente ${nf(c.cov, 0)}× gedekt</small>` : '');
+    case 'short': case 'inst': return nf(c.v, c.k === 'short' ? 1 : 0) + '%';
+    case 'schaal': return (c.v > 0 ? '+' : '') + nf(c.v, 1) + ' pp';
+    case 'sp5': return (c.v > 0 ? '+' : '') + nf(c.v, 0) + ' pp' + (c.r != null ? ` <small>${pct(c.r, 0)} vs ${pct(c.sp, 0)}</small>` : '');
+    default: return pct(c.v);
+  }
+}
+function cardBlock(it) {
+  const k = it.card;
+  if (!k) return '';
+  if (k.s == null) return `<div class="d-k">Scorecard 125 <span>te weinig data (${k.n}/13)</span></div>`;
+  const L = CARD_LVL[k.lvl];
+  const QUAL = ['moat', 'ceo', 'recessie', 'trend', 'cultuur', 'talent'];
+  const quant = k.crit.filter(c => !QUAL.includes(c.k)).map(c => `<div class="crit ${c.p == null ? 'na' : ''}">
+      <div class="crit-n">${CARD[c.k][0]}<small>${CARD[c.k][1]}</small></div>
+      <div class="crit-v">${cardValue(c, it)}</div>
+      <div class="pips ${c.p == null ? '' : 'p' + (c.p >= 8 ? 10 : c.p >= 5 ? 5 : 0)}"><i></i><i></i><i></i></div>
+      <div class="crit-p">${c.p == null ? '–' : c.p}</div>
+    </div>`).join('');
+  const qual = k.crit.filter(c => QUAL.includes(c.k)).map(c => {
+    if (c.p == null) return `<div class="q-row"><div>${CARD[c.k][0]}<small>geen data</small></div><div class="q-bar est"></div><div class="q-val">–</div></div>`;
+    const sub = c.k === 'recessie' && c.pricing != null
+      ? `<span title="${c.gm_delta != null ? `Brutomarge ${c.gm_delta > 0 ? '+' : ''}${nf(c.gm_delta, 1)} procentpunt over de laatste jaren` : ''}">rec. ${c.rec} · pricing ${c.pricing}</span>`
+      : (c.src === 'oordeel' ? 'oordeel' : 'schatting uit cijfers');
+    return `<div class="q-row"><div>${CARD[c.k][0]}<small>${sub}</small></div>
+      <div class="q-bar ${c.src === 'oordeel' ? '' : 'est'}"><i style="width:${c.p * 10}%"></i></div><div class="q-val">${c.p}/10</div></div>`;
+  }).join('');
+  const v = it.val;
+  const valTxt = v ? `Waarderingscheck: <b class="${v.lvl === 'gunstig' ? 'c-up' : v.lvl === 'zeer duur' ? 'c-down' : v.lvl === 'duur' ? 'c-warn' : ''}">${esc(v.lvl)}</b>
+      t.o.v. de sector (waardering P${v.V})${v.loss ? ', verlieslatend' : v.fpe != null ? `, verwachte K/W ${nf(v.fpe, 1)}` : ''}${v.peg != null ? `, PEG ${nf(v.peg, 1)}` : ''}. Telt niet mee in de punten.` : '';
+  return `<div class="d-k">Scorecard 125 <span>${k.n}/13 criteria met data</span></div>
+    <div class="sc-head"><span class="sc-num">${Math.round(k.s)}<small>/125</small></span><span class="sc-lvl ${L[2]}">${L[0]}</span></div>
+    <div class="sc-bar"><i style="left:${Math.min(100, k.s / 1.25).toFixed(1)}%"></i></div>
+    ${quant}
+    <div class="qual" style="margin-top:12px">${qual}</div>
+    <div class="sc-adj">${k.adj ? `Verwatering: ${k.adj > 0 ? '+' : ''}${k.adj} punten (aandelen ${k.dil > 0 ? '+' : ''}${nf(k.dil, 1)}% in een jaar${k.adj > 0 ? ', inkoop' : ''}) · ` : ''}basis ${nf(k.base, 1)}${valTxt ? '<br>' + valTxt : ''}</div>`;
+}
+
 function resetAll() {
   $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all'; $('refChk').checked = false;
-  $('minSel').value = '0'; $('searchInp').value = ''; quick = null;
+  $('minSel').value = '0'; $('cardSel').value = '0'; $('searchInp').value = ''; quick = null;
   render();
 }
 
-['sortSel', 'sectorSel', 'regionSel', 'minSel', 'refChk'].forEach(id => $(id).onchange = render);
+['sortSel', 'sectorSel', 'regionSel', 'minSel', 'cardSel', 'refChk'].forEach(id => $(id).onchange = render);
 let tSearch;
 $('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
 $('resetBtn').onclick = resetAll;
@@ -743,8 +845,8 @@ window.addEventListener('storage', e => { if (e.key === 'portfolio_positions') r
 try {
   const f = JSON.parse(sessionStorage.getItem(F_KEY) || 'null');
   if (f) {
-    ['sortSel', 'regionSel', 'minSel'].forEach((id, i) => {
-      const v = [f.sort, f.region, f.min][i];
+    ['sortSel', 'regionSel', 'minSel', 'cardSel'].forEach((id, i) => {
+      const v = [f.sort, f.region, f.min, f.card][i];
       if (v != null && [...$(id).options].some(o => o.value === v)) $(id).value = v;
     });
     if (f.sector) $('sectorSel').dataset.want = f.sector;

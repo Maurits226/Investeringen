@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-07T20:40:38.247054+00:00",
+  "updated": "2026-10-07T20:49:16.045458+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 33.74,
+      "price": 33.68,
       "prevClose": 32.95000076293945,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 34.8,
-      "vol": 65.8,
-      "sma50": 29.1964,
-      "sma200": 21.4966,
+      "vol": 65.7,
+      "sma50": 29.1952,
+      "sma200": 21.4963,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"

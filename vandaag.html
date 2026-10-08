@@ -261,11 +261,12 @@ async function render() {
 
   // Kansen van de dag
   const own = new Set(pos.filter(p => !p.watch).map(p => p.ticker.toUpperCase()));
-  const kansen = ((scr && scr.items) || []).filter(it => it.score >= 85 && !own.has((it.eu || '').toUpperCase()) && !own.has(it.sym));
+  const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;   // scorecard (van 125), het hoofdgetal
+  const kansen = ((scr && scr.items) || []).filter(it => cardOf(it) >= 75 && !own.has((it.eu || '').toUpperCase()) && !own.has(it.sym)).sort((a, b) => cardOf(b) - cardOf(a) || b.score - a.score);
   const money = it => it.region === 'VS' ? '$ ' + nf(it.native, 2) : '€ ' + nf(it.price, 2);
   const brs = Object.entries((scr && scr.branches) || {});
   $('kansen').innerHTML = kansen.length ? kansen.slice(0, 5).map(it => `<div class="kans" onclick="go('top250')">
-      <div class="sc">${Math.round(it.score)}</div>
+      <div class="sc" title="Scorecard ${Math.round(cardOf(it))} van 125" style="color:${cardOf(it) >= 100 ? 'var(--up)' : 'var(--warn)'}">${Math.round(cardOf(it))}</div>
       <div class="t-main"><div class="t-title">${esc(it.name)}</div><div class="t-sub">${esc(it.region === 'VS' ? it.sym : (it.eu || it.sym))} · ${esc(SECTOR_NL[it.sector] || it.sector || '')} · ${money(it)}</div></div>
       <div class="t-val ${cls(it.exp && it.exp.pct)}" title="Verwacht rendement 12 maanden">${pct(it.exp && it.exp.pct)}</div></div>`).join('')
     + (brs.length ? `<div class="brs">${brs.map(([k, b]) => `<div class="brc" onclick="go('top250')"><b>${esc(b.label)}</b><small>${kansen.filter(i => i.branch === k).length} kansen · ${esc((b.etf || '').split('.')[0])} ${pct(b.ret12)}</small></div>`).join('')}</div>` : '')

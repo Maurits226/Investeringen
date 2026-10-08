@@ -276,7 +276,7 @@
   <header class="top">
     <div class="title-block">
       <h1><span class="pulse"></span>Kansen portefeuille</h1>
-      <p>De sterkste aandelen van de markt die je nog niet hebt · totaalscore 85+</p>
+      <p>De sterkste aandelen van de markt die je nog niet hebt · scorecard 75+ (van 125)</p>
     </div>
     <div class="controls">
       <span class="scan-chip" id="scanChip" hidden></span>
@@ -297,10 +297,10 @@
         <h4>Welke bedrijven</h4>
         Het hele aanbod: <b>alle Amerikaanse bedrijven boven $2 mld</b> beurswaarde en <b>alle eurozone-bedrijven
         boven €1 mld</b> op hun thuisbeurs, ruim 2.000 in totaal, wekelijks ververst. Alleen euro en dollar.
-        Je ziet wie <b>85 of hoger</b> scoort (max. 500), zonder je eigen posities; die kun je als referentie aanzetten.
+        Je ziet wie op de <b>scorecard 75 of hoger</b> scoort (max. 500), zonder je eigen posities; die kun je als referentie aanzetten.
       </div>
       <div>
-        <h4>Score 2.0 · vijf pijlers</h4>
+        <h4>Marktrang · vijf pijlers</h4>
         <b>Formuleblad 30%</b> (je 10 criteria, 0/5/10 punten) · <b>Kwaliteit 20%</b> (brutowinst/bezit, rendement op kapitaal,
         vrije kasstroom, kasconversie, verwatering + moat/CEO/recessie) · <b>Groei 20%</b> (omzet, winst, verwachting volgend jaar)
         · <b>Waardering 15%</b> (verwachte K/W, PEG, kasstroomrendement, EV/EBITDA) · <b>Momentum 15%</b> (12 maanden,
@@ -309,12 +309,12 @@
       <div>
         <h4>Eerlijk vergelijken</h4>
         Kwaliteit, groei, waardering en momentum worden vergeleken met <b>bedrijven uit dezelfde sector</b> (percentiel 0–100),
-        zodat een snelgroeiend techbedrijf niet wordt afgestraft voor een hogere K/W. De <b>totaalscore</b> is je plek in de markt:
-        85 = beter dan 85% van alle gescande bedrijven.
+        zodat een snelgroeiend techbedrijf niet wordt afgestraft voor een hogere K/W. De <b>marktrang</b> is je plek in de markt:
+        P85 = beter dan 85% van alle gescande bedrijven. Het is een rangorde, geen puntenaantal.
       </div>
       <div>
-        <h4>Scorecard · 125 punten</h4>
-        Naast de totaalscore: <b>13 criteria van 0–10</b>, omgerekend naar 125. Uit de cijfers: cash vs schuld (met
+        <h4>Scorecard · 125 punten (het hoofdgetal)</h4>
+        Het getal in de ring: <b>13 criteria van 0–10</b>, omgerekend naar 125. Uit de cijfers: cash vs schuld (met
         draagkracht: netto schuld / EBITDA en rentedekking), omzetgroei, operationele marge, short interest, institutioneel
         bezit, schaalbaarheid en <b>5 jaar t.o.v. de S&amp;P 500</b>. Kwalitatief: moat, CEO, recessiebestendig &amp; pricing power,
         <b>secular trend</b>, <b>cultuur &amp; missie</b> en <b>talent</b> (oordeel uit kwaliteit.json, anders een schatting).
@@ -335,8 +335,8 @@
     <div class="tb-group">
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
-        <option value="score">Totaalscore (hoog → laag)</option>
-        <option value="card">Scorecard 125 (hoog → laag)</option>
+        <option value="score">Scorecard 125 (hoog → laag)</option>
+        <option value="rank">Marktrang (hoog → laag)</option>
         <option value="exp">Verwacht rendement (hoog → laag)</option>
         <option value="formule">Formuleblad (hoog → laag)</option>
         <option value="Q">Kwaliteit (hoog → laag)</option>
@@ -344,6 +344,14 @@
         <option value="V">Waardering (hoog → laag)</option>
         <option value="M">Momentum (hoog → laag)</option>
         <option value="name">Naam (A → Z)</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Scorecard</span>
+      <select id="cardSel">
+        <option value="0">75+ (standaard)</option>
+        <option value="90">90+</option>
+        <option value="100">100+ (once-in-a-lifetime)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -359,19 +367,11 @@
       </select>
     </div>
     <div class="tb-group">
-      <span class="tb-label">Min. score</span>
+      <span class="tb-label">Marktrang</span>
       <select id="minSel">
-        <option value="0">85+ (standaard)</option>
-        <option value="90">90+</option>
-        <option value="95">95+</option>
-      </select>
-    </div>
-    <div class="tb-group">
-      <span class="tb-label">Scorecard</span>
-      <select id="cardSel">
         <option value="0">Alle</option>
-        <option value="75">75+ (watchlist)</option>
-        <option value="100">100+ (once-in-a-lifetime)</option>
+        <option value="50">P50+</option>
+        <option value="85">P85+</option>
       </select>
     </div>
     <div class="tb-row2">
@@ -393,7 +393,7 @@
 
 <script>
 const LIMIT = 500;       // maximaal zoveel bedrijven in de lijst
-const MIN_SCORE = 85;    // bedrijven met een lagere totaalscore tonen we niet
+const CARD_SELECT = 75;  // bedrijven met een lagere scorecard (van 125) tonen we niet
 const SECTOR_NL = {
   'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
   'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', 'Industrials': 'Industrie',
@@ -442,7 +442,6 @@ const CARD = {
 };
 const CARD_LVL = { top: ['Once-in-a-lifetime', 'sc-top', 'c-up'], watch: ['Watchlist / investeerbaar', 'sc-watch', 'c-warn'], low: ['Afvallen', 'sc-low', 'c-down'] };
 const VAL_TAG = { 'zeer duur': 'v-hot', 'duur': 'warn', 'gunstig': 'v-cheap' };
-const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;
 let branchSel = null;           // actieve branchekaart
 const STEPS = ['Cash > schuld', 'Omzetgroei ≥ 10%', 'Marge ≥ 15%', 'Omzet groeit harder dan kosten', 'Moat', 'CEO-kwaliteit', 'Recessiebestendig'];
 
@@ -462,12 +461,14 @@ const toNative = it => (isUSD(it) && it.price && it.native) ? it.native / it.pri
 const money = (it, v) => v == null ? '—' : isUSD(it) ? usd(v * toNative(it)) : eur(v);
 const bn = (it, v) => v == null ? '—' : (isUSD(it) ? '$ ' : '€ ') + nf(v * toNative(it), v * toNative(it) >= 100 ? 0 : 1) + ' mld';
 const expOf = it => (it.exp && it.exp.pct != null) ? it.exp.pct : -1e9;
-// Standaardvolgorde: totaalscore hoog → laag, dan verwacht rendement hoog → laag, dan naam
-const byDefault = (a, b) => b.score - a.score || expOf(b) - expOf(a) || a.name.localeCompare(b.name, 'nl');
+const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;
+// Standaardvolgorde: scorecard hoog → laag, dan marktrang, dan verwacht rendement, dan naam
+const byDefault = (a, b) => cardOf(b) - cardOf(a) || b.score - a.score || expOf(b) - expOf(a) || a.name.localeCompare(b.name, 'nl');
 const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
-const tier = s => s >= 80 ? 't1' : s >= 65 ? 't2' : s >= 50 ? 't3' : '';
-const ringColor = s => s >= 80 ? 'var(--up)' : s >= 65 ? 'var(--accent)' : s >= 50 ? 'var(--warn)' : 'var(--down)';
+// Kleuren van de scorecard (zoals in de video): groen 100+, geel 75-100, rood onder 75
+const tier = s => s >= 100 ? 't1' : s >= 75 ? 't3' : '';
+const ringColor = s => s >= 100 ? 'var(--up)' : s >= 75 ? 'var(--warn)' : 'var(--down)';
 const stepsOk = it => it.steps.filter(x => x === 1).length;
 
 // Eigen posities uit het portfolio-tabblad (zelfde website = zelfde opslag)
@@ -504,7 +505,7 @@ async function load() {
 
 function pool() {
   const pf = portfolio();
-  const items = (DATA.items || []).filter(it => it.score >= MIN_SCORE && !pf.own.has((it.eu || '').toUpperCase()) && !pf.own.has(it.sym.toUpperCase()));
+  const items = (DATA.items || []).filter(it => cardOf(it) >= CARD_SELECT && !pf.own.has((it.eu || '').toUpperCase()) && !pf.own.has(it.sym.toUpperCase()));
   return items.slice().sort(byDefault).slice(0, LIMIT).map((it, i) => Object.assign({}, it, {
     pos: i + 1,
     watch: it.watch || pf.watch.has((it.eu || '').toUpperCase()) || pf.watch.has(it.sym.toUpperCase())
@@ -528,7 +529,7 @@ function fillSectors() {
 }
 
 const QUICK = {
-  strong: { label: 'Topscore ≥ 90', sub: 'beter dan 90% van de markt', test: it => it.score >= 90 },
+  strong: { label: 'Once-in-a-lifetime', sub: 'scorecard 100+ van 125', test: it => cardOf(it) >= 100 },
   steps:  { label: '6+ van 7 stappen', sub: 'voldoen aan bijna alle kerncriteria', test: it => stepsOk(it) >= 6 },
   exp:    { label: 'Verwacht rendement ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
 };
@@ -564,7 +565,7 @@ function render() {
       <div class="br-k"><i></i>${esc(b.label)}</div>
       <div class="br-main"><span class="br-n">${inb.length}<small>kansen</small></span></div>
       <div class="br-etf"><b>${esc((b.etf || '').split('.')[0])}</b> ${b.ret12 != null ? `<span class="${cls(b.ret12)}">${pct(b.ret12)}</span> 12 mnd` : '—'}${b.ret3m != null ? ` · <span class="${cls(b.ret3m)}">${pct(b.ret3m)}</span> 3 mnd` : ''}</div>
-      <div class="br-best">${best ? `beste: <b>${esc(best.name)}</b> (${Math.round(best.score)})` : 'nog geen kansen'}</div>
+      <div class="br-best">${best ? `beste: <b>${esc(best.name)}</b> (${Math.round(cardOf(best))}/125)` : 'nog geen kansen'}</div>
     </button>`;
   }).join('');
   $('branches').hidden = !brs.length;
@@ -604,7 +605,7 @@ function render() {
     V: (a, b) => ((b.pillars || {}).V ?? -1) - ((a.pillars || {}).V ?? -1) || byDefault(a, b),
     M: (a, b) => ((b.pillars || {}).M ?? -1) - ((a.pillars || {}).M ?? -1) || byDefault(a, b),
     exp: (a, b) => expOf(b) - expOf(a) || byDefault(a, b),
-    card: (a, b) => cardOf(b) - cardOf(a) || byDefault(a, b),
+    rank: (a, b) => b.score - a.score || byDefault(a, b),
     steps: (a, b) => stepsOk(b) - stepsOk(a) || byDefault(a, b),
     pe: (a, b) => pe(a) - pe(b) || byDefault(a, b),
     name: (a, b) => a.name.localeCompare(b.name, 'nl')
@@ -647,7 +648,7 @@ function bindCopy(root) {
 }
 
 function ring(score) {
-  const r = 24, c = 2 * Math.PI * r, f = Math.max(0, Math.min(100, score)) / 100;
+  const r = 24, c = 2 * Math.PI * r, f = Math.max(0, Math.min(125, score)) / 125;
   return `<div class="ring"><svg viewBox="0 0 58 58">
       <circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--panel-2)" stroke-width="5"/>
       <circle cx="29" cy="29" r="${r}" fill="none" stroke="${ringColor(score)}" stroke-width="5" stroke-linecap="round"
@@ -663,7 +664,7 @@ function card(it) {
   const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
   const tags = [
     it.ref ? '<span class="tag ref">in portefeuille · referentie</span>' : '',
-    it.card && it.card.s != null ? `<span class="tag ${CARD_LVL[it.card.lvl][1]}" title="Scorecard: ${CARD_LVL[it.card.lvl][0]}">scorecard ${Math.round(it.card.s)}/125</span>` : '',
+    it.card && it.card.lvl === 'top' ? '<span class="tag sc-top" title="Scorecard 100+ van 125">once-in-a-lifetime</span>' : '',
     it.koop ? `<span class="tag ${it.koop.status === 'zone' ? 'v-cheap' : 'warn'}" title="${it.koop.status === 'zone' ? 'Koopmoment' : 'Bijna een koopmoment'}: ${nf(it.koop.dd, 0)}% onder de top · zie het tabblad Koopmoment">${it.koop.status === 'zone' ? 'koopmoment' : 'bijna koopmoment'}</span>` : '',
     it.val && VAL_TAG[it.val.lvl] ? `<span class="tag ${VAL_TAG[it.val.lvl]}" title="Waarderingscheck t.o.v. de sector (telt niet mee in de punten)">${esc(it.val.lvl)}</span>` : '',
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
@@ -671,16 +672,14 @@ function card(it) {
     it.rs ? `<span class="tag ${it.rs.pp >= 0 ? '' : ''}" title="Rendement 12 maanden t.o.v. referentie-ETF ${esc(it.rs.etf)} (in euro)">vs ${esc(it.rs.etf)} <span class="${cls(it.rs.pp)}">${it.rs.pp > 0 ? '+' : ''}${nf(it.rs.pp, 0)} pp</span></span>` : '',
     isUSD(it) && it.eu && !it.approx ? `<span class="tag">€-notering: ${esc(it.eu)}</span>` : ''
   ].join('');
-  const pil = it.pillars || {};
-  const mini = ['F', 'Q', 'G', 'V', 'M'].map(k => `<i title="${PIL[k][0]} ${pil[k] == null ? '—' : Math.round(pil[k])}"><b style="height:${pil[k] || 0}%;background:${PIL_COLOR(pil[k])}"></b></i>`).join('');
-  return `<div class="stock ${tier(it.score)} ${open ? 'open' : ''} ${it.ref ? 'is-ref' : ''}" data-sym="${esc(it.sym)}" data-ref="${it.ref ? 1 : 0}">
+  return `<div class="stock ${tier(cardOf(it))} ${open ? 'open' : ''} ${it.ref ? 'is-ref' : ''}" data-sym="${esc(it.sym)}" data-ref="${it.ref ? 1 : 0}">
     <div class="rank ${it.pos && it.pos <= 10 ? 'top' : ''}">${it.ref ? 'eigen' : '#' + it.pos}</div>
     <div class="s-name">
       <div class="s-title" title="${esc(it.name)}">${esc(it.name)}</div>
       <div class="s-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[it.sector] || it.sector || '—')}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ''}
     </div>
-    <div>${ring(it.score)}<div class="pil-mini" title="Formuleblad · Kwaliteit · Groei · Waardering · Momentum">${mini}</div></div>
+    <div title="Scorecard ${it.card && it.card.s != null ? Math.round(it.card.s) + ' van 125' : 'onbekend'} · marktrang P${Math.round(it.score)}: beter dan ${Math.round(it.score)}% van de markt">${it.card && it.card.s != null ? ring(it.card.s) : '<div class="ring"><div class="num">—</div></div>'}<div class="ring-sub">/125 · P${Math.round(it.score)}</div></div>
     <div class="row2">
       <div class="blk"><div class="k">Koers</div><div class="v">${money(it, it.price)}</div>
         <div class="s ${cls(it.day)}">${it.day == null ? '&nbsp;' : pct(it.day, 2) + ' vandaag'}</div></div>
@@ -751,7 +750,7 @@ function detail(it) {
       `<span title="${PIL[pl][0]} · percentiel binnen de sector: ${mp[k] == null ? '—' : Math.round(mp[k])}">${METRIC_NL[k][0]} <b>${mval(k, mv[k])}${mp[k] != null ? ` <em style="color:${PIL_COLOR(mp[k])};font-style:normal">P${Math.round(mp[k])}</em>` : ''}</b></span>`).join('')).join('');
   return `<div class="detail">
     <div>
-      <div class="d-k">Scoreopbouw <span>totaal ${Math.round(it.score)} · beter dan ${Math.round(it.score)}% van de markt</span></div>
+      <div class="d-k">Marktrang <span>P${Math.round(it.score)} · beter dan ${Math.round(it.score)}% van de markt</span></div>
       <div class="pillars">${pillars}</div>
       ${metrics ? `<div class="metrics">${metrics}</div>` : ''}
       <div class="d-k">Formuleblad <span>${Math.round(it.formule)}/100 · ${it.n_crit}/10 criteria met data</span></div>

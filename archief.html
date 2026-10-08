@@ -515,7 +515,7 @@ function posCard(it, snap) {
     <summary>
       <div class="p-name"><span class="p-ticker">${esc(it.label || it.name || it.symbol)}</span><span class="p-company">${esc(it.symbol)}</span></div>
       <div><div class="k">Koers</div><div class="v">${fmt(it.price, cur)}</div><div class="p-company ${it.day_pct > 0 ? 'c-up' : it.day_pct < 0 ? 'c-down' : ''}">${it.day_pct == null ? '' : pct(it.day_pct, 2) + ' die dag'}</div></div>
-      <div><div class="k">Verwachting</div><div class="v ${sig ? 'c-' + d : ''}">${sig ? pct(it.projected_pct) : 'geen signaal'}</div><div class="p-company">score ${it.score > 0 ? '+' : ''}${it.score}</div></div>
+      <div><div class="k">Verwachting</div><div class="v ${sig ? 'c-' + d : ''}">${sig ? pct(it.projected_pct) : 'geen signaal'}</div><div class="p-company">patroonscore ${it.score > 0 ? '+' : ''}${it.score}</div></div>
       <div class="top3">${top}</div>
     </summary>
     <div class="pos-body">

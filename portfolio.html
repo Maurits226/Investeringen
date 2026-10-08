@@ -795,16 +795,17 @@ function renderCheck() {
       <div class="pc-note">Grootste posities van je ETF's${Object.values(extra.etf).some(d => d.proxy) ? ' (deels via een tegenhanger met dezelfde index)' : ''}. Zit een bedrijf zowel los als via een ETF in je portefeuille, dan weegt het zwaarder dan je denkt.</div></div>`);
   }
 
-  // 2. Kwaliteit van je posities (Score 2.0)
-  const scored = stocks.map(p => ({ p, r: refOf(p) })).filter(x => x.r).sort((a, b) => a.r.score - b.r.score);
+  // 2. Kwaliteit van je posities (scorecard, 0-125)
+  const cardOf = r => (r.card && r.card.s != null) ? r.card.s : null;
+  const scored = stocks.map(p => ({ p, r: refOf(p) })).filter(x => x.r && cardOf(x.r) != null).sort((a, b) => cardOf(a.r) - cardOf(b.r));
   if (scored.length) {
-    const weak = scored.filter(x => x.r.score < 50);
+    const weak = scored.filter(x => cardOf(x.r) < 75);
     issues += weak.length;
     const col = v => v == null ? 'var(--line)' : v >= 75 ? 'var(--up)' : v >= 50 ? 'var(--accent)' : v >= 30 ? 'var(--warn)' : 'var(--down)';
     const mini = pl => ['F', 'Q', 'G', 'V', 'M'].map(k => `<i><b style="height:${(pl || {})[k] || 0}%;background:${col((pl || {})[k])}"></b></i>`).join('');
     cards.push(`<div class="pc ${weak.length ? 'warn' : 'ok'}"><div class="pc-k">Kwaliteit van je posities <span>${scored.length} gescoord</span></div>
-      ${scored.slice(0, 8).map(x => `<div class="pc-row"><span>${esc(x.r.name)}</span><span><span class="pc-score" style="color:${col(x.r.score)}">${Math.round(x.r.score)}</span><span class="pc-mini" title="Formuleblad · Kwaliteit · Groei · Waardering · Momentum">${mini(x.r.pillars)}</span></span></div>`).join('')}
-      <div class="pc-note">Zelfde Score 2.0 als bij Kansen portefeuille (percentiel in de markt). Zwakste eerst${weak.length ? `; <b style="color:var(--warn)">${weak.length} onder de 50</b>` : ''}.</div></div>`);
+      ${scored.slice(0, 8).map(x => { const c = cardOf(x.r); return `<div class="pc-row"><span>${esc(x.r.name)}</span><span><span class="pc-score" title="Scorecard ${Math.round(c)} van 125 · marktrang P${Math.round(x.r.score)}" style="color:${c >= 100 ? 'var(--up)' : c >= 75 ? 'var(--warn)' : 'var(--down)'}">${Math.round(c)}<small style="color:var(--muted);font-weight:400">/125</small></span><span class="pc-mini" title="Marktrang: Formuleblad · Kwaliteit · Groei · Waardering · Momentum">${mini(x.r.pillars)}</span></span></div>`; }).join('')}
+      <div class="pc-note">Zelfde scorecard als bij Kansen portefeuille: 100+ once-in-a-lifetime, 75–100 watchlist, onder 75 afvallen. Zwakste eerst${weak.length ? `; <b style="color:var(--warn)">${weak.length} onder de 75</b>` : ''}.</div></div>`);
   }
 
   // 3. Trend

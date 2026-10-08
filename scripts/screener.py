@@ -40,7 +40,8 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 # ── Instellingen ─────────────────────────────────────────────────────────
-TOP_N = 650                 # in screener.json; de pagina toont max. 500 met score 85+ na het verbergen van eigen posities
+TOP_N = 650                 # in screener.json, op volgorde van de scorecard; de pagina toont scorecard 75+ (max. 500)
+CARD_SELECT = 75            # vanaf deze scorecard staat een bedrijf in de kansenlijst (75-100 watchlist, 100+ once-in-a-lifetime)
 # Breed universum via de Yahoo-screener: de grootste bedrijven van de markt, wekelijks ververst
 DYN_REFRESH_DAYS = 7
 DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven boven $2 mld, grootste eerst
@@ -1550,15 +1551,17 @@ def main():
     for it in items:
         lo, hi = bisect_left(comps, it["composite"]), bisect_right(comps, it["composite"])
         it["score"] = round((lo + 0.5 * (hi - lo)) / n * 100, 1) if n else 0
-    refs = sorted([it for it in items if it["own"]], key=lambda x: -x["score"])
+    # Volgorde: scorecard (hoofdgetal, 0-125), dan marktrang (Score 2.0, percentiel), dan verwacht rendement
+    cardv = lambda it: (it.get("card") or {}).get("s") if (it.get("card") or {}).get("s") is not None else -1  # noqa: E731
+    refs = sorted([it for it in items if it["own"]], key=lambda x: (-cardv(x), -x["score"]))
     items = [it for it in items if not it["own"]]
     expo = lambda it: (it["exp"] or {}).get("pct") if (it["exp"] or {}).get("pct") is not None else -1e9  # noqa: E731
-    items.sort(key=lambda x: (-x["score"], -expo(x), x["name"]))
+    items.sort(key=lambda x: (-cardv(x), -x["score"], -expo(x), x["name"]))
     for i, it in enumerate(items, 1):
         it["rank"] = i
     for key in bench:
         inb = [it for it in items if it.get("branch") == key]
-        bench[key]["n85"] = sum(1 for it in inb if it["score"] >= 85)
+        bench[key]["n85"] = sum(1 for it in inb if cardv(it) >= CARD_SELECT)     # aantal kansen (scorecard 75+)
 
     tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
     pending = sum(1 for s in uni if not tried(s))
@@ -1572,6 +1575,7 @@ def main():
         "scored": len(items),
         "pending": pending,
         "weights": PILLAR_W,
+        "card_select": CARD_SELECT,
         "sp5": {k: rnd(sp5[k] * 100, 1) for k in ("VS", "EU")} if sp5 else None,
         "branches": bench,
         "refs": refs,

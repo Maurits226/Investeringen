@@ -83,7 +83,7 @@ PATTERNS_OFF = set()         # gevuld uit het vorige signals-bestand (model.off)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RADAR_SET = (os.environ.get("RADAR_SET") or "investeringen").strip().lower()
 TOP_LIMIT = 300              # Kansen portefeuille: max. zoveel stocks in de radar
-TOP_MIN_SCORE = 85           # zelfde grens als het overzicht
+TOP_MIN_CARD = 75            # zelfde grens als het overzicht: scorecard 75+ (van 125)
 if RADAR_SET == "top250":
     OUT = os.path.join(ROOT, "signals_top250.json")
     ARCHIVE_DIR = "archive_top250"
@@ -106,7 +106,7 @@ TICKER_KEYS = {"ticker", "symbol", "yahoo", "yahooticker", "yahoo_symbol", "sym"
 
 # ── Tickers ──────────────────────────────────────────────────────────────
 def load_top250():
-    """Kansen portefeuille uit screener.json: score 85+. Amerikaanse bedrijven op hun dollarnotering
+    """Kansen portefeuille uit screener.json: scorecard 75+. Amerikaanse bedrijven op hun dollarnotering
     (zoals in het overzicht), eurozone-bedrijven op hun thuisbeurs in euro."""
     path = os.path.join(ROOT, "screener.json")
     if not os.path.exists(path):
@@ -117,7 +117,7 @@ def load_top250():
     for it in items:
         if len(out) >= TOP_LIMIT:
             break
-        if (it.get("score") or 0) < TOP_MIN_SCORE:
+        if ((it.get("card") or {}).get("s") or 0) < TOP_MIN_CARD:
             continue
         sym = it["sym"] if it.get("region") == "VS" else it.get("eu")
         if not sym:
@@ -125,10 +125,10 @@ def load_top250():
         out.append({"symbol": sym, "name": it.get("name"),
                     "category": SECTOR_NL.get(it.get("sector"), it.get("sector") or "Overig"),
                     "us": "",
-                    "rank": it.get("rank"), "score_top": it.get("score"), "watch": True, "label": None,
+                    "rank": it.get("rank"), "score_top": (it.get("card") or {}).get("s"), "watch": True, "label": None,
                     "position": None})
     if not out:
-        sys.exit("Geen stocks met score 85+ in screener.json.")
+        sys.exit("Geen stocks met scorecard 75+ in screener.json.")
     return out, "screener.json"
 
 

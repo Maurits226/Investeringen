@@ -255,7 +255,7 @@ function card(r, own) {
         <div><div class="k">Risico tot ongeldig</div><div class="v c-down">−${nf(r.risk, 1)}%</div></div>
         <div><div class="k">Waardering</div><div class="v">${esc(r.val || '—')}</div></div>
         <div><div class="k">Verwacht 12 mnd</div><div class="v ${cls(r.exp)}">${pct(r.exp)}</div></div>
-        <div><div class="k">Totaalscore</div><div class="v">${r.score == null ? '—' : Math.round(r.score)}</div></div>
+        <div><div class="k">Marktrang</div><div class="v" title="Beter dan ${r.score == null ? '—' : Math.round(r.score)}% van de markt">${r.score == null ? '—' : 'P' + Math.round(r.score)}</div></div>
       </div>
     </div>
     ${sizeBlock(r)}

@@ -68,7 +68,7 @@
   .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
 
   .summary {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px;
   }
   .stat {
     background: linear-gradient(180deg, var(--panel), var(--ink));
@@ -374,7 +374,7 @@
   @media (max-width: 860px) {
     .trade { grid-template-columns: 1fr 1fr; }
     .trade .t-action, .trade .t-btns { grid-column: span 2; }
-    .summary { grid-template-columns: repeat(2, 1fr); }
+    .summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .stat .label { min-height: 2.8em; }
     .position { grid-template-columns: 1fr 1fr; }
     .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
@@ -446,7 +446,6 @@
       <select id="statusSel">
         <option value="all">Alle</option>
         <option value="up">Koopsignaal</option>
-        <option value="down">Verkoopsignaal</option>
         <option value="new">Nieuw signaal</option>
         <option value="flat">Geen signaal</option>
       </select>
@@ -481,7 +480,7 @@ const SECTION_ORDER = SET === 'top250' ? [] : ['Stocks', 'Gold & Silver'];
 const CAT_LABEL = { 'Gold & Silver': 'Edelmetalen' };
 const SKIP_CATEGORIES = ["ETF's"];                 // ETF's doen niet mee in de radar
 const MERGE_CATEGORY = { Watchlist: 'Stocks' };    // watchlist telt gewoon als stock
-const MOVE_MIN = 5;                                // interessant vanaf een verwachte daling of stijging van 5%
+const MOVE_MIN = 5;                                // koopsignaal vanaf een verwachte stijging van 5%
 const UI_KEY = CFG.ui;
 
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
@@ -495,7 +494,7 @@ let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [] };
 // Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
 try { ui = { ...ui, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 if (!['section', 'name', 'result', 'rank'].includes(ui.sort) || (ui.sort === 'rank' && SET !== 'top250')) ui.sort = 'section';
-if (!['all', 'up', 'down', 'flat', 'new'].includes(ui.status)) ui.status = 'all';
+if (!['all', 'up', 'flat', 'new'].includes(ui.status)) ui.status = 'all';
 const saveUI = () => { try { sessionStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
 // Posities van het portfolio (zelfde website, dus zelfde localStorage):
@@ -515,7 +514,7 @@ function prep(raw) {
     const p = pos[it.symbol.toUpperCase()];
     const cat = (p && p.section) || it.category || 'Stocks';
     const pr = it.projected_pct;
-    const flag = pr != null && ((it.direction === 'down' && -pr >= MOVE_MIN) || (it.direction === 'up' && pr >= MOVE_MIN));
+    const flag = pr != null && it.direction === 'up' && pr >= MOVE_MIN;   // alleen koopsignalen
     return { ...it, flag, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: SET === 'top250' };
   };
   const keep = it => !SKIP_CATEGORIES.includes(it.category);
@@ -551,11 +550,6 @@ async function load() {
 function stappen(it) {
   const p = it.plan; if (!p) return null;
   const r = (a, b) => pct((b / a - 1) * 100);
-  if (it.direction === 'down') return [
-    it.watch ? ['wacht', 'Nog niet kopen', p.entry, 'nu'] : ['verkoop', 'Verkopen', p.entry, 'nu'],
-    ['koop', it.watch ? 'Kopen' : 'Terugkopen', p.target, r(p.entry, p.target)],
-    ['real', 'Weer verkopen', p.next, (p.next / p.target - 1) * 100],
-  ];
   return [
     ['koop', it.watch ? 'Kopen' : 'Bijkopen', p.entry, 'nu'],
     ['real', 'Verkopen', p.target, (p.target / p.entry - 1) * 100],
@@ -608,9 +602,6 @@ function card(it) {
   if (sig && d === 'up') {
     lblL = 'stop ' + fmt(it.plan.stop, cur); lblR = doel;
     under = `plan eindigt onder ${fmt(it.plan.stop, cur)}<br>actie: <b>verkopen</b>`;
-  } else if (sig && d === 'down') {
-    lblL = doel; lblR = 'stop ' + fmt(it.plan.stop, cur);
-    under = `plan eindigt boven ${fmt(it.plan.stop, cur)}<br>actie: <b>${it.watch ? 'kopen bij het doel' : 'terugkopen'}</b>`;
   }
 
   const s = sig ? stappen(it) : null;
@@ -625,15 +616,15 @@ function card(it) {
   const since = ep ? `<span class="since" title="Advies voor het eerst getoond">${ep.bootstrap ? 'al vóór ' + dag(ep.start) : 'sinds ' + dagTijd(ep.start)}</span>` : '';
   const entry = !ei ? ''
     : ei.kind === 'in'
-      ? `<span class="entry in ${ei.up ? '' : 'down'}" title="Tot deze koers blijft er minstens ${MOVE_MIN}% over tot het doel van het advies">✓ ${ei.up ? 'INSTAPPEN tot' : 'VERKOPEN boven'} ${fmt(ei.grens, cur)}</span>`
-      : `<span class="entry out" title="Het advies is verlopen voor nieuwe instappers; wie al instapte volgt het plan">✕ ${ei.up ? 'NIET MEER INSTAPPEN' : 'NIET MEER VERKOPEN'}</span>
+      ? `<span class="entry in ${ei.up ? '' : 'down'}" title="Tot deze koers blijft er minstens ${MOVE_MIN}% over tot het doel van het advies">✓ INSTAPPEN tot ${fmt(ei.grens, cur)}</span>`
+      : `<span class="entry out" title="Het advies is verlopen voor nieuwe instappers; wie al instapte volgt het plan">✕ NIET MEER INSTAPPEN</span>
          <span class="since">${ei.reason}</span>`;
   const tr = tradeFor(it.symbol);
   const followBtn = tr ? `<span class="badge followed" title="Je hebt dit advies opgevolgd: zie bovenaan">OPGEVOLGD</span>`
     : sig && ei && ei.kind === 'in' ? `<button class="toggle follow" data-follow="${esc(it.symbol)}" title="Heb je dit advies uitgevoerd? Dan blijft het bovenaan staan">✓ Opgevolgd</button>` : '';
 
   const badge = !sig ? `<span class="badge hold">geen actie</span>`
-    : d === 'down' ? `<span class="badge down">${SET === 'top250' ? 'NOG NIET KOPEN' : 'VERKOOPSIGNAAL'}</span>` : `<span class="badge up">KOOPSIGNAAL</span>`;
+    : `<span class="badge up">KOOPSIGNAAL</span>`;
 
   el.innerHTML = `
     <div class="p-name">
@@ -847,9 +838,8 @@ function detail(it) {
       : 'Terugblik: dit signaal kwam de afgelopen twee jaar niet voor op deze koers.';
   const planText = '';
 
-  const stop = (it.plan && it.flag) ? (it.direction === 'down'
-    ? `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daarboven, dan is de daling niet doorgezet. Koop dan terug (had je verkocht) en wacht niet langer op ${fmt(it.plan.target, cur)}.</div>`
-    : `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daaronder, dan is de stijging mislukt. Verkoop dan (stop-loss) om verder verlies te beperken, en koop niet bij.</div>`) : '';
+  const stop = (it.plan && it.flag)
+    ? `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daaronder, dan is de stijging mislukt. Verkoop dan (stop-loss) om verder verlies te beperken, en koop niet bij.</div>` : '';
 
   const pats = it.patterns.filter(p => p.dir !== 'info' || p.off);
   return `<div class="detail">
@@ -941,7 +931,7 @@ function render() {
   const cards = document.getElementById('cards');
   cards.innerHTML = '';
   if (!filtered.length && !errs.length) {
-    const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', down: 'met een verwachte daling ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
+    const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
     const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : ui.cat !== 'all' ? CFG.noun[1] + ' in ' + ui.cat.toLowerCase() : CFG.noun[1];
     const beurs = ui.mkt !== 'all' && EXCHANGES[ui.mkt] ? ' op ' + EXCHANGES[ui.mkt].name : '';
     cards.innerHTML = `<div class="empty">Op dit moment geen ${cat}${beurs} ${wat}.</div>`;
@@ -975,15 +965,13 @@ function render() {
 
   const inCat = x => (ui.cat === 'all' || x.category === ui.cat) && inMkt(x);
   const catItems = items.filter(inCat), catErrors = errors.filter(inCat);
-  const nDown = catItems.filter(i => i.flag && i.direction === 'down').length;
   const nUp = catItems.filter(i => i.flag && i.direction === 'up').length;
-  const nFlat = catItems.length - nDown - nUp + catErrors.length;
+  const nFlat = catItems.length - nUp + catErrors.length;
   const nNew = catItems.filter(isNew).length;
   const s = data.stats;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
     <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omhoog</div></div>
-    <div class="stat clickable ${ui.status === 'down' ? 'active' : ''}" data-status="down"><div class="label">Verwachte daling</div><div class="value" style="color:var(--down)">${nDown}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omlaag</div></div>
     <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">in de afgelopen handelsdag</div></div>
     <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
 `;
@@ -1369,7 +1357,6 @@ if (SET === 'top250') {
   document.querySelector('#sortSel option[value="section"]').textContent = 'Sector (standaard)';
   document.querySelector('#catSel').previousElementSibling.textContent = 'Sector';
 }
-if (SET === 'top250') document.querySelector('#statusSel option[value="down"]').textContent = 'Daling verwacht';
 document.getElementById('sortSel').value = ui.sort;
 load().then(syncTrades);
 setInterval(load, 5 * 60 * 1000);

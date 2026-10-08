@@ -1051,8 +1051,10 @@ def analyse(tk, bars, meta, world=None):
         ctx["sens"] = sensitivities(S, world["returns"], world.get("factors", []))
     P = P + context_patterns(ctx)
     score = score_of(P)
-    direction = "down" if score <= -SIGNAL_SCORE else "up" if score >= SIGNAL_SCORE else "flat"
-    target, sup, res, sig = project(S, i, score, targets)
+    # Alleen koopsignalen (kopen, daarna verkopen op het doel of de stop). Negatieve patronen remmen
+    # de score wel af, maar geven zelf geen verkoop- of nog-niet-kopen-advies meer.
+    direction = "up" if score >= SIGNAL_SCORE else "flat"
+    target, sup, res, sig = project(S, i, max(score, 0), targets)
     price = S.c[i]
     proj = round((target / price - 1) * 100, 1) if target else None
     flag = bool(proj is not None and (
@@ -1065,8 +1067,8 @@ def analyse(tk, bars, meta, world=None):
     def signal_at(j):
         Pj, tj = evaluate(S, j)
         sj = score_of(Pj)
-        dj = "down" if sj <= -SIGNAL_SCORE else "up" if sj >= SIGNAL_SCORE else "flat"
-        tgt = project(S, j, sj, tj)[0]
+        dj = "up" if sj >= SIGNAL_SCORE else "flat"
+        tgt = project(S, j, max(sj, 0), tj)[0]
         mv = (tgt / S.c[j] - 1) * 100 if tgt else None
         ok = mv is not None and ((dj == "down" and -mv >= DROP_PCT) or (dj == "up" and mv >= RISE_PCT))
         return dj if ok else None
@@ -1127,6 +1129,11 @@ def pattern_model(prev_model, agg_pat, agg):
                         "base": round(base * 100, 1) if base is not None else None,
                         "plan_n": st["plan_n"], "wins": st["wins"], "losses": st["losses"],
                         "avg": round(avg, 2) if avg is not None else None}
+        if d == "down":                     # geen verkoopadviezen meer: deze patronen remmen alleen koopsignalen af
+            if label in off:
+                del off[label]
+                log.append({"datum": today, "wijziging": f"Patroon '{label}' weer aan als rem op koopsignalen (verkoopadviezen vervallen)"})
+            continue
         if st["plan_n"] < MIN_PAT_N or avg is None or hit is None or base is None:
             continue
         why = f"{st['plan_n']} plannen, gem. {avg:+.2f}%, trefkans {hit * 100:.0f}% vs {base * 100:.0f}% zonder signaal"
@@ -1220,7 +1227,7 @@ def update_history(prev_hist, items, bars_by_sym, bootstrap, ctx=None):
     now_iso = now.isoformat(timespec="seconds")
     nl_today = datetime.now(_nl()).date().isoformat()
     today = now.date().isoformat()
-    hist = [dict(h) for h in (prev_hist or [])]
+    hist = [dict(h) for h in (prev_hist or []) if h.get("dir") != "down"]   # alleen koopadviezen
     prices = {it["symbol"]: it.get("price") for it in items}
     flagged = {it["symbol"]: it for it in items if it.get("flag") and it.get("plan")}
 

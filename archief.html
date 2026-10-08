@@ -342,9 +342,16 @@ async function loadTrades() {
 }
 async function loadDay(date, force) {
   if (!force && dayCache[date]) return dayCache[date];
-  const d = DEMO ? DEMO.days[date] : await getJSON(`${CFG.dir}/${date}.json`);
+  const d = onlyBuy(DEMO ? DEMO.days[date] : await getJSON(`${CFG.dir}/${date}.json`));
   dayCache[date] = d;
   return d;
+}
+// Alleen koopadviezen: oude dagen bevatten nog verkoop-/nog-niet-kopen-adviezen, die tonen we niet meer
+function onlyBuy(d) {
+  if (!d) return d;
+  const up = a => a.dir !== 'down';
+  return { ...d, advices: (d.advices || []).filter(up), expired: (d.expired || []).filter(up),
+    items: (d.items || []).map(it => it.direction === 'down' ? { ...it, flag: false, plan: null } : it) };
 }
 async function load(first) {
   try {
@@ -504,11 +511,8 @@ function posCard(it, snap) {
   const pats = (it.patterns || []).filter(p => p.dir !== 'info');
   const info = (it.patterns || []).filter(p => p.dir === 'info');
   const top = pats.slice(0, 3).map(p => `<span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span> ${esc(p.label)}`).join(' · ') || 'geen patronen gevonden';
-  const plan = sig && it.plan ? (it.direction === 'up'
-    ? [['Kopen', it.plan.entry], ['Verkopen (doel)', it.plan.target], ['Terugkopen', it.plan.next], ['Stop', it.plan.stop]]
-    : SET === 'top250'
-      ? [['Nog niet kopen', it.plan.entry], ['Kopen (doel)', it.plan.target], ['Verkopen', it.plan.next], ['Stop', it.plan.stop]]
-      : [['Verkopen', it.plan.entry], ['Terugkopen (doel)', it.plan.target], ['Weer verkopen', it.plan.next], ['Stop', it.plan.stop]]) : null;
+  const plan = sig && it.plan
+    ? [['Kopen', it.plan.entry], ['Verkopen (doel)', it.plan.target], ['Terugkopen', it.plan.next], ['Stop', it.plan.stop]] : null;
   const el = document.createElement('details');
   el.className = 'pos ' + d;
   el.innerHTML = `
@@ -592,7 +596,7 @@ function analyseHTML(all) {
     ${groups.filter(([, xs]) => xs.length).map(([k, xs]) => { const s = stat(xs); return `<tr><td>${esc(k)}</td><td>${s.n}</td><td>${s.hit == null ? '—' : Math.round(s.hit) + '%'}</td><td class="${s.avg >= 0 ? 'c-up' : 'c-down'}">${f(s.avg)}</td></tr>`; }).join('')
       || '<tr><td colspan="4" style="color:var(--muted)">Nog geen afgeronde adviezen.</td></tr>'}</table>${note ? `<div class="an-note">${note}</div>` : ''}</div>`;
   const REG = { calm: 'Rustig & stijgend', neutral: 'Neutraal', off: 'Risico-uit' };
-  const byDir = [['Koopadviezen', closed.filter(h => h.dir === 'up')], [SET === 'top250' ? 'Nog niet kopen' : 'Verkoopadviezen', closed.filter(h => h.dir === 'down')]];
+  const byDir = [['Koopadviezen', closed.filter(h => h.dir === 'up')]];
   const byReg = ['calm', 'neutral', 'off'].map(k => [REG[k], closed.filter(h => h.regime === k)]).concat([['Onbekend (van vóór deze analyse)', closed.filter(h => !h.regime)]]);
   const pc = {};
   closed.forEach(h => (h.patterns || []).forEach(p => (pc[p] = pc[p] || []).push(h)));
@@ -619,12 +623,11 @@ function analyseHTML(all) {
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const nextQ = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 1);
   const dfmt = d => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' });
-  const need = 30, nUp = closed.filter(h => h.dir === 'up').length, nDn = closed.filter(h => h.dir === 'down').length;
+  const need = 30, nUp = closed.filter(h => h.dir === 'up').length;
   // modelwijzigingen: handmatige (modelwijzigingen.json) en automatische (patronen aan/uit) samen
   const ch = (changes || []).concat((live.model || {}).log || []).sort((a, b) => (a.datum || '').localeCompare(b.datum || '')).slice(-6).reverse();
   const refl = `<div class="an-c v"><div class="an-k">Reflectie <span>wanneer bijsturen?</span></div>
     <div class="an-note" style="margin-top:0">Koopadviezen: <b>${nUp} van ${need}</b> afgerond</div><div class="prog"><i style="width:${Math.min(100, nUp / need * 100)}%"></i></div>
-    <div class="an-note" style="margin-top:0">${SET === 'top250' ? 'Nog niet kopen' : 'Verkoopadviezen'}: <b>${nDn} van ${need}</b> afgerond</div><div class="prog"><i style="width:${Math.min(100, nDn / need * 100)}%"></i></div>
     <div class="an-note"><b>Wekelijks</b> 5 minuten: afgeronde adviezen en rare uitschieters.<br>
       <b>Maandelijks</b> (volgende: ${dfmt(nextMonth)}): deze analyse per richting, klimaat en patroon.<br>
       <b>Per kwartaal</b> (volgende: ${dfmt(nextQ)}): pas dan instellingen aanpassen, en alleen als er minstens ${need} afgeronde adviezen per richting zijn. Eén ding tegelijk veranderen.</div>
@@ -666,12 +669,12 @@ function whatWorks(closed) {
 }
 
 function scoreHist() {
-  return (live.history || []).filter(h => h.plan && !skipCat(((live.items || []).find(i => i.symbol === h.symbol) || {}).category));
+  return (live.history || []).filter(h => h.plan && h.dir === 'up' && !skipCat(((live.items || []).find(i => i.symbol === h.symbol) || {}).category));
 }
 function renderScore() {
   const box = document.getElementById('scoreView');
   const all = scoreHist();
-  if (!all.length) { box.innerHTML = `<div class="empty">Nog geen adviezen. Zodra de Patroonradar een koop- of verkoopadvies geeft, verschijnt het hier en wordt het ${CFG.every} bijgewerkt.</div>`; return; }
+  if (!all.length) { box.innerHTML = `<div class="empty">Nog geen adviezen. Zodra de Patroonradar een koopadvies geeft, verschijnt het hier en wordt het ${CFG.every} bijgewerkt.</div>`; return; }
   const stats = list => {
     const af = list.filter(h => h.outcome !== 'open'), lo = list.filter(h => h.outcome === 'open');
     const gem = xs => xs.length ? xs.reduce((a, h) => a + (adviesStand(h).res || 0), 0) / xs.length : null;
@@ -719,7 +722,7 @@ function renderScore() {
     </div>`;
   }).join('');
   box.innerHTML = `
-    <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}${dirLine('down', SET === 'top250' ? 'Nog-niet-kopen-adviezen' : 'Verkoopadviezen')}</div>
+    <div class="sb-dirs">${dirLine('up', 'Koopadviezen')}</div>
     ${analyseHTML(all)}
     <div class="sb-tools">
       <select id="sbFilter"><option value="all">Alle adviezen</option><option value="open">Lopend</option><option value="doel">Doel gehaald</option><option value="stop">Stop geraakt</option><option value="verlopen">Termijn verstreken</option><option value="mine">Door jou opgevolgd</option></select>
@@ -764,11 +767,10 @@ async function show(date, force) {
   const advices = (snap.advices || []).filter(a => keep.has(a.symbol) && a.status !== 'niet_instappen')
     .sort((a, b) => (b.new - a.new) || (b.start || '').localeCompare(a.start || ''));
   const nUp = items.filter(it => it.flag && it.direction === 'up').length;
-  const nDown = items.filter(it => it.flag && it.direction === 'down').length;
   const isToday = date === localDay(new Date().toISOString());
   const nAf = (snap.expired || []).filter(a => keep.has(a.symbol)).length + gone.length;
   document.getElementById('dayinfo').innerHTML = `<b>${dagLang(date)}</b> · ${isToday ? 'stand van' : 'slotstand'} ${tijd(snap.generated)}<br>
-    <span class="c-up">${nUp} koopsignaal</span> · <span class="c-down">${nDown} verkoopsignaal</span> · ${items.length - nUp - nDown} zonder signaal${nAf ? ` · ${nAf} ${nAf === 1 ? 'advies' : 'adviezen'} afgelopen` : ''}`;
+    <span class="c-up">${nUp} koopsignaal</span> · ${items.length - nUp} zonder koopsignaal${nAf ? ` · ${nAf} ${nAf === 1 ? 'advies' : 'adviezen'} afgelopen` : ''}`;
 
   box.innerHTML = '';
   const add = html => box.insertAdjacentHTML('beforeend', html);
@@ -776,7 +778,7 @@ async function show(date, force) {
     ? `<div class="section-header">Lopende adviezen (${advices.length})</div>`
     : `<div class="section-header">Actief aan het eind van deze dag (${advices.length})</div>
        ${advices.length ? '<p class="note" style="margin:-4px 0 10px">Rechts zie je hoe elk advies daarna verliep: loopt het nog, of is het inmiddels vervallen.</p>' : ''}`);
-  add(advices.length ? `<div class="h-list">${advices.map(a => adviceRow(a, snap, isToday)).join('')}</div>` : `<div class="empty">Geen actief koop- of verkoopadvies aan het eind van deze dag.</div>`);
+  add(advices.length ? `<div class="h-list">${advices.map(a => adviceRow(a, snap, isToday)).join('')}</div>` : `<div class="empty">Geen actief koopadvies aan het eind van deze dag.</div>`);
   const expired = [...(snap.expired || []).filter(a => keep.has(a.symbol)), ...gone].sort((a, b) => (b.end || '').localeCompare(a.end || ''));
   if (expired.length) {
     add(`<div class="section-header">Afgelopen deze dag (${expired.length})</div>`);

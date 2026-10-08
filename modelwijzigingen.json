@@ -8,5 +8,6 @@
   { "datum": "2026-10-07", "wijziging": "Top 250: 125-puntenscorecard (13 criteria) naast Score 2.0, met pricing power, schuld-draagkracht, verwatering en waarderingscheck" },
   { "datum": "2026-10-08", "wijziging": "Patroonradar: per patroon gemeten in de backtest; patronen zonder voordeel (30+ plannen) gaan automatisch uit" },
   { "datum": "2026-10-08", "wijziging": "Koopmoment: scorecard 90+/100+, 10-25% onder de top, trend intact; gevolgd tegen de S&P 500, met maandelijkse scorecard-check" },
-  { "datum": "2026-10-08", "wijziging": "Scorecard (van 125) is het hoofdgetal en bepaalt de kansenlijst (75+) en de Top 250-radar; Score 2.0 heet voortaan marktrang (P0-100)" }
+  { "datum": "2026-10-08", "wijziging": "Scorecard (van 125) is het hoofdgetal en bepaalt de kansenlijst (75+) en de Top 250-radar; Score 2.0 heet voortaan marktrang (P0-100)" },
+  { "datum": "2026-10-08", "wijziging": "Patroonradar: alleen nog koopadviezen (kopen, daarna verkopen op doel of stop); verkoop- en nog-niet-kopen-adviezen vervallen, negatieve patronen remmen alleen nog de koopscore" }
 ]

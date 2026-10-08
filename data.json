@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-08T02:00:36.040771+00:00",
+  "updated": "2026-10-08T03:00:33.961736+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -319,7 +319,7 @@
       "vol": 42.4,
       "sma50": 1501.792,
       "sma200": 1349.5275,
-      "low52": 813.8,
+      "low52": 812.6,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"
     },

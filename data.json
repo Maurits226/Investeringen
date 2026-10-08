@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-08T08:10:33.293812+00:00",
+  "updated": "2026-10-08T08:11:21.287215+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -129,14 +129,14 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 142.16,
+      "price": 142.1,
       "prevClose": 147.44000244140625,
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
       "vol": 50.4,
-      "sma50": 147.532,
-      "sma200": 153.8016,
+      "sma50": 147.5308,
+      "sma200": 153.8013,
       "low52": 94.4,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -311,14 +311,14 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1585.2,
+      "price": 1585.0,
       "prevClose": 1636.4000244140625,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
       "vol": 42.4,
-      "sma50": 1506.252,
-      "sma200": 1352.9375,
+      "sma50": 1506.248,
+      "sma200": 1352.9365,
       "low52": 812.6,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"
@@ -339,14 +339,14 @@
     },
     "MSF.DE": {
       "ticker": "MSF.DE",
-      "price": 473.6,
+      "price": 473.7,
       "prevClose": 472.95001220703125,
       "currency": "EUR",
       "name": "Microsoft Corporation",
       "high52": 478.85,
       "vol": 32.4,
-      "sma50": 432.629,
-      "sma200": 372.9717,
+      "sma50": 432.631,
+      "sma200": 372.9722,
       "low52": 309.6,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -395,14 +395,14 @@
     },
     "WSLV.MI": {
       "ticker": "WSLV.MI",
-      "price": 52.64,
+      "price": 52.35,
       "prevClose": 54.16999816894531,
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
       "vol": 59.8,
-      "sma50": 55.5597,
-      "sma200": 62.386,
+      "sma50": 55.5539,
+      "sma200": 62.3845,
       "low52": 39.025,
       "exchange": "MIL",
       "exchangeFull": "Milan"

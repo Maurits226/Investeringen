@@ -157,6 +157,15 @@
   .prog { height: 6px; border-radius: 4px; background: var(--panel); overflow: hidden; margin: 4px 0 8px; }
   .prog i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
   @media (max-width: 900px) { .an-grid { grid-template-columns: 1fr; } }
+  /* Wat werkt: alle patronen, backtest + live */
+  .an-c.wide { grid-column: 1 / -1; --mark: var(--up); }
+  .ww-wrap { overflow-x: auto; }
+  .an-t tr.off td { color: var(--muted); }
+  .an-t tr.off td:first-child { text-decoration: line-through; }
+  .pill { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; }
+  .pill.on { color: var(--up); border-color: rgba(62,207,142,.45); }
+  .pill.uit { color: var(--down); border-color: rgba(240,89,95,.45); }
+  .pill.wacht { color: var(--muted); }
   .sb-dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
   /* Scorebord per richting: kaart in dezelfde stijl als het beursklimaat */
   .sb-dir { position: relative; overflow: hidden; border-radius: 14px; padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 10px;
@@ -611,7 +620,8 @@ function analyseHTML(all) {
   const nextQ = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 1);
   const dfmt = d => d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' });
   const need = 30, nUp = closed.filter(h => h.dir === 'up').length, nDn = closed.filter(h => h.dir === 'down').length;
-  const ch = (changes || []).slice(-5).reverse();
+  // modelwijzigingen: handmatige (modelwijzigingen.json) en automatische (patronen aan/uit) samen
+  const ch = (changes || []).concat((live.model || {}).log || []).sort((a, b) => (a.datum || '').localeCompare(b.datum || '')).slice(-6).reverse();
   const refl = `<div class="an-c v"><div class="an-k">Reflectie <span>wanneer bijsturen?</span></div>
     <div class="an-note" style="margin-top:0">Koopadviezen: <b>${nUp} van ${need}</b> afgerond</div><div class="prog"><i style="width:${Math.min(100, nUp / need * 100)}%"></i></div>
     <div class="an-note" style="margin-top:0">${SET === 'top250' ? 'Nog niet kopen' : 'Verkoopadviezen'}: <b>${nDn} van ${need}</b> afgerond</div><div class="prog"><i style="width:${Math.min(100, nDn / need * 100)}%"></i></div>
@@ -623,8 +633,36 @@ function analyseHTML(all) {
   const hitTxt = all_.hit == null ? 'nog geen afgeronde adviezen' : `trefkans ${Math.round(all_.hit)}% · verwachte waarde ${f(all_.avg)}`;
   return `<details class="an" id="anBox"${ui.anOpen ? ' open' : ''}><summary>📊 Analyse &amp; reflectie <span class="h-sub">${closed.length} afgerond · ${hitTxt}</span>
       <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
-    <div class="an-grid">${kpi}${table('Per richting', byDir, '')}${table('Per beursklimaat bij start', byReg, 'v', 'Werkt het model beter in een rustige markt? Dan kun je in risico-uit terughoudender zijn.')}
+    <div class="an-grid">${kpi}${whatWorks(closed)}${table('Per richting', byDir, '')}${table('Per beursklimaat bij start', byReg, 'v', 'Werkt het model beter in een rustige markt? Dan kun je in risico-uit terughoudender zijn.')}
       ${table('Per patroon', byPat, 'g', 'De drie sterkste patronen per advies. Welke patronen leveren echt iets op?')}${calib}${mkt}${refl}</div></details>`;
+}
+
+// Wat werkt: per patroon de backtest van alle stocks samen (veel data) naast de echte adviezen (live)
+function whatWorks(closed) {
+  const m = live.model || {}, st = m.stats || {};
+  const rows = Object.entries(st);
+  if (!rows.length) return '';
+  const minN = m.min_n || 30;
+  const live_ = {};
+  closed.forEach(h => (h.patterns || []).forEach(p => (live_[p] = live_[p] || []).push(h.result_pct)));
+  const avgL = xs => xs && xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  rows.sort((a, b) => (b[1].avg ?? -1e9) - (a[1].avg ?? -1e9));
+  const f = v => v == null ? '—' : pct(v, 2);
+  const dirTxt = d => d === 'up' ? '▲' : '▼';
+  const nOff = rows.filter(([, x]) => x.off).length;
+  const body = rows.map(([k, x]) => {
+    const l = live_[k] || [];
+    const status = x.off ? '<span class="pill uit">uit</span>' : x.plan_n < minN ? `<span class="pill wacht" title="Pas na ${minN} plannen wordt beoordeeld">${x.plan_n}/${minN}</span>` : '<span class="pill on">aan</span>';
+    const better = x.hit != null && x.base != null ? x.hit - x.base : null;
+    return `<tr class="${x.off ? 'off' : ''}"><td><span class="${x.d === 'up' ? 'c-up' : 'c-down'}">${dirTxt(x.d)}</span> ${esc(k)}</td><td>${x.plan_n}</td>
+      <td>${x.hit == null ? '—' : Math.round(x.hit) + '%'}<small style="color:var(--muted)"> (${better == null ? '—' : (better >= 0 ? '+' : '') + Math.round(better)})</small></td>
+      <td class="${x.avg >= 0 ? 'c-up' : 'c-down'}">${f(x.avg)}</td><td>${l.length || '—'}</td><td class="${avgL(l) >= 0 ? 'c-up' : 'c-down'}">${l.length ? f(avgL(l)) : '—'}</td><td>${status}</td></tr>`;
+  }).join('');
+  return `<div class="an-c wide"><div class="an-k">Wat werkt · per patroon <span>${rows.length} patronen · ${nOff} uitgeschakeld</span></div>
+    <div class="ww-wrap"><table class="an-t"><tr><th>patroon</th><th>plannen (backtest)</th><th>trefkans (vs zonder)</th><th>gem. per plan</th><th>live n</th><th>live gem.</th><th>status</th></tr>${body}</table></div>
+    <div class="an-note">Backtest: alle stocks van deze radar over de afgelopen jaren, telkens als het patroon meedeed in een signaal in dezelfde richting.
+      Een patroon gaat <b>automatisch uit</b> na minstens ${minN} plannen met een negatief gemiddelde én een trefkans die niet beter is dan zonder signaal;
+      het wordt daarna wel gemeten en gaat weer aan als het beter wordt dan toeval. Live = de echte adviezen hierboven waarin het patroon bij de drie sterkste zat.</div></div>`;
 }
 
 function scoreHist() {

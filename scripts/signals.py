@@ -74,6 +74,12 @@ WORLD_NEWS_QUERIES = ["stock market", "oil prices", "war", "Federal Reserve", "t
 # komt van de grote Amerikaanse ETF op hetzelfde metaal.
 US_LISTING_OVERRIDES = {"PHAU.AS": "GLD", "WSLV.MI": "SLV"}
 
+# Patronen zonder voordeel: na minstens zoveel backtest-plannen met een negatief gemiddeld resultaat
+# én een trefkans niet beter dan zonder signaal, telt een patroon niet meer mee (het wordt wel gemeten).
+# Doet het patroon het later weer beter dan toeval, dan gaat het vanzelf weer aan.
+MIN_PAT_N = 30
+PATTERNS_OFF = set()         # gevuld uit het vorige signals-bestand (model.off)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RADAR_SET = (os.environ.get("RADAR_SET") or "investeringen").strip().lower()
 TOP_LIMIT = 300              # Kansen portefeuille: max. zoveel stocks in de radar
@@ -758,6 +764,10 @@ def evaluate(S, i):
     P, targets = [], []
 
     def add(label, w, detail=""):
+        if label in PATTERNS_OFF:                  # uitgeschakeld: zichtbaar en gemeten, telt niet mee
+            P.append({"label": label, "dir": "info", "w": 0.0, "w0": round(w, 2), "off": True,
+                      "detail": (detail + " · " if detail else "") + "uitgeschakeld: geen voordeel in de backtest"})
+            return
         P.append({"label": label, "dir": "up" if w > 0 else "down" if w < 0 else "info",
                   "w": round(w, 2), "detail": detail})
 
@@ -978,6 +988,7 @@ def backtest(S, start):
     res = {"down": [0, 0], "up": [0, 0]}      # [signalen, raak]
     base = {"down": [0, 0], "up": [0, 0]}
     plan = {d: {"plan_n": 0, "wins": 0, "losses": 0, "ret_sum": 0.0} for d in ("down", "up")}
+    pat = {}                                  # per patroon: signalen waarin het meedeed (in dezelfde richting)
     cool = {"down": -99, "up": -99}
     for i in range(start, n - HORIZON):
         fut_lo = min(S.l[i + 1:i + HORIZON + 1])
@@ -1001,16 +1012,30 @@ def backtest(S, start):
             res[d][0] += 1
             res[d][1] += hit_dn if d == "down" else hit_up
             pl = make_plan(S.c[i], d, target, sup, rs, sig)
+            hit = hit_dn if d == "down" else hit_up
+            uitkomst, ret = plan_outcome(S, i, d, pl) if pl else (None, None)
             if pl:
-                uitkomst, ret = plan_outcome(S, i, d, pl)
                 plan[d]["plan_n"] += 1
                 plan[d]["wins"] += uitkomst == "win"
                 plan[d]["losses"] += uitkomst == "loss"
                 plan[d]["ret_sum"] += ret * 100
+            for p in P:
+                w = p.get("w0", p["w"])
+                if (w > 0) != (d == "up") or not w:
+                    continue
+                st = pat.setdefault(p["label"], {"d": d, "n": 0, "hits": 0, "plan_n": 0, "wins": 0, "losses": 0, "ret_sum": 0.0})
+                st["n"] += 1
+                st["hits"] += hit
+                if pl:
+                    st["plan_n"] += 1
+                    st["wins"] += uitkomst == "win"
+                    st["losses"] += uitkomst == "loss"
+                    st["ret_sum"] += ret * 100
     out = {}
     for d in ("down", "up"):
         out[d] = {"n": res[d][0], "hits": res[d][1], "base_n": base[d][0], "base_hits": base[d][1]}
         out[d].update({k: (round(v, 2) if isinstance(v, float) else v) for k, v in plan[d].items()})
+    out["pat"] = pat
     return out
 
 
@@ -1081,6 +1106,40 @@ def analyse(tk, bars, meta, world=None):
         "backtest": backtest(S, 210),
         "spark": [round(x, 4) for x in S.c[lo_spark:]],
     }
+
+
+# ── Model: welke patronen tellen mee ─────────────────────────────────────
+def pattern_model(prev_model, agg_pat, agg):
+    """Per patroon de backtest-cijfers van alle stocks samen, en welke patronen uit staan.
+    Uit: >= MIN_PAT_N plannen, gemiddeld resultaat < 0 en trefkans niet beter dan zonder signaal.
+    Weer aan: >= MIN_PAT_N plannen, gemiddeld resultaat > 0 en trefkans beter dan zonder signaal."""
+    off = dict((prev_model or {}).get("off") or {})
+    log = list((prev_model or {}).get("log") or [])
+    today = datetime.now(_nl()).date().isoformat()
+    naam = {"up": "koop", "down": "verkoop" if RADAR_SET != "top250" else "nog-niet-kopen"}
+    stats = {}
+    for label, st in sorted(agg_pat.items()):
+        d = st["d"]
+        base = agg[d]["base_hits"] / agg[d]["base_n"] if agg[d]["base_n"] else None
+        hit = st["hits"] / st["n"] if st["n"] else None
+        avg = st["ret_sum"] / st["plan_n"] if st["plan_n"] else None
+        stats[label] = {"d": d, "n": st["n"], "hit": round(hit * 100, 1) if hit is not None else None,
+                        "base": round(base * 100, 1) if base is not None else None,
+                        "plan_n": st["plan_n"], "wins": st["wins"], "losses": st["losses"],
+                        "avg": round(avg, 2) if avg is not None else None}
+        if st["plan_n"] < MIN_PAT_N or avg is None or hit is None or base is None:
+            continue
+        why = f"{st['plan_n']} plannen, gem. {avg:+.2f}%, trefkans {hit * 100:.0f}% vs {base * 100:.0f}% zonder signaal"
+        if label not in off and avg < 0 and hit <= base:
+            off[label] = {"since": today, "why": why}
+            log.append({"datum": today, "wijziging": f"Patroon '{label}' ({naam[d]}) uitgeschakeld: {why}"})
+        elif label in off and avg > 0 and hit > base:
+            del off[label]
+            log.append({"datum": today, "wijziging": f"Patroon '{label}' ({naam[d]}) weer aan: {why}"})
+    for label in off:
+        if label in stats:
+            stats[label]["off"] = True
+    return {"off": off, "log": log[-60:], "min_n": MIN_PAT_N, "stats": stats}
 
 
 # ── Geschiedenis: welk advies is wanneer gegeven en hoe liep het af ──────
@@ -1332,6 +1391,9 @@ def main():
     except Exception:  # noqa: BLE001
         pass
     prev_ctx = {it["symbol"]: it.get("context") or {} for it in prev.get("items", [])}
+    PATTERNS_OFF.update(((prev.get("model") or {}).get("off") or {}).keys())
+    if PATTERNS_OFF:
+        print(f"  uitgeschakelde patronen: {', '.join(sorted(PATTERNS_OFF))}")
     try:
         world, regime, returns = load_world(prev.get("world"))
     except Exception as e:  # noqa: BLE001  – context mag de radar nooit laten vastlopen
@@ -1382,10 +1444,20 @@ def main():
 
     agg = {d: {"n": 0, "hits": 0, "base_n": 0, "base_hits": 0,
                "plan_n": 0, "wins": 0, "losses": 0, "ret_sum": 0.0} for d in ("down", "up")}
+    agg_pat = {}
     for it in items:
         for d in agg:
             for k in agg[d]:
                 agg[d][k] += it["backtest"][d][k]
+        for label, st in (it["backtest"].pop("pat", None) or {}).items():
+            a = agg_pat.setdefault(label, {"d": st["d"], "n": 0, "hits": 0, "plan_n": 0, "wins": 0, "losses": 0, "ret_sum": 0.0})
+            for k in ("n", "hits", "plan_n", "wins", "losses", "ret_sum"):
+                a[k] += st[k]
+    try:
+        model = pattern_model(prev.get("model"), agg_pat, agg)
+    except Exception as e:  # noqa: BLE001
+        print(f"  patroonmodel niet bijgewerkt: {e}")
+        model = prev.get("model") or {}
 
     try:
         history = update_history(prev.get("history"), items, bars_by_sym, bootstrap="history" not in prev,
@@ -1405,6 +1477,7 @@ def main():
                    "eval_rise_pct": EVAL_RISE_PCT, "signal_score": SIGNAL_SCORE,
                    "retrace": RETRACE},
         "stats": agg,
+        "model": model,
         "world": world,
         "items": items,
         "errors": errors,

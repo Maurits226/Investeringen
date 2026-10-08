@@ -37,7 +37,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
-          git add screener.json screener_cache.json etf_holdings.json
+          git add screener.json screener_cache.json etf_holdings.json; [ -f koopmoment.json ] && git add koopmoment.json
           if git diff --cached --quiet; then
             echo "Geen wijzigingen"; exit 0
           fi

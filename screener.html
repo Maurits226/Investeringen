@@ -664,6 +664,7 @@ function card(it) {
   const tags = [
     it.ref ? '<span class="tag ref">in portefeuille · referentie</span>' : '',
     it.card && it.card.s != null ? `<span class="tag ${CARD_LVL[it.card.lvl][1]}" title="Scorecard: ${CARD_LVL[it.card.lvl][0]}">scorecard ${Math.round(it.card.s)}/125</span>` : '',
+    it.koop ? `<span class="tag ${it.koop.status === 'zone' ? 'v-cheap' : 'warn'}" title="${it.koop.status === 'zone' ? 'Koopmoment' : 'Bijna een koopmoment'}: ${nf(it.koop.dd, 0)}% onder de top · zie het tabblad Koopmoment">${it.koop.status === 'zone' ? 'koopmoment' : 'bijna koopmoment'}</span>` : '',
     it.val && VAL_TAG[it.val.lvl] ? `<span class="tag ${VAL_TAG[it.val.lvl]}" title="Waarderingscheck t.o.v. de sector (telt niet mee in de punten)">${esc(it.val.lvl)}</span>` : '',
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
     it.earn_days != null && it.earn_days <= 14 ? `<span class="tag earn" title="Kwartaalcijfers: koers kan hard bewegen">cijfers ${it.earn_days === 0 ? 'vandaag' : 'over ' + it.earn_days + ' d'}</span>` : '',

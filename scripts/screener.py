@@ -91,6 +91,7 @@ OUT = os.path.join(ROOT, "screener.json")
 CACHE = os.path.join(ROOT, "screener_cache.json")
 UNIVERSE = os.path.join(ROOT, "screener_universe.txt")
 QUALITY = os.path.join(ROOT, "kwaliteit.json")
+KOOP_OUT = os.path.join(ROOT, "koopmoment.json")
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
@@ -769,7 +770,7 @@ def sp500_5y(y):
         time.sleep(SLEEP)
         fpts, _ = chart(y, "EURUSD=X", "5y", "1mo")
         fxr = fpts[-1][1] / fpts[0][1] - 1
-        return {"VS": r, "EU": (1 + r) / (1 + fxr) - 1}
+        return {"VS": r, "EU": (1 + r) / (1 + fxr) - 1, "lvl": pts[-1][1]}
     except Exception as e:  # noqa: BLE001
         print(f"  S&P 500 (5 jaar) niet opgehaald: {e}")
         return None
@@ -1142,6 +1143,149 @@ def valuation_check(it):
             "peg": rnd(peg, 1), "loss": fpe is not None and fpe >= 9999}
 
 
+# ── Koopmoment: een sterk bedrijf (wat) dat tijdelijk in de aanbieding is (wanneer) ──
+KOOP_MIN_CARD = 90          # vanaf deze scorecard volgen we koopmomenten (de pagina toont standaard 100+)
+KOOP_DD = (10, 25)          # zo ver (%) onder de 52-weekse top = in de aanbieding
+KOOP_NEAR = 7               # vanaf zoveel % onder de top: 'bijna'
+KOOP_SMA = 0.92             # koers minstens 92% van het 200-daags gemiddelde: langetermijntrend intact
+KOOP_REV_MIN = -25          # bijstellingen analisten (saldo, %) niet slechter dan dit
+KOOP_EARN_DAYS = 7          # geen kwartaalcijfers binnen zoveel dagen
+KOOP_NEW_DAYS = 60          # zelfde aandeel pas na zoveel dagen opnieuw als nieuw koopmoment vastleggen
+HORIZONS = [("1m", 30), ("3m", 91), ("6m", 182), ("12m", 365)]
+
+
+def koopmoment(it):
+    """Status 'zone' (alle voorwaarden), 'bijna' (net niet diep genoeg) of None, met instapzone en risico."""
+    card = (it.get("card") or {}).get("s")
+    price, hi, sma = it.get("price"), it.get("hi52"), it.get("sma200")
+    if card is None or card < KOOP_MIN_CARD or not price or not hi:
+        return None
+    dd = (1 - price / hi) * 100
+    val = (it.get("val") or {}).get("lvl")
+    rev = (it.get("m") or {}).get("revisions")
+    ed = it.get("earn_days")
+    checks = [
+        ("scorecard", True, f"scorecard {round(card)}"),
+        ("waardering", val not in ("duur", "zeer duur"), f"waardering {val or 'onbekend'}"),
+        ("korting", KOOP_DD[0] <= dd <= KOOP_DD[1], f"{dd:.0f}% onder de top"),
+        ("trend", sma is None or price >= KOOP_SMA * sma,
+         "boven 200-daags gem." if sma and price >= sma else f"{(1 - price / sma) * 100:.0f}% onder 200-daags gem." if sma else "trend onbekend"),
+        ("analisten", rev is None or rev >= KOOP_REV_MIN, "analisten stellen bij omlaag" if rev is not None and rev < KOOP_REV_MIN else "analisten niet negatief"),
+        ("cijfers", ed is None or ed > KOOP_EARN_DAYS, f"cijfers over {ed} d" if ed is not None and ed <= KOOP_EARN_DAYS else "geen cijfers deze week"),
+    ]
+    blockers = [txt for k, ok, txt in checks if not ok and k != "korting"]
+    if blockers:
+        return None
+    if KOOP_DD[0] <= dd <= KOOP_DD[1]:
+        status = "zone"
+    elif KOOP_NEAR <= dd < KOOP_DD[0]:
+        status = "bijna"
+    else:
+        return None
+    # daaronder klopt het verhaal niet meer: 30% onder de top of 10% onder het 200-daags gemiddelde,
+    # de hoogste van de twee die nog duidelijk onder de koers ligt
+    opts = [x for x in (hi * 0.70, sma * 0.90 if sma else None) if x and x < price * 0.97]
+    if not opts:
+        return None
+    stop = max(opts)
+    return {"status": status, "dd": rnd(dd, 1), "zone": [rnd(hi * (1 - KOOP_DD[1] / 100), 2), rnd(hi * (1 - KOOP_DD[0] / 100), 2)],
+            "stop": rnd(stop, 2), "risk": rnd((1 - stop / price) * 100, 1), "why": [txt for key, ok, txt in checks if ok and key != "scorecard"]}
+
+
+def koop_rows(items):
+    """Compacte regels voor koopmoment.json (ook eigen posities: 'bijkopen')."""
+    rows = []
+    for it in items:
+        k = it.get("koop")
+        if not k:
+            continue
+        rows.append({"sym": it["sym"], "eu": it.get("eu"), "name": it["name"], "sector": it.get("sector"),
+                     "industry": it.get("industry"), "region": it["region"], "exch": it.get("exch"), "us_exch": it.get("us_exch"),
+                     "price": it["price"], "native": it.get("native"), "approx": it.get("approx"),
+                     "hi52": it.get("hi52"), "sma200": it.get("sma200"),
+                     "card": it["card"]["s"], "lvl": it["card"]["lvl"], "val": (it.get("val") or {}).get("lvl"),
+                     "score": it.get("score"), "exp": (it.get("exp") or {}).get("pct"), "earn_days": it.get("earn_days"),
+                     "own": it.get("own"), "watch": it.get("watch"), **k})
+    rows.sort(key=lambda r: (r["status"] != "zone", -r["card"]))
+    return rows
+
+
+def _rel(entry_px, now_px, sp0, sp1):
+    if not entry_px or not now_px or not sp0 or not sp1:
+        return None, None
+    return (now_px / entry_px - 1) * 100, (sp1 / sp0 - 1) * 100
+
+
+def update_koop(prev, rows, items, prices, cache, sp, fx):
+    """Koopmomenten en scorecard-groepen vastleggen en volgen t.o.v. de S&P 500 (zelfde valuta)."""
+    today = now().date()
+    sp_lvl = {"VS": sp["lvl"], "EU": sp["lvl"] / fx} if sp and sp.get("lvl") and fx else None
+    sp_of = lambda region: (sp_lvl or {}).get("VS" if region == "VS" else "EU")  # noqa: E731
+
+    def px_now(sym):
+        return (prices.get(sym) or {}).get("price") or (cache.get(sym) or {}).get("price")
+
+    def follow(e, start_px, region):
+        """Rendement nu en vastgezet op 1/3/6/12 maanden."""
+        days = (today - datetime.fromisoformat(e["date"]).date()).days
+        r, b = _rel(start_px, px_now(e["sym"]) if "sym" in e else None, e.get("sp0"), sp_of(region))
+        e["days"] = days
+        if r is not None:
+            e["ret"], e["sp"] = rnd(r, 2), rnd(b, 2)
+            for h, d in HORIZONS:
+                if days >= d and h not in e:
+                    e[h] = [e["ret"], e["sp"]]
+
+    # 1. Koopmomenten: eerste keer in de zone = nieuw, daarna volgen tot 12 maanden
+    log = list((prev or {}).get("log") or [])
+    recent = {e["sym"] for e in log if (today - datetime.fromisoformat(e["date"]).date()).days < KOOP_NEW_DAYS}
+    for r in rows:
+        if r["status"] == "zone" and r["sym"] not in recent and sp_of(r["region"]):
+            log.append({"sym": r["sym"], "name": r["name"], "region": r["region"], "date": today.isoformat(),
+                        "px0": r["native"], "card": r["card"], "dd": r["dd"], "own": bool(r.get("own")),
+                        "sp0": rnd(sp_of(r["region"]), 4)})
+    for e in log:
+        if e.get("days", 0) > 400:
+            continue
+        follow(e, e["px0"], e["region"])
+    log = [e for e in log if e.get("days", 0) <= 400]
+
+    # 2. Scorecard-groepen: elke maand de stand vastleggen (100+ en 75-100), daarna volgen
+    cohorts = list((prev or {}).get("cohorts") or [])
+    month = today.strftime("%Y-%m")
+    if sp_lvl and not any(c["month"] == month for c in cohorts):
+        groups = {"top": [], "watch": []}
+        for it in items:
+            lvl = (it.get("card") or {}).get("lvl")
+            if lvl in groups and it.get("native"):
+                groups[lvl].append([it["sym"], it["region"], it["native"]])
+        cohorts.append({"month": month, "date": today.isoformat(), "sp0": {k: rnd(v, 4) for k, v in sp_lvl.items()},
+                        "groups": groups})
+    for c in cohorts:
+        days = (today - datetime.fromisoformat(c["date"]).date()).days
+        c["days"] = days
+        res = {}
+        for g, members in c["groups"].items():
+            rs, bs = [], []
+            for sym, region, p0 in members:
+                r, b = _rel(p0, px_now(sym), c["sp0"].get("VS" if region == "VS" else "EU"), sp_of(region))
+                if r is not None:
+                    rs.append(r)
+                    bs.append(b)
+            if rs:
+                res[g] = {"n": len(rs), "ret": rnd(sum(rs) / len(rs), 2), "sp": rnd(sum(bs) / len(bs), 2),
+                          "beat": rnd(sum(1 for r, b in zip(rs, bs) if r > b) / len(rs) * 100, 0)}
+        c["res"] = res
+        frozen = c.setdefault("at", {})
+        for h, d in HORIZONS:
+            if days >= d and h not in frozen and res:
+                frozen[h] = res
+    cohorts = cohorts[-24:]
+    return {"updated": iso(), "params": {"min_card": KOOP_MIN_CARD, "dd": list(KOOP_DD), "near": KOOP_NEAR,
+                                         "sma": KOOP_SMA, "earn_days": KOOP_EARN_DAYS},
+            "candidates": rows, "log": log, "cohorts": cohorts}
+
+
 # ── Verwacht rendement ───────────────────────────────────────────────────
 def expected(c, price_native, extra):
     div = (c.get("div") or 0) * 100
@@ -1273,6 +1417,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         "native": rnd(price_native, 2), "cur": "USD" if region == "VS" else "EUR",
         "day": rnd(q.get("day"), 2),
         "hi52": rnd(hi * k, 2) if hi else None, "lo52": rnd(lo * k, 2) if lo else None,
+        "sma200": rnd(sma200 * k, 2) if sma200 else None,
         "mcap": rnd(((q.get("mcap") or c.get("mcap") or 0) * k) / 1e9, 1) or None,
         "score": rnd(total, 1), "formule": rnd(score_f, 1), "n_crit": n_crit,
         "m": m, "mp": {}, "above200": above200, "chg12": rnd(chg12, 1),
@@ -1391,6 +1536,7 @@ def main():
         it["pillars"] = {k: (round(v, 1) if v is not None else None) for k, v in pil.items()}
         scorecard(it, sp5)
         it["val"] = valuation_check(it)
+        it["koop"] = koopmoment(it)
         # relatieve sterkte t.o.v. de referentie-ETF van de branche (12 maanden, in euro)
         b = bench.get(it.get("branch") or "")
         if b and b.get("ret12") is not None and it.get("chg12") is not None:
@@ -1426,13 +1572,26 @@ def main():
         "scored": len(items),
         "pending": pending,
         "weights": PILLAR_W,
-        "sp5": {k: rnd(v * 100, 1) for k, v in sp5.items()} if sp5 else None,
+        "sp5": {k: rnd(sp5[k] * 100, 1) for k in ("VS", "EU")} if sp5 else None,
         "branches": bench,
         "refs": refs,
         "items": items[:TOP_N],
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    try:                                             # koopmomenten + scorecard-groepen; mag de Top 250 nooit laten vastlopen
+        try:
+            koop_prev = json.load(open(KOOP_OUT, encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            koop_prev = None
+        rows = koop_rows(items + refs)
+        koop = update_koop(koop_prev, rows, items + refs, prices, cache, sp5, fx)
+        with open(KOOP_OUT, "w", encoding="utf-8") as f:
+            json.dump(koop, f, ensure_ascii=False, separators=(",", ":"))
+        print(f"Koopmoment: {sum(1 for r in rows if r['status'] == 'zone')} in de zone, "
+              f"{sum(1 for r in rows if r['status'] == 'bijna')} bijna · {len(koop['log'])} gevolgd")
+    except Exception as e:  # noqa: BLE001
+        print(f"  koopmoment niet bijgewerkt: {e}")
     with open(CACHE, "w", encoding="utf-8") as f:
         json.dump({"updated": iso(), "dyn": dyn, "stocks": compact(dict(sorted(cache.items())))}, f,
                   ensure_ascii=False, separators=(",", ":"))

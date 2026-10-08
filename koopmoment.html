@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koopmoment</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
+    --muted: #83888d; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
+    --warn: #f5b544; --accent: #4f8ff0;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%), var(--ink);
+    color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh; padding: 28px 18px 60px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header.top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
+  .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px; }
+  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--up); animation: pulse 2.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(62,207,142,.5); } 70% { box-shadow: 0 0 0 10px rgba(62,207,142,0); } 100% { box-shadow: 0 0 0 0 rgba(62,207,142,0); } }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 8px; }
+  .stat .sub { font-size: 12px; margin-top: 4px; font-family: var(--mono); color: var(--muted); }
+
+  .howto { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; }
+  .howto:hover, .howto[open] { border-color: rgba(79,143,240,.5); }
+  .howto summary { cursor: pointer; font-size: 13px; list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
+  .howto summary::-webkit-details-marker { display: none; }
+  .howto .h-sub { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .howto .h-btn { margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .howto .h-btn::after { content: ' ▾'; } .howto[open] .h-btn::after { content: ' ▴'; }
+  .howto .h-less { display: none; } .howto[open] .h-more { display: none; } .howto[open] .h-less { display: inline; }
+  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 4px 14px 14px; font-size: 12.5px; line-height: 1.6; color: #c8cbcf; }
+  .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .howto-body b { color: var(--text); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+  .tb-group { display: flex; align-items: center; gap: 8px; }
+  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  select, input { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 13px; padding: 6px 9px; border-radius: 8px; }
+  input[type=number] { width: 120px; font-family: var(--mono); }
+  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
+  .seg button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+  .seg button.on { background: rgba(79,143,240,.16); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(79,143,240,.55); }
+  .tb-count { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+  .k-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px 16px 22px; position: relative; overflow: hidden;
+            display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 2.2fr) minmax(0, 1.3fr); gap: 18px; align-items: start; }
+  .k-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--up); }
+  .k-card.bijna::before { background: var(--warn); }
+  .k-name { min-width: 0; }
+  .k-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.25; }
+  .k-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .chip.zone { color: var(--up); border-color: rgba(62,207,142,.5); background: rgba(62,207,142,.08); }
+  .chip.bijna { color: var(--warn); border-color: rgba(245,181,68,.45); background: rgba(245,181,68,.06); }
+  .chip.card { color: var(--text); }
+  .chip.own { color: #a78bfa; border-color: rgba(167,139,250,.45); }
+  .why { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+  .ladder { position: relative; height: 34px; margin: 6px 0 4px; }
+  .ladder .bar { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 4px; background: var(--panel-2); }
+  .ladder .zoneband { position: absolute; top: 12px; height: 10px; border-radius: 4px; background: rgba(62,207,142,.28); border: 1px solid rgba(62,207,142,.55); }
+  .ladder .mark { position: absolute; top: 6px; width: 2px; height: 22px; transform: translateX(-1px); }
+  .ladder .mark.stop { background: var(--down); }
+  .ladder .mark.top { background: var(--muted); }
+  .ladder .mark.now { background: var(--text); width: 3px; }
+  .ladder-l { display: flex; justify-content: space-between; font-size: 10.5px; font-family: var(--mono); color: var(--muted); gap: 6px; }
+  .ladder-l .s { color: var(--down); } .ladder-l .z { color: var(--up); }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .facts .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .facts .v { font-family: var(--mono); font-size: 14px; margin-top: 3px; white-space: nowrap; }
+  .size { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .size .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .size .v { font-family: var(--mono); font-size: 20px; font-weight: 600; margin-top: 4px; }
+  .size .s { font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
+
+  .section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 28px 0 10px; display: flex; justify-content: space-between; gap: 10px; }
+  .section-h span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
+  .an-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .an-c { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; }
+  .an-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .an-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
+  .an-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .an-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; padding: 3px 0; }
+  .an-t th:not(:first-child), .an-t td:not(:first-child) { text-align: right; font-family: var(--mono); padding-left: 12px; white-space: nowrap; }
+  .an-t td { padding: 4px 0; border-top: 1px dashed #26282b; }
+  .an-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+  .an-note b { color: var(--text); }
+
+  .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
+  .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
+
+  @media (max-width: 900px) {
+    .k-card { grid-template-columns: 1fr; gap: 12px; }
+    .howto-body, .an-grid { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .stat { padding: 11px 12px; } .stat .value { font-size: 19px; } .stat .label { font-size: 9.5px; letter-spacing: .6px; }
+  }
+  @media (max-width: 560px) {
+    body { padding: 18px 12px 40px; }
+    .howto .h-sub { display: none; }
+    .tb-count { margin-left: 0; }
+    .facts { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="pulse"></span><span id="pageTitle">Koopmoment</span></h1>
+      <p id="pageSub">Sterke bedrijven die tijdelijk in de aanbieding zijn: wát (scorecard) en wanneer (korting op de top)</p>
+    </div>
+    <div class="updated" id="updated">laden…</div>
+  </header>
+
+  <div class="summary" id="summary"></div>
+
+  <details class="howto" id="howto">
+    <summary>🧭 Wanneer staat een aandeel hier?
+      <span class="h-sub">zes voorwaarden · instapzone · risico · positiegrootte</span>
+      <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
+    <div class="howto-body">
+      <div>
+        <h4>Wat: een sterk bedrijf</h4>
+        <b>Scorecard 100+</b> (of 90+ met de knop hieronder) en de <b>waarderingscheck</b> zegt niet "duur" of "zeer duur".
+        Analisten stellen hun winstverwachting niet massaal omlaag bij.
+      </div>
+      <div>
+        <h4>Wanneer: in de aanbieding</h4>
+        <b>10–25% onder de 52-weekse top</b>, terwijl de langetermijntrend intact is (niet ver onder het 200-daags
+        gemiddelde). Geen kwartaalcijfers in de komende 7 dagen. <b>Bijna</b> = 7–10% onder de top.
+      </div>
+      <div>
+        <h4>Risico en positiegrootte</h4>
+        <b>Ongeldig onder</b>: 30% onder de top of 10% onder het 200-daags gemiddelde. Zakt de koers daaronder, dan klopt het
+        verhaal niet meer. De positiegrootte is zo gekozen dat je dan maximaal je ingestelde risico verliest. Geen koopadvies.
+      </div>
+    </div>
+  </details>
+
+  <div class="toolbar">
+    <div class="tb-group"><span class="tb-label">Scorecard</span>
+      <div class="seg" id="minSeg"><button data-v="100" class="on">100+</button><button data-v="90">90+</button></div></div>
+    <div class="tb-group"><span class="tb-label">Toon</span>
+      <div class="seg" id="showSeg"><button data-v="zone" class="on">In de zone</button><button data-v="all">+ bijna</button></div></div>
+    <div class="tb-group"><span class="tb-label">Portefeuille €</span><input id="pfVal" type="number" min="0" step="1000" placeholder="bv. 25000"></div>
+    <div class="tb-group"><span class="tb-label">Risico per positie</span>
+      <select id="riskSel"><option value="0.5">0,5%</option><option value="1" selected>1%</option><option value="2">2%</option></select></div>
+    <span class="tb-count" id="count"></span>
+  </div>
+
+  <div class="cards" id="cards"><div class="empty">Koopmomenten laden…</div></div>
+
+  <div class="section-h">Werkt het? <span id="trackSub"></span></div>
+  <div class="an-grid" id="track"></div>
+
+  <p class="foot">
+    Berekend bij elke run van de Top 250 (vier keer per dag) uit dezelfde cijfers als de scorecard. Elk koopmoment wordt vastgelegd
+    op de dag dat het in de zone komt en een jaar lang gevolgd tegen de S&amp;P 500 in dezelfde valuta. Dit is een hulpmiddel, geen beleggingsadvies.
+  </p>
+</div>
+
+<script>
+const OWN_SET = new URLSearchParams(location.search).get('set') === 'own';   // Mijn investeringen: alleen bijkopen
+const PREF = 'koop_prefs';
+const SECTOR_NL = {
+  'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
+  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', 'Industrials': 'Industrie',
+  'Communication Services': 'Communicatie', 'Energy': 'Energie', 'Utilities': 'Nutsbedrijven',
+  'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen'
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = (v, d = 2) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
+const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
+// VS-bedrijven in dollars (eigen notering), eurozone in euro's, net als in de Top 250
+const isUSD = r => r.region === 'VS';
+const k = r => (isUSD(r) && r.price && r.native) ? r.native / r.price : 1;
+const money = (r, v) => v == null ? '—' : (isUSD(r) ? '$ ' : '€ ') + nf(v * k(r), v * k(r) >= 1000 ? 0 : 2);
+
+let DATA = null;
+let prefs = { min: '100', show: 'zone', pf: '', risk: '1' };
+try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) {}
+const savePrefs = () => { try { localStorage.setItem(PREF, JSON.stringify(prefs)); } catch (e) {} };
+
+function ownSet() {
+  const own = new Set();
+  try { (JSON.parse(localStorage.getItem('portfolio_positions') || '[]') || []).forEach(p => p && p.ticker && !p.watch && own.add(String(p.ticker).toUpperCase())); } catch (e) {}
+  return own;
+}
+const isOwn = (r, own) => r.own || own.has((r.eu || '').toUpperCase()) || own.has(r.sym.toUpperCase());
+
+function ladder(r) {
+  const lo = r.stop * 0.97, hi = r.hi52, span = hi - lo;
+  const x = v => Math.max(0, Math.min(100, (v - lo) / span * 100)).toFixed(1);
+  return `<div class="ladder" title="Van ongeldig-onder (rood) tot de 52-weekse top (grijs); groen = instapzone; wit = koers nu">
+      <div class="bar"></div>
+      <div class="zoneband" style="left:${x(r.zone[0])}%;width:${(x(r.zone[1]) - x(r.zone[0])).toFixed(1)}%"></div>
+      <div class="mark stop" style="left:${x(r.stop)}%"></div><div class="mark top" style="left:${x(hi)}%"></div><div class="mark now" style="left:${x(r.price)}%"></div>
+    </div>
+    <div class="ladder-l"><span class="s">ongeldig ${money(r, r.stop)}</span><span class="z">zone ${money(r, r.zone[0])} – ${money(r, r.zone[1])}</span><span>top ${money(r, r.hi52)}</span></div>`;
+}
+
+function sizeBlock(r) {
+  const pf = +prefs.pf, risk = +prefs.risk / 100;
+  if (!pf) return `<div class="size"><div class="k">Positiegrootte</div><div class="s">Vul je portefeuillewaarde in (boven) om te zien hoeveel je maximaal koopt bij ${nf(+prefs.risk, 1)}% risico.</div></div>`;
+  const byRisk = pf * risk / (r.risk / 100);
+  const cap = pf * 0.10;                                 // nooit meer dan 10% van de portefeuille in één aandeel
+  const amt = Math.min(byRisk, cap);
+  const n = Math.floor(amt / r.price);
+  return `<div class="size"><div class="k">Max. instap</div><div class="v">€ ${nf(amt, 0)}</div>
+    <div class="s">≈ ${n} stuks · verlies bij "ongeldig": € ${nf(amt * r.risk / 100, 0)}${byRisk > cap ? '<br>begrensd op 10% van je portefeuille' : ''}</div></div>`;
+}
+
+function card(r, own) {
+  const tick = isUSD(r) ? r.sym : (r.eu || r.sym);
+  const beurs = isUSD(r) ? (r.us_exch || 'VS-beurs') : r.exch;
+  const mine = isOwn(r, own);
+  const chips = [
+    `<span class="chip ${r.status}">${r.status === 'zone' ? 'in de zone' : 'bijna'}</span>`,
+    `<span class="chip card">scorecard ${Math.round(r.card)}/125</span>`,
+    mine ? '<span class="chip own">bijkopen</span>' : '',
+    r.watch ? '<span class="chip">op watchlist</span>' : '',
+    r.earn_days != null ? `<span class="chip" title="Volgende kwartaalcijfers">cijfers over ${r.earn_days} d</span>` : ''
+  ].join('');
+  return `<div class="k-card ${r.status}">
+    <div class="k-name">
+      <div class="k-title">${esc(r.name)}</div>
+      <div class="k-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[r.sector] || r.sector || '—')}</div>
+      <div class="chips">${chips}</div>
+      <div class="why">${(r.why || []).map(esc).join(' · ')}</div>
+    </div>
+    <div>
+      ${ladder(r)}
+      <div class="facts">
+        <div><div class="k">Koers</div><div class="v">${money(r, r.price)}</div></div>
+        <div><div class="k">Onder de top</div><div class="v c-warn">−${nf(r.dd, 1)}%</div></div>
+        <div><div class="k">Risico tot ongeldig</div><div class="v c-down">−${nf(r.risk, 1)}%</div></div>
+        <div><div class="k">Waardering</div><div class="v">${esc(r.val || '—')}</div></div>
+        <div><div class="k">Verwacht 12 mnd</div><div class="v ${cls(r.exp)}">${pct(r.exp)}</div></div>
+        <div><div class="k">Totaalscore</div><div class="v">${r.score == null ? '—' : Math.round(r.score)}</div></div>
+      </div>
+    </div>
+    ${sizeBlock(r)}
+  </div>`;
+}
+
+function trackHTML() {
+  const log = DATA.log || [], coh = DATA.cohorts || [];
+  const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const H = [['1m', '1 maand'], ['3m', '3 maanden'], ['6m', '6 maanden'], ['12m', '12 maanden']];
+  const run = log.filter(e => e.ret != null && e.days >= 1);
+  const rows = [['Lopend (nu)', run.map(e => [e.ret, e.sp])]].concat(H.map(([h, t]) => [t, log.filter(e => e[h]).map(e => e[h])]));
+  const tr = rows.map(([t, xs]) => {
+    const r = avg(xs.map(x => x[0])), b = avg(xs.map(x => x[1]));
+    return `<tr><td>${t}</td><td>${xs.length || '—'}</td><td class="${cls(r)}">${xs.length ? pct(r) : '—'}</td><td>${xs.length ? pct(b) : '—'}</td>
+      <td>${xs.length ? Math.round(xs.filter(x => x[0] > x[1]).length / xs.length * 100) + '%' : '—'}</td></tr>`;
+  }).join('');
+  const koop = `<div class="an-c"><div class="an-k">Koopmomenten <span>${log.length} vastgelegd</span></div>
+    <table class="an-t"><tr><th>na</th><th>n</th><th>gem.</th><th>S&amp;P 500</th><th>beter</th></tr>${tr}</table>
+    <div class="an-note">Elk aandeel dat in de zone komt, gemeten vanaf die dag tegen de S&amp;P 500 in dezelfde valuta. Pas na
+      <b>3 maanden en 20+ koopmomenten</b> zegt dit echt iets.</div></div>`;
+  const G = { top: '100+ (once-in-a-lifetime)', watch: '75–100 (watchlist)' };
+  const cr = coh.slice().reverse().map(c => Object.keys(G).map(g => {
+    const x = (c.res || {})[g];
+    if (!x) return '';
+    const young = c.days < 7;
+    return `<tr><td>${esc(c.month)} · ${G[g].split(' ')[0]}</td><td>${x.n}</td><td class="${young ? '' : cls(x.ret - x.sp)}">${young ? '—' : pct(x.ret)}</td>
+      <td>${young ? '—' : pct(x.sp)}</td><td>${young ? `start ${new Date(c.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}` : Math.round(x.beat) + '%'}</td></tr>`;
+  }).join('')).join('');
+  const sc = `<div class="an-c"><div class="an-k">Scorecard-check <span>per maand vastgelegd</span></div>
+    <table class="an-t"><tr><th>groep</th><th>n</th><th>gem.</th><th>S&amp;P 500</th><th>beter</th></tr>${cr || '<tr><td colspan="5" style="color:var(--muted)">Nog geen groepen.</td></tr>'}</table>
+    <div class="an-note">Elke maand de bedrijven met scorecard 100+ en 75–100, daarna gevolgd. Verslaan de 100+-bedrijven de S&amp;P 500 vaker dan de
+      75–100-groep, dan wijst de scorecard echt betere aandelen aan. Uitslagen na 1, 3, 6 en 12 maanden worden vastgezet.</div></div>`;
+  return koop + sc;
+}
+
+function render() {
+  if (!DATA) return;
+  const own = ownSet();
+  const min = +prefs.min, showAll = prefs.show === 'all';
+  const all = (DATA.candidates || []).filter(r => r.card >= min && (OWN_SET ? isOwn(r, own) : !isOwn(r, own)));
+  const list = all.filter(r => showAll || r.status === 'zone');
+  const nZone = all.filter(r => r.status === 'zone').length, nNear = all.filter(r => r.status === 'bijna').length;
+  const avgRisk = list.length ? list.reduce((a, r) => a + r.risk, 0) / list.length : null;
+  $('summary').innerHTML = `
+    <div class="stat"><div class="label">In de zone</div><div class="value c-up">${nZone}</div><div class="sub">scorecard ${min}+</div></div>
+    <div class="stat"><div class="label">Bijna</div><div class="value c-warn">${nNear}</div><div class="sub">7–10% onder de top</div></div>
+    <div class="stat"><div class="label">Gem. risico</div><div class="value">${avgRisk == null ? '—' : '−' + nf(avgRisk, 1) + '%'}</div><div class="sub">tot "ongeldig"</div></div>`;
+  $('count').textContent = `${list.length} getoond`;
+  $('cards').innerHTML = list.length ? list.map(r => card(r, own)).join('')
+    : `<div class="empty">${OWN_SET ? 'Geen van je eigen posities is nu een koopmoment om bij te kopen.' : 'Nu geen koopmomenten met deze instellingen.'}
+       ${!showAll && nNear ? `<br>${nNear} aandeel/aandelen staan bijna in de zone: kies "+ bijna".` : ''}${min === 100 ? '<br>Of verlaag de drempel naar scorecard 90+.' : ''}</div>`;
+  $('track').innerHTML = trackHTML();
+  $('trackSub').textContent = 'koopmomenten en scorecard tegen de S&P 500';
+}
+
+function bindSeg(id, key) {
+  $(id).querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === prefs[key]);
+    b.onclick = () => { prefs[key] = b.dataset.v; savePrefs(); bindSeg(id, key); render(); };
+  });
+}
+
+async function load() {
+  try {
+    const r = await fetch('koopmoment.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    DATA = await r.json();
+  } catch (e) {
+    $('cards').innerHTML = '<div class="empty">Nog geen koopmomenten berekend. Ze verschijnen na de volgende run van de Top 250 (vier keer per dag).</div>';
+    $('updated').textContent = 'geen data';
+    return;
+  }
+  const d = new Date(DATA.updated);
+  $('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  render();
+}
+
+if (OWN_SET) {
+  document.title = 'Bijkopen';
+  $('pageTitle').textContent = 'Bijkopen';
+  $('pageSub').textContent = 'Je eigen posities die nu volgens dezelfde regels een koopmoment zijn';
+}
+bindSeg('minSeg', 'min');
+bindSeg('showSeg', 'show');
+$('pfVal').value = prefs.pf || '';
+$('riskSel').value = prefs.risk;
+$('pfVal').oninput = () => { prefs.pf = $('pfVal').value; savePrefs(); render(); };
+$('riskSel').onchange = () => { prefs.risk = $('riskSel').value; savePrefs(); render(); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+window.addEventListener('storage', e => { if (e.key === 'portfolio_positions') render(); });
+load();
+</script>
+</body>
+</html>

@@ -72,6 +72,7 @@
         <button role="tab" data-view="overzicht">Overzicht</button>
         <button role="tab" data-view="radar">Patroonradar</button>
         <button role="tab" data-view="archief">Archief</button>
+        <button role="tab" data-view="koop">Koopmoment</button>
       </div>
     </div>
   </nav>
@@ -80,24 +81,28 @@
     <iframe id="inv-overzicht" title="Investeringen" src="portfolio.html"></iframe>
     <iframe id="inv-radar" title="Patroonradar · Investeringen" data-src="signals.html"></iframe>
     <iframe id="inv-archief" title="Archief · Investeringen" data-src="archief.html"></iframe>
+    <iframe id="inv-koop" title="Bijkopen · Investeringen" data-src="koopmoment.html?set=own"></iframe>
     <iframe id="top-overzicht" title="Kansen portefeuille" data-src="screener.html"></iframe>
     <iframe id="top-radar" title="Patroonradar · Kansen portefeuille" data-src="signals.html?set=top250"></iframe>
     <iframe id="top-archief" title="Archief · Kansen portefeuille" data-src="archief.html?set=top250"></iframe>
+    <iframe id="top-koop" title="Koopmoment · Kansen portefeuille" data-src="koopmoment.html"></iframe>
   </main>
 <script>
   // Twee niveaus: wereld (je eigen investeringen of de Top 250) × scherm (overzicht, radar, archief)
-  const WORLDS = ['inv', 'top'], VIEWS = ['overzicht', 'radar', 'archief'];
+  const WORLDS = ['inv', 'top'], VIEWS = ['overzicht', 'radar', 'archief', 'koop'];
   const HASH = {            // mooie adressen, ook de oude (#patroonradar, #archief, #top250) blijven werken
     'home': 'vandaag',
     'inv-overzicht': 'investeringen', 'inv-radar': 'patroonradar', 'inv-archief': 'archief',
-    'top-overzicht': 'top250', 'top-radar': 'top250-radar', 'top-archief': 'top250-archief'
+    'top-overzicht': 'top250', 'top-radar': 'top250-radar', 'top-archief': 'top250-archief',
+    'inv-koop': 'bijkopen', 'top-koop': 'koopmoment'
   };
   const FROM_HASH = Object.fromEntries(Object.entries(HASH).map(([k, v]) => [v, k]));
   FROM_HASH.signalen = 'inv-radar';
   const TITLE = {
     'home': 'Vandaag',
     'inv-overzicht': 'Investeringen', 'inv-radar': 'Patroonradar · Investeringen', 'inv-archief': 'Archief · Investeringen',
-    'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille'
+    'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille',
+    'inv-koop': 'Bijkopen · Investeringen', 'top-koop': 'Koopmoment · Kansen portefeuille'
   };
   let world = 'inv', view = 'overzicht';
 

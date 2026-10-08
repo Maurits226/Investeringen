@@ -5,5 +5,7 @@
   { "datum": "2026-09-30", "wijziging": "Patroonradar voor Kansen portefeuille (score 85+, max. 300)" },
   { "datum": "2026-09-30", "wijziging": "Beursklimaat en patronen per advies vastgelegd; vergelijking met de Nasdaq 100" },
   { "datum": "2026-10-07", "wijziging": "Goud (PHAU.AS) en zilver (WSLV.MI): patroon via de Amerikaanse ETF (GLD en SLV), omgerekend naar de euro-koers" },
-  { "datum": "2026-10-07", "wijziging": "Top 250: 125-puntenscorecard (13 criteria) naast Score 2.0, met pricing power, schuld-draagkracht, verwatering en waarderingscheck" }
+  { "datum": "2026-10-07", "wijziging": "Top 250: 125-puntenscorecard (13 criteria) naast Score 2.0, met pricing power, schuld-draagkracht, verwatering en waarderingscheck" },
+  { "datum": "2026-10-08", "wijziging": "Patroonradar: per patroon gemeten in de backtest; patronen zonder voordeel (30+ plannen) gaan automatisch uit" },
+  { "datum": "2026-10-08", "wijziging": "Koopmoment: scorecard 90+/100+, 10-25% onder de top, trend intact; gevolgd tegen de S&P 500, met maandelijkse scorecard-check" }
 ]

@@ -318,6 +318,7 @@
   .d-k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
   .pat { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .pat li { font-size: 13px; display: flex; gap: 8px; }
+  .pat li.off { color: var(--muted); }
   .pat small { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 4px; }
   .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
   .facts .v { font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px; }
@@ -850,13 +851,13 @@ function detail(it) {
     ? `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daarboven, dan is de daling niet doorgezet. Koop dan terug (had je verkocht) en wacht niet langer op ${fmt(it.plan.target, cur)}.</div>`
     : `<div class="stopnote"><b>Stop ${fmt(it.plan.stop, cur)}:</b> sluit de koers daaronder, dan is de stijging mislukt. Verkoop dan (stop-loss) om verder verlies te beperken, en koop niet bij.</div>`) : '';
 
-  const pats = it.patterns.filter(p => p.dir !== 'info');
+  const pats = it.patterns.filter(p => p.dir !== 'info' || p.off);
   return `<div class="detail">
     <div>${spark(it)}</div>
     <div>
       ${stop}
       <div class="d-k">Gevonden patronen</div>
-      <ul class="pat">${pats.map(p => `<li><span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span style="color:var(--muted)">Geen patronen gevonden</span></li>'}</ul>
+      <ul class="pat">${pats.map(p => p.off ? `<li class="off" title="Uitgeschakeld: dit patroon leverde in de backtest niets op en telt niet mee in de score"><span>○</span><span><s>${esc(p.label)}</s><small>uitgeschakeld</small></span></li>` : `<li><span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span style="color:var(--muted)">Geen patronen gevonden</span></li>'}</ul>
       <div class="facts">
         <div class="p-block"><div class="k">Score</div><div class="v ${it.score > 0 ? 'up' : it.score < 0 ? 'down' : ''}">${it.score > 0 ? '+' : ''}${it.score}</div></div>
         <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>

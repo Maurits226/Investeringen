@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-09T01:00:33.790794+00:00",
+  "updated": "2026-10-09T02:00:35.211819+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -162,9 +162,9 @@
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 34.8,
-      "vol": 65.9,
-      "sma50": 29.1964,
-      "sma200": 21.4966,
+      "vol": 65.8,
+      "sma50": 29.4154,
+      "sma200": 21.5718,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -204,9 +204,9 @@
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.32,
-      "vol": 53.8,
-      "sma50": 195.8894,
-      "sma200": 160.2428,
+      "vol": 53.7,
+      "sma50": 196.9494,
+      "sma200": 160.6421,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -385,7 +385,7 @@
       "prevClose": 134.57000732421875,
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
-      "high52": 134.72,
+      "high52": 135.34,
       "vol": 11.6,
       "sma50": 129.0626,
       "sma200": 120.6064,

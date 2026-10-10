@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-10T19:04:00.307845+00:00",
+  "updated": "2026-10-10T22:25:36.332261+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -359,8 +359,8 @@
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
       "high52": 49.505,
       "vol": 22.5,
-      "sma50": 45.1135,
-      "sma200": 39.9602,
+      "sma50": 45.2531,
+      "sma200": 40.0246,
       "low52": 31.88,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -373,8 +373,8 @@
       "name": "Vanguard FTSE All-World High Dividend Yield UCITS ETF USD Distributing",
       "high52": 82.29,
       "vol": 9.1,
-      "sma50": 81.1228,
-      "sma200": 77.0896,
+      "sma50": 81.1328,
+      "sma200": 77.1487,
       "low52": 66.06,
       "exchange": "MIL",
       "exchangeFull": "Milan"
@@ -386,9 +386,9 @@
       "currency": "EUR",
       "name": "Vanguard S&P 500 UCITS ETF USD Accumulation",
       "high52": 135.34,
-      "vol": 11.6,
-      "sma50": 129.2726,
-      "sma200": 120.7181,
+      "vol": 11.5,
+      "sma50": 129.4706,
+      "sma200": 120.8302,
       "low52": 106.78,
       "exchange": "MIL",
       "exchangeFull": "Milan"
@@ -400,9 +400,9 @@
       "currency": "EUR",
       "name": "WisdomTree Core Physical Silver USD ETC",
       "high52": 101.15,
-      "vol": 59.7,
-      "sma50": 55.6067,
-      "sma200": 62.3631,
+      "vol": 59.6,
+      "sma50": 55.6968,
+      "sma200": 62.3438,
       "low52": 39.025,
       "exchange": "MIL",
       "exchangeFull": "Milan"

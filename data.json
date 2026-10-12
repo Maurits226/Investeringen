@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-12T18:20:33.631420+00:00",
+  "updated": "2026-10-12T18:30:35.923314+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 212.105,
+      "price": 211.62,
       "prevClose": 216.74000549316406,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 53.6,
-      "sma50": 198.4989,
-      "sma200": 161.4761,
+      "sma50": 198.4892,
+      "sma200": 161.4736,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"

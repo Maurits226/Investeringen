@@ -125,6 +125,7 @@
     document.querySelectorAll('main iframe').forEach(f => {
       const on = f.id === id;
       if (on && !f.getAttribute('src') && f.dataset.src) f.src = f.dataset.src;   // pas laden bij eerste keer openen
+      else if (on) try { f.contentWindow.postMessage({ type: 'dashboard-shown' }, '*'); } catch (e) {}   // tabblad weer getoond: bijwerken (shared.js)
       f.classList.toggle('active', on);
     });
     document.title = TITLE[id];

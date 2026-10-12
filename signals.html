@@ -506,6 +506,7 @@
 </div>
 
 <script src="vault.js"></script>
+<script src="shared.js"></script>
 <script>
 // Welke radar: je eigen investeringen (standaard) of de Top 250 (signals.html?set=top250)
 const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top250' : 'investeringen';
@@ -1178,15 +1179,16 @@ const TRADES_KEY = 'radar_trades';
 let trades = (() => { try { const t = JSON.parse(localStorage.getItem(TRADES_KEY) || '[]'); return Array.isArray(t) ? t : []; } catch (e) { return []; } })();
 let tradesSha = null, syncState = '', tradesPlain = false;
 const saveTradesLocal = () => { try { localStorage.setItem(TRADES_KEY, JSON.stringify(trades)); } catch (e) {} };
+// Andere pagina (bv. Vandaag) heeft nieuwere opgevolgde adviezen opgehaald: overnemen
+window.addEventListener('storage', e => {
+  if (e.key !== TRADES_KEY || !e.newValue) return;
+  try { trades = mergeTrades(JSON.parse(e.newValue), trades); render(); } catch (err) {}
+});
 const ghToken = () => { try { return localStorage.getItem('gh_token') || ''; } catch (e) { return ''; } };
 const openTrades = () => trades.filter(t => !t.deleted && t.status === 'open' && (t.set || 'investeringen') === SET);
 const tradeFor = sym => openTrades().find(t => t.symbol === sym);
 
-function mergeTrades(a, b) {
-  const m = {};
-  [...a, ...b].forEach(t => { if (t && t.id && (!m[t.id] || (t.updated || '') > (m[t.id].updated || ''))) m[t.id] = t; });
-  return Object.values(m).sort((x, y) => x.id.localeCompare(y.id));
-}
+const mergeTrades = Shared.mergeTrades;   // shared.js: zelfde samenvoeging als Vandaag
 async function fetchRemoteTrades() {
   const headers = { Accept: 'application/vnd.github+json' };
   if (ghToken()) headers.Authorization = 'Bearer ' + ghToken();

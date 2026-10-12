@@ -441,6 +441,7 @@
 </dialog>
 
 <script src="vault.js"></script>
+<script src="shared.js"></script>
 <script>
 // Aankoopprijzen en aantallen staan NIET in deze openbare lijst, maar versleuteld in state.json
 // (zie vault.js). Deze lijst bevat alleen welke posities er zijn en hun koopdrempel.
@@ -530,22 +531,15 @@ function applyState(p) {
   if (st && st.cost != null) p.cost = st.cost;
   if (st && st.qty != null) p.qty = st.qty;
 }
-// Samenvoegen: GitHub is leidend, maar lokaal bekende aankoopprijzen vullen ontbrekende aan
-function mergeState(remote, local) {
-  const out = {};
-  new Set([...Object.keys(remote || {}), ...Object.keys(local || {})]).forEach(id => {
-    const r = (remote || {})[id], l = (local || {})[id];
-    if (!r) { out[id] = l; return; }
-    if (!l || typeof r !== 'object') { out[id] = r; return; }
-    out[id] = { ...l, ...r };
-    if (r.cost == null && l.cost != null) out[id].cost = l.cost;
-    if (r.qty == null && l.qty != null) out[id].qty = l.qty;
-    if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
-  });
-  return out;
-}
+// Samenvoegen: GitHub is leidend, lokaal bekende aankoopprijzen vullen ontbrekende aan (shared.js, ook gebruikt door Vandaag)
+const mergeState = Shared.mergeState;
 
 let userState = loadStateLocal();
+// Een andere pagina (bv. Vandaag) heeft nieuwere gegevens van GitHub opgehaald: overnemen en opnieuw tonen
+window.addEventListener('storage', e => {
+  if (e.key !== 'portfolio_state' || !e.newValue) return;
+  try { userState = mergeState(JSON.parse(e.newValue), userState); positions.forEach(applyState); render(); } catch (err) {}
+});
 let stateSha = null;          // sha van state.json op GitHub (nodig om te schrijven)
 let stateLocked = false;      // false | 'geen-token' | 'verkeerde-token'
 let syncStatus = 'local';     // 'local' | 'synced' | 'error' | 'syncing'
@@ -676,22 +670,13 @@ let positions = loadPositions();
 
 // Winst-cyclus: elke +50% een trede. Trede 1,4,7.. = 10%, trede 2,5,8.. = 20%,
 // trede 3,6,9.. = 30% van de winst verkopen.
-function sellPctForStep(step) {
-  const mod = ((step - 1) % 3);
-  return mod === 0 ? 10 : (mod === 1 ? 20 : 30);
-}
+const sellPctForStep = Shared.sellPctForStep;   // regels staan in shared.js (ook gebruikt door Vandaag)
 // Hoeveel treden zijn bereikt bij een bepaald winstpercentage (elke 50%)
-function stepsReached(plPct) {
-  if (plPct < 50) return 0;
-  return Math.floor(plPct / 50);
-}
+const stepsReached = Shared.stepsReached;
 
 // Slimme koopdrempel: halve jaarbeweeglijkheid, tussen 8% en 35% (een wild aandeel krijgt meer ruimte dan een rustig)
-function smartOn() { try { return localStorage.getItem('buy_mode') !== 'vast'; } catch (e) { return true; } }
-function thresholdFor(p, q) {
-  if (smartOn() && q && q.vol) return Math.round(Math.max(8, Math.min(35, q.vol * 0.5)));
-  return p.thresh;
-}
+const smartOn = Shared.smartOn;
+const thresholdFor = Shared.thresholdFor;
 
 // Kerngetallen per positie, gebruikt voor sorteren en filteren
 function metrics(p, q) {
@@ -704,17 +689,7 @@ function metrics(p, q) {
   let openSell = false;
   if (!isWatch) {
     const st = userState[posId(p)] || {};
-    const sells = st.sells || [];
-    const reached = stepsReached(plPct);
-    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
-    // heropend?
-    let heropend = false;
-    for (let step = 1; step <= maxDone; step++) {
-      const opStap = sells.filter(s => s.level === step);
-      const v = opStap.length ? opStap[opStap.length - 1] : null;
-      if (v && v.price != null && step <= reached && q.price <= v.price * 0.75) { heropend = true; break; }
-    }
-    openSell = heropend || (reached >= maxDone + 1);
+    openSell = Shared.sellStatus(st.sells, plPct, q.price).canRealise;
   }
   // Afstand tot volgende winsttrede (voor 'dichtst bij verkoopsignaal').
   // 0 = precies op een trede of eroverheen (verkoopsignaal actief).
@@ -930,33 +905,11 @@ function positionCard(p, q, err) {
     // Een verkoop op een trede vervalt (trede weer beschikbaar) zodra de koers
     // 25% of meer onder de verkoopkoers van die verkoop is gezakt (optie B),
     // MAAR alleen zolang je nog boven dat winstniveau zit.
-    const REOPEN_DROP = 0.25;
-    function laatsteVerkoop(step) {
-      const opStap = sells.filter(s => s.level === step);
-      return opStap.length ? opStap[opStap.length - 1] : null;
-    }
-    // Is een reeds afgevinkte trede vervallen (dus opnieuw te realiseren)?
-    function tredeVervallen(step) {
-      const v = laatsteVerkoop(step);
-      if (!v || v.price == null) return false;
-      if (step > reached) return false;           // je zit niet meer op dit winstniveau
-      return q.price <= v.price * (1 - REOPEN_DROP);
-    }
-
-    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
-
-    // Zoek de laagste AFGEVINKTE trede die is vervallen (heropend)
-    let openStep = null;
-    for (let step = 1; step <= maxDone; step++) {
-      if (laatsteVerkoop(step) && tredeVervallen(step)) { openStep = step; break; }
-    }
-    // Geen heropende trede? Dan is de eerstvolgende trede maxDone+1,
-    // en die is realiseerbaar zodra hij bereikt is.
-    const isHeropend = openStep != null;
-    const nextStep = isHeropend ? openStep : (maxDone + 1);
-    const nextTargetPct = nextStep * 50;
-    const nextSellPct = sellPctForStep(nextStep);
-    const canRealise = isHeropend || (reached >= nextStep);
+    // Zelfde regel als Vandaag (shared.js): een afgevinkte trede gaat weer open als de koers
+    // 25% onder je verkoopkoers zakt, zolang je nog boven dat winstniveau zit.
+    const S = Shared.sellStatus(sells, plPct, q.price);
+    const laatsteVerkoop = S.last, tredeVervallen = S.reopened;
+    const { isHeropend, nextStep, nextTargetPct, nextSellPct, canRealise } = S;
 
     // Lijst van gerealiseerde verkopen
     let sellsHtml = '';

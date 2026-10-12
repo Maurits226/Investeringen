@@ -30,6 +30,7 @@ from urllib.request import Request, urlopen
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "crash.json")
 FRESH_MIN = 55               # niet vaker opnieuw rekenen dan eens per zoveel minuten
+VERSION = 2                  # nieuwe versie van dit script = meteen opnieuw rekenen
 START = date(1950, 1, 1)     # vanaf hier tellen maanden en crashes mee
 FETCH_FROM = date(1939, 1, 1)  # eerder ophalen voor het 10-jaarsgemiddelde
 HORIZON_D = 365              # "binnen 12 maanden"
@@ -74,7 +75,7 @@ def yahoo_daily(sym, start=FETCH_FROM):
 
 def fred_monthly(series):
     """{'JJJJ-MM': waarde} uit FRED (geen sleutel nodig)."""
-    txt = get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}").decode()
+    txt = get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}", tries=2, timeout=20).decode()
     out = {}
     for row in csv.reader(io.StringIO(txt)):
         if len(row) >= 2 and row[0][:4].isdigit():
@@ -82,6 +83,18 @@ def fred_monthly(series):
                 out[row[0][:7]] = float(row[1])
             except ValueError:
                 pass
+    return out
+
+
+def cpi_github():
+    """Reserve voor de inflatie: maandelijkse CPI (1913-nu) van github.com/datasets/cpi-us."""
+    txt = get("https://raw.githubusercontent.com/datasets/cpi-us/main/data/cpiai.csv", tries=2, timeout=30).decode()
+    out = {}
+    for row in csv.DictReader(io.StringIO(txt)):
+        try:
+            out[row["Date"][:7]] = float(row["Index"])
+        except (KeyError, ValueError):
+            pass
     return out
 
 
@@ -211,7 +224,7 @@ def main():
     try:
         prev = json.load(open(OUT, encoding="utf-8"))
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(prev["updated"])).total_seconds() / 60
-        if age < FRESH_MIN and not force:
+        if age < FRESH_MIN and prev.get("v") == VERSION and not force:
             print(f"crash.json is {age:.0f} min oud: niets te doen")
             return
     except Exception:  # noqa: BLE001
@@ -221,14 +234,20 @@ def main():
     print(f"S&P 500: {len(daily)} dagen, {daily[0][0]} t/m {daily[-1][0]}")
     sources = {"S&P 500": f"{daily[0][0].year}–nu"}
 
-    def opt(name, fn):
-        try:
-            v = fn()
-            print(f"  {name}: ok ({len(v)})")
-            return v
-        except Exception as e:  # noqa: BLE001
-            print(f"  {name}: niet beschikbaar ({e})")
-            return {}
+    errors = {}
+
+    def opt(name, *fns):
+        for fn in fns:                                   # eerste bron die werkt
+            try:
+                v = fn()
+                if v:
+                    print(f"  {name}: ok ({len(v)})")
+                    errors.pop(name, None)
+                    return v
+            except Exception as e:  # noqa: BLE001
+                errors[name] = str(e)[:160]
+                print(f"  {name}: bron mislukt ({e})")
+        return {}
 
     def yahoo_me(sym):
         rows = yahoo_daily(sym)
@@ -239,7 +258,7 @@ def main():
 
     tnx = opt("10-jaarsrente (^TNX)", lambda: yahoo_me("^TNX"))
     irx = opt("3-maandsrente (^IRX)", lambda: yahoo_me("^IRX"))
-    cpi = opt("inflatie (FRED CPIAUCSL)", lambda: fred_monthly("CPIAUCSL"))
+    cpi = opt("inflatie (CPI)", lambda: fred_monthly("CPIAUCSL"), cpi_github)
     unr = opt("werkloosheid (FRED UNRATE)", lambda: fred_monthly("UNRATE"))
 
     me = month_ends(daily)
@@ -333,9 +352,11 @@ def main():
     bucket = next((x for x in dips if x["lo"] <= dd < x["hi"]), None)
     out = {
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "v": VERSION,
         "sources": {**sources, **{k: v for k, v in {"rente": "1962–nu" if tnx and irx else None,
-                                                    "inflatie": "FRED" if cpi else None,
+                                                    "inflatie": "CPI" if cpi else None,
                                                     "werkloosheid": "FRED" if unr else None}.items() if v}},
+        "source_errors": errors,
         "now": {"date": last_d.isoformat(), "close": round(last_c, 2), "top": round(top[1], 2), "top_date": top[0].isoformat(),
                 "dd": round(dd, 1), "above200": last_c > sma200 if sma200 else None, "sma200": round(sma200, 2) if sma200 else None,
                 "month": now_m, "signals": {k: now_sig.get(k) for k in use}, "k": k_now, "row": row, "state": state,

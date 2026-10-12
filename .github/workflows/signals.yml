@@ -20,6 +20,7 @@ on:
     paths:                        # na een wijziging aan de radar direct herstarten
       - 'scripts/signals.py'
       - 'tickers.txt'
+      - 'scripts/crash.py'
       - '.github/workflows/signals.yml'
 
 permissions:
@@ -58,7 +59,8 @@ jobs:
             if handelstijd "$(date +%s)" || { [ -n "$EERSTE" ] && [ "$EVENT" != "schedule" ] && [ "$KETEN" != "true" ]; }; then
               timeout 2m git pull -q --rebase origin "${GITHUB_REF_NAME}" || git rebase --abort 2>/dev/null || true
               timeout 12m python3 scripts/signals.py || echo "Run mislukt, volgende poging over 15 min"
-              git add signals.json; [ -d archive ] && git add archive
+              timeout 5m python3 scripts/crash.py || echo "Crashradar niet bijgewerkt"   # zelf hooguit eens per uur
+              git add signals.json; [ -d archive ] && git add archive; [ -f crash.json ] && git add crash.json
               if ! git diff --cached --quiet; then
                 git commit -q -m "Patroonradar $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
                 for i in 1 2 3 4 5; do

@@ -122,7 +122,7 @@
   .regime-why { font-size: 11.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }
   .regime-why b { color: var(--text); font-weight: 500; }
   /* Beursklimaat: twee kaarten (vandaag = blauw, deze week = paars) */
-  .clim { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .clim { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .cc {
     position: relative; overflow: hidden; border-radius: 14px; padding: 16px 18px 14px;
     background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line);
@@ -157,6 +157,50 @@
   .cc-basis { font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 9px; margin-top: auto; }
   .cc-basis b { color: var(--mark); font-weight: 500; }
   @media (max-width: 760px) { .clim { grid-template-columns: 1fr; } }
+  /* Crashradar: derde kaart (amber) + uitklapbare historie sinds 1950 */
+  .cc.cr { --mark: #f5b544; }
+  .cc.cr.koop { --tone: var(--up); }
+  .cc-num small { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+  .pbar { position: relative; height: 6px; border-radius: 6px; margin-top: 8px; background: var(--panel-2); overflow: visible; }
+  .pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--tone); }
+  .pbar em { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--muted); transform: translateX(-1px); }
+  .ladder3 { display: flex; gap: 4px; margin-top: 8px; }
+  .ladder3 span { flex: 1; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace; text-align: center; padding: 3px 0; border-radius: 5px;
+                  border: 1px dashed var(--line); color: var(--muted); }
+  .ladder3 span.hit { border-style: solid; border-color: rgba(62,207,142,.6); color: var(--up); background: rgba(62,207,142,.08); }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .chip.on { color: var(--warn); border-color: rgba(245,181,68,.5); background: rgba(245,181,68,.07); }
+  .cc-basis a { color: #f5b544; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  details.crashx { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin: -2px 0 14px; }
+  details.crashx[open] { border-color: rgba(245,181,68,.45); }
+  details.crashx > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-size: 13px; }
+  details.crashx > summary::-webkit-details-marker { display: none; }
+  details.crashx .h-sub { color: var(--muted); font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  details.crashx .h-btn { margin-left: auto; font-size: 11px; color: #f5b544; border: 1px solid rgba(245,181,68,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  details.crashx .h-btn::after { content: ' ▾'; }
+  details.crashx[open] .h-btn::after { content: ' ▴'; }
+  details.crashx .h-show-less { display: none; }
+  details.crashx[open] .h-show-more { display: none; }
+  details.crashx[open] .h-show-less { display: inline; }
+  @media (max-width: 560px) { details.crashx .h-sub { display: none; } }
+  .cx-body { padding: 4px 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cx-c { background: rgba(255,255,255,.02); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .cx-c.wide { grid-column: 1 / -1; }
+  .cx-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .cx-k span { text-transform: none; letter-spacing: 0; font-family: 'IBM Plex Mono', monospace; }
+  .cx-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cx-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; padding: 3px 0; }
+  .cx-t th:not(:first-child), .cx-t td:not(:first-child) { text-align: right; font-family: 'IBM Plex Mono', monospace; padding-left: 10px; white-space: nowrap; }
+  .cx-t td { padding: 4px 0; border-top: 1px dashed #26282b; vertical-align: top; }
+  .cx-t td.l { text-align: left !important; white-space: normal !important; font-family: inherit !important; }
+  .cx-t tr.cur td { color: #f5b544; }
+  .cx-t .chip { font-size: 9.5px; padding: 1px 6px; margin: 0 3px 3px 0; display: inline-block; }
+  .cx-note { font-size: 11.5px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+  .cx-note b { color: var(--text); font-weight: 600; }
+  .cx-chart svg { width: 100%; height: 150px; display: block; }
+  .cx-wrap { overflow-x: auto; }
+  @media (max-width: 760px) { .cx-body { grid-template-columns: 1fr; } }
   .fac.key { box-shadow: inset 0 2px 0 var(--accent); }
   .heads summary::-webkit-details-marker { display: none; }
   .heads ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
@@ -490,6 +534,7 @@ const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') +
 const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
 let data = null;
+let crash = null;              // crash.json: crashradar sinds 1950 (scripts/crash.py)
 let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [] };
 // Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
 try { ui = { ...ui, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
@@ -533,6 +578,10 @@ async function load() {
   try {
     const q = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     if (q.ok) quotes = (await q.json()).quotes || {};
+  } catch (e) {}
+  try {
+    const c = await fetch('crash.json?t=' + Date.now(), { cache: 'no-store' });
+    if (c.ok) crash = await c.json();
   } catch (e) {}
   try {
     const r = await fetch(CFG.file + '?t=' + Date.now(), { cache: 'no-store' });
@@ -716,10 +765,12 @@ function renderWorld() {
   // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
   const vix = byKey.vix, nd = byKey.nasdaq;
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
+  const cxOpen = box.querySelector('details.crashx') && box.querySelector('details.crashx').open;
   const wk = weekOutlook();
   const clim = climateCards(reg, byKey, wk);
   box.innerHTML = `
     ${clim}
+    ${crashDetails(cxOpen)}
     <div class="factors">${facs}</div>
     ${heads ? `<details class="heads"${open ? ' open' : ''}><summary>📰 Wereldnieuws
         <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>
@@ -749,7 +800,7 @@ function climateCards(reg, byKey, wk) {
       </div>` : ''}
       <div class="cc-basis">Gebaseerd op <b>angstindex</b> (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100</b> t.o.v. zijn 50-daags gemiddelde · <b>blauw gemarkeerd in onderstaande tegels</b></div>
     </div>`;
-  if (!wk) return `<div class="clim">${today}</div>`;
+  if (!wk) return `<div class="clim">${today}${crashCard()}</div>`;
   const flat = wk.n - wk.up - wk.down;
   const w = x => (x / wk.n * 100).toFixed(1) + '%';
   const week = `<div class="cc wk ${wk.cls === 'pos' ? 'good' : wk.cls === 'neg' ? 'bad' : 'mid'}">
@@ -760,7 +811,105 @@ function climateCards(reg, byKey, wk) {
       <div class="dist-l"><em class="u">${wk.up} omhoog</em><em class="f">${flat} vlak</em><em class="d">${wk.down} omlaag</em></div>
       <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'kansen'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'}</div>
     </div>`;
-  return `<div class="clim">${today}${week}</div>`;
+  return `<div class="clim">${today}${week}${crashCard()}</div>`;
+}
+
+// ── Crashradar: wanneer cash klaarzetten om een dip te kopen (S&P 500 sinds 1950) ──
+const CR_STATE = {
+  rustig:    ['good', 'Rustig', 'Weinig waarschuwingssignalen. Een normale cashbuffer volstaat.'],
+  opletten:  ['mid',  'Cash klaarzetten', 'Meerdere signalen tegelijk: historisch duidelijk meer kans op een daling. Zet cash klaar, verkopen hoeft niet.'],
+  correctie: ['bad',  'Correctie bezig', 'De S&P 500 staat 10% of meer onder de top. Eerste deel kopen, de rest achter de hand houden.'],
+  koop:      ['good koop', 'Dip: koopzone', 'De S&P 500 staat 20% of meer onder de top. Historisch een goed moment om gespreid te kopen.']
+};
+const nf = (v, d = 2) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const nl1 = v => v == null ? '—' : nf(v, 1);
+function crashCard() {
+  const c = crash;
+  if (!c || !c.now) return '';
+  const n = c.now, S = CR_STATE[n.state] || CR_STATE.rustig, row = n.row || {}, b = c.base || {};
+  const names = Object.fromEntries((c.signals || []).map(x => [x.key, x.name]));
+  const on = Object.entries(n.signals || {}).filter(([, v]) => v).map(([k]) => k);
+  const p = row.p10, max = 80;
+  return `<div class="cc cr ${S[0]}">
+      <div class="cc-k"><i></i>Crashradar · sinds 1950</div>
+      <div class="cc-main"><span class="cc-verdict">${S[1]}</span><span class="cc-num" title="Kans op een daling van 10% of meer binnen 12 maanden bij ${n.k} signalen tegelijk">${p == null ? '—' : Math.round(p) + '%'}<small>kans</small></span></div>
+      <div class="cc-sub">${S[2]}</div>
+      <div class="cc-meters">
+        <div class="meter"><div class="meter-l">≥10% daling in 12 mnd <b>${p == null ? '—' : Math.round(p) + '%'}</b></div>
+          <div class="pbar" title="Historisch bij ${n.k}${row.plus ? '+' : ''} signalen tegelijk (${row.n || 0} maanden sinds 1950). Streepje = normaal (${Math.round(b.p10 || 0)}%)"><i style="width:${Math.min(100, (p || 0) / max * 100).toFixed(1)}%"></i><em style="left:${Math.min(100, (b.p10 || 0) / max * 100).toFixed(1)}%"></em></div>
+          <div class="meter-l" style="margin-top:5px">normaal ${Math.round(b.p10 || 0)}% · ≥20%: ${row.p20 == null ? '—' : Math.round(row.p20) + '%'}</div></div>
+        <div class="meter"><div class="meter-l">S&amp;P 500 onder top <b>−${nl1(n.dd)}%</b></div>
+          <div class="ladder3">${(n.ladder || []).map(l => `<span class="${l.hit ? 'hit' : ''}" title="Koopniveau ${l.pct}% onder de top: S&P 500 ${nf(l.level, 0)}">−${l.pct}%</span>`).join('')}</div>
+          <div class="meter-l" style="margin-top:5px">top ${nf(n.top, 0)} · nu ${nf(n.close, 0)}</div></div>
+      </div>
+      <div class="chips">${on.length ? on.map(k => `<span class="chip on">${esc(names[k] || k)}</span>`).join('') : '<span class="chip">geen waarschuwingssignalen</span>'}</div>
+      <div class="cc-basis">${n.k} van ${(c.signals || []).length} signalen aan · <b>${(c.bears || []).length} berenmarkten</b> sinds 1950 nagerekend ·
+        <a onclick="const d=document.querySelector('details.crashx'); d.open=true; d.scrollIntoView({behavior:'smooth', block:'start'})">historie bekijken</a></div>
+    </div>`;
+}
+// Grafiek: hoe ver de S&P 500 onder de top stond (rood) en wanneer 3+ signalen tegelijk brandden (amber)
+function crashChart(series, bears) {
+  if (!series || !series.length) return '';
+  const W = 1000, H = 150, maxDD = 60, n = series.length;
+  const x = i => (i / (n - 1) * W).toFixed(1), y = dd => (dd / maxDD * (H - 18)).toFixed(1);
+  const area = 'M0,0 ' + series.map((s, i) => `L${x(i)},${y(s[1])}`).join(' ') + ` L${W},0 Z`;
+  const warn = series.map((s, i) => s[2] >= 3 ? `<rect x="${x(i)}" y="0" width="${(W / n + 0.6).toFixed(2)}" height="${H}" fill="rgba(245,181,68,.13)"/>` : '').join('');
+  const idx = Object.fromEntries(series.map((s, i) => [s[0], i]));
+  const labels = (bears || []).map(b => { const i = idx[b.trough.slice(0, 7)]; return i == null ? '' :
+    `<text x="${x(i)}" y="${Math.min(H - 4, +y(-b.depth) + 12)}" fill="#f0595f" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">${b.peak.slice(0, 4)}</text>`; }).join('');
+  const years = [1960, 1980, 2000, 2020].map(yy => { const i = idx[yy + '-01']; return i == null ? '' :
+    `<text x="${x(i)}" y="${H - 2}" fill="#83888d" font-size="10" text-anchor="middle">${yy}</text>`; }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Stand onder de top sinds 1950">
+    ${warn}<path d="${area}" fill="rgba(240,89,95,.30)" stroke="#f0595f" stroke-width="1"/>${labels}${years}</svg>`;
+}
+function crashDetails(isOpen) {
+  const c = crash;
+  if (!c || !c.now) return '';
+  const n = c.now, b = c.base || {};
+  const names = Object.fromEntries((c.signals || []).map(x => [x.key, x.name]));
+  const chip = k => `<span class="chip">${esc(names[k] || k)}</span>`;
+  const sigRows = (c.signals || []).map(x => `<tr class="${n.signals && n.signals[x.key] ? 'cur' : ''}"><td class="l" title="${esc(x.why)}">${esc(x.name)}<br><small style="color:var(--muted)">sinds ${x.since} · ${x.n} mnd aan</small></td>
+      <td>${n.signals && n.signals[x.key] ? 'AAN' : n.signals && n.signals[x.key] === false ? 'uit' : '—'}</td>
+      <td>${x.p10 == null ? '—' : Math.round(x.p10) + '%'} <small style="color:var(--muted)">(${Math.round(x.b10)}%)</small></td>
+      <td>${x.p20 == null ? '—' : Math.round(x.p20) + '%'} <small style="color:var(--muted)">(${Math.round(x.b20)}%)</small></td>
+      <td>${x.lift20 == null ? '—' : '×' + nf(x.lift20, 1)}</td></tr>`).join('');
+  const kRows = (c.by_k || []).map(r => `<tr class="${Math.min(n.k, 4) === r.k ? 'cur' : ''}"><td class="l">${r.k}${r.plus ? '+' : ''} tegelijk</td><td>${r.share}%</td>
+      <td>${Math.round(r.p10)}%</td><td>${Math.round(r.p20)}%</td><td>${r.med12 > 0 ? '+' : ''}${nl1(r.med12)}%</td></tr>`).join('');
+  const bearRows = (c.bears || []).slice().reverse().map(x => {
+    const dt = d => d ? new Date(d).toLocaleDateString('nl-NL', { month: 'short', year: 'numeric' }) : '—';
+    return `<tr><td class="l"><b>${dt(x.peak)}</b> → ${dt(x.trough)}<br><small style="color:var(--muted)">${Math.round(x.days / 30.4)} mnd omlaag${x.rec ? ' · hersteld ' + dt(x.rec) : ' · nog niet hersteld'}</small></td>
+      <td class="c-down">${nl1(x.depth)}%</td><td class="l">${x.pre.length ? x.pre.map(chip).join('') : '<small style="color:var(--muted)">geen</small>'}</td>
+      <td class="l">${x.at10.length ? x.at10.map(chip).join('') : '<small style="color:var(--muted)">geen</small>'}</td></tr>`;
+  }).join('');
+  const dipRows = (c.dips || []).map(d => `<tr class="${n.dd >= d.lo && n.dd < d.hi ? 'cur' : ''}"><td class="l">${d.lo}–${d.hi === 100 ? '…' : d.hi}% onder top</td><td>${d.n}</td>
+      <td>${d.med12 > 0 ? '+' : ''}${nl1(d.med12)}% <small style="color:var(--muted)">(${d.pos12}% pos.)</small></td>
+      <td>${d.med24 == null ? '—' : (d.med24 > 0 ? '+' : '') + nl1(d.med24) + '%'} <small style="color:var(--muted)">(${d.pos24 == null ? '—' : d.pos24 + '%'} pos.)</small></td>
+      <td class="c-down">${nl1(d.worst12)}%</td></tr>`).join('');
+  const lad = (n.ladder || []).map(l => `<tr class="${l.hit ? 'cur' : ''}"><td class="l">Deel ${(n.ladder || []).indexOf(l) + 1}: ${l.pct}% onder de top</td><td>S&amp;P ${nf(l.level, 0)}</td><td>${l.hit ? 'bereikt' : 'nog ' + nl1((1 - l.level / n.close) * 100) + '% lager'}</td></tr>`).join('');
+  return `<details class="crashx"${isOpen ? ' open' : ''}><summary>📉 Crashradar · historie sinds 1950
+      <span class="h-sub">${(c.bears || []).length} berenmarkten · ${(c.signals || []).length} signalen nagerekend · dip kopen</span>
+      <span class="h-btn"><span class="h-show-more">tonen</span><span class="h-show-less">verbergen</span></span></summary>
+    <div class="cx-body">
+      <div class="cx-c wide cx-chart"><div class="cx-k">S&amp;P 500: hoe ver onder de top <span>rood = daling · amber = 3+ signalen tegelijk</span></div>
+        ${crashChart(c.series, c.bears)}
+        <div class="cx-note">Per maand sinds 1950. De amberkleurige stroken laten zien wanneer 3 of meer waarschuwingssignalen tegelijk brandden; jaartallen = begin van een berenmarkt.</div></div>
+      <div class="cx-c"><div class="cx-k">Kooplad <span>gespreid kopen</span></div>
+        <table class="cx-t"><tr><th>stap</th><th>niveau</th><th>stand</th></tr>${lad}</table>
+        <div class="cx-note">Top ${nf(n.top, 0)} op ${new Date(n.top_date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}. Wie een derde koopt bij elke stap, hoeft het dieptepunt niet te raden.
+          Je S&amp;P 500-ETF (VUAA) beweegt vrijwel gelijk mee.</div></div>
+      <div class="cx-c"><div class="cx-k">Dip kopen <span>rendement daarna</span></div>
+        <div class="cx-wrap"><table class="cx-t"><tr><th>stand</th><th>mnd</th><th>12 mnd</th><th>24 mnd</th><th>slechtst</th></tr>${dipRows}</table></div>
+        <div class="cx-note">Mediaan rendement na een maand met die stand onder de top (S&amp;P 500, zonder dividend). Hoe dieper de dip, hoe vaker het twee jaar later hoger stond.</div></div>
+      <div class="cx-c wide"><div class="cx-k">Waarschuwingssignalen <span>kans op daling binnen 12 mnd · tussen haakjes normaal</span></div>
+        <div class="cx-wrap"><table class="cx-t"><tr><th>signaal</th><th>nu</th><th>≥10%</th><th>≥20%</th><th>×kans 20%</th></tr>${sigRows}</table></div>
+        <div class="cx-note">Normaal volgt in ${Math.round(b.p10 || 0)}% van de maanden binnen een jaar een daling van 10% en in ${Math.round(b.p20 || 0)}% een van 20%.
+          <b>Geen enkel signaal voorspelt een crash op zichzelf</b>; trendsignalen gaan pas af als de daling al begonnen is. Samen zeggen ze meer:</div>
+        <div class="cx-wrap" style="margin-top:8px"><table class="cx-t"><tr><th>signalen</th><th>tijd</th><th>≥10%</th><th>≥20%</th><th>mediaan 12 mnd</th></tr>${kRows}</table></div></div>
+      <div class="cx-c wide"><div class="cx-k">Berenmarkten sinds 1950 <span>≥ 20% onder de top · nieuwste eerst</span></div>
+        <div class="cx-wrap"><table class="cx-t"><tr><th>top → bodem</th><th>daling</th><th style="text-align:left">signalen in 12 mnd vóór de top</th><th style="text-align:left">bij −10%</th></tr>${bearRows}</table></div>
+        <div class="cx-note">Zo zie je welke patronen een crash vooraf aankondigden, en welke pas zichtbaar werden toen de daling al 10% was. Bronnen: S&amp;P 500, 10-jaars- en 3-maandsrente (Yahoo),
+          inflatie en werkloosheid (FRED). Bijgewerkt ${new Date(c.updated).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Geen beleggingsadvies.</div></div>
+    </div></details>`;
 }
 // Verwacht weekresultaat: de verwachte beweging van elke stock (radar, 10 handelsdagen) teruggerekend
 // naar 5 dagen. Bij je investeringen gewogen naar de waarde van je positie, bij de Top 250 gelijk gewogen.

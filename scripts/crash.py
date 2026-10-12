@@ -30,7 +30,7 @@ from urllib.request import Request, urlopen
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "crash.json")
 FRESH_MIN = 55               # niet vaker opnieuw rekenen dan eens per zoveel minuten
-VERSION = 2                  # nieuwe versie van dit script = meteen opnieuw rekenen
+VERSION = 3                  # nieuwe versie van dit script = meteen opnieuw rekenen
 START = date(1950, 1, 1)     # vanaf hier tellen maanden en crashes mee
 FETCH_FROM = date(1939, 1, 1)  # eerder ophalen voor het 10-jaarsgemiddelde
 HORIZON_D = 365              # "binnen 12 maanden"
@@ -221,6 +221,7 @@ def bear_markets(daily):
 
 def main():
     force = "--force" in sys.argv
+    prev = {}
     try:
         prev = json.load(open(OUT, encoding="utf-8"))
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(prev["updated"])).total_seconds() / 60
@@ -258,8 +259,17 @@ def main():
 
     tnx = opt("10-jaarsrente (^TNX)", lambda: yahoo_me("^TNX"))
     irx = opt("3-maandsrente (^IRX)", lambda: yahoo_me("^IRX"))
-    cpi = opt("inflatie (CPI)", lambda: fred_monthly("CPIAUCSL"), cpi_github)
-    unr = opt("werkloosheid (FRED UNRATE)", lambda: fred_monthly("UNRATE"))
+    cpi = opt("inflatie (CPI)", cpi_github, lambda: fred_monthly("CPIAUCSL"))
+    # FRED loopt vanuit GitHub Actions soms vast: na een mislukte poging een dag wachten
+    fred_fail = prev.get("fred_fail_at")
+    if fred_fail and (datetime.now(timezone.utc) - datetime.fromisoformat(fred_fail)).total_seconds() < 86400 and not force:
+        unr = {}
+        errors["werkloosheid (FRED UNRATE)"] = (prev.get("source_errors") or {}).get("werkloosheid (FRED UNRATE)") or "FRED eerder niet bereikbaar"
+        print("  werkloosheid: FRED vandaag al mislukt, overgeslagen")
+    else:
+        unr = opt("werkloosheid (FRED UNRATE)", lambda: fred_monthly("UNRATE"))
+        if not unr:
+            fred_fail = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     me = month_ends(daily)
     months = sorted(me)
@@ -340,7 +350,9 @@ def main():
     k_now = count(now_m)
     row = next((r for r in by_k if r["k"] == min(k_now, 4)), None)
     sma200 = sum(d_close[-200:]) / 200 if len(d_close) >= 200 else None
-    elevated = row and base["p10"] and row["p10"] >= 1.5 * base["p10"]
+    # verhoogd risico: kans op >= 10% daling 1,4x normaal, of op >= 20% daling 1,6x normaal
+    elevated = bool(row and base["p10"] and base["p20"] and
+                    (row["p10"] >= 1.4 * base["p10"] or row["p20"] >= 1.6 * base["p20"]))
     if dd >= 20:
         state = "koop"
     elif dd >= 10:
@@ -357,6 +369,7 @@ def main():
                                                     "inflatie": "CPI" if cpi else None,
                                                     "werkloosheid": "FRED" if unr else None}.items() if v}},
         "source_errors": errors,
+        "fred_fail_at": fred_fail if not unr else None,
         "now": {"date": last_d.isoformat(), "close": round(last_c, 2), "top": round(top[1], 2), "top_date": top[0].isoformat(),
                 "dd": round(dd, 1), "above200": last_c > sma200 if sma200 else None, "sma200": round(sma200, 2) if sma200 else None,
                 "month": now_m, "signals": {k: now_sig.get(k) for k in use}, "k": k_now, "row": row, "state": state,

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-12T10:00:35.342446+00:00",
+  "updated": "2026-10-12T10:01:18.594957+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -31,14 +31,14 @@
     },
     "1YD.DE": {
       "ticker": "1YD.DE",
-      "price": 321.7,
+      "price": 321.65,
       "prevClose": 325.0,
       "currency": "EUR",
       "name": "Broadcom Inc.",
       "high52": 429.55,
       "vol": 45.6,
-      "sma50": 323.064,
-      "sma200": 318.3043,
+      "sma50": 323.063,
+      "sma200": 318.304,
       "low52": 255.45,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -129,14 +129,14 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 147.76,
+      "price": 147.78,
       "prevClose": 145.36000061035156,
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
       "vol": 50.2,
-      "sma50": 147.4504,
-      "sma200": 154.1839,
+      "sma50": 147.4508,
+      "sma200": 154.184,
       "low52": 94.4,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -311,14 +311,14 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1602.0,
+      "price": 1601.8,
       "prevClose": 1601.5999755859375,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
       "vol": 42.0,
-      "sma50": 1517.56,
-      "sma200": 1363.6125,
+      "sma50": 1517.556,
+      "sma200": 1363.6115,
       "low52": 822.2,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"

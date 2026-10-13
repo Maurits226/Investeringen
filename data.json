@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-13T01:00:34.783500+00:00",
+  "updated": "2026-10-13T02:00:34.294097+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -162,9 +162,9 @@
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 34.8,
-      "vol": 65.1,
-      "sma50": 29.6498,
-      "sma200": 21.6456,
+      "vol": 64.9,
+      "sma50": 29.888,
+      "sma200": 21.7214,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -205,8 +205,8 @@
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 53.6,
-      "sma50": 197.8638,
-      "sma200": 161.0721,
+      "sma50": 198.4744,
+      "sma200": 161.4699,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"

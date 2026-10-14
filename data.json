@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-14T16:00:34.840815+00:00",
+  "updated": "2026-10-14T16:10:33.793108+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 32.395,
+      "price": 32.48,
       "prevClose": 33.79999923706055,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 34.92,
-      "vol": 65.0,
-      "sma50": 30.2755,
-      "sma200": 21.8533,
+      "vol": 64.9,
+      "sma50": 30.2772,
+      "sma200": 21.8537,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 197.21,
+      "price": 196.98,
       "prevClose": 204.52000427246094,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 53.4,
-      "sma50": 199.001,
-      "sma200": 162.1656,
+      "sma50": 198.9964,
+      "sma200": 162.1644,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -409,7 +409,7 @@
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 341.0,
+      "price": 341.07,
       "prevClose": null,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-16T05:50:34.973949+00:00",
+  "updated": "2026-10-16T06:00:37.105420+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -302,7 +302,7 @@
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 432.5,
-      "vol": 40.1,
+      "vol": 39.9,
       "sma50": 378.19,
       "sma200": 342.41,
       "low52": 236.0,

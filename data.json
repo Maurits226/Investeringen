@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-16T16:10:34.406237+00:00",
+  "updated": "2026-10-16T16:20:34.581511+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 32.125,
+      "price": 32.283,
       "prevClose": 33.54999923706055,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 35.75,
       "vol": 65.1,
-      "sma50": 30.5339,
-      "sma200": 21.975,
+      "sma50": 30.5371,
+      "sma200": 21.9758,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 179.445,
+      "price": 179.855,
       "prevClose": 185.5800018310547,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 53.7,
-      "sma50": 198.4731,
-      "sma200": 162.6488,
+      "sma50": 198.4813,
+      "sma200": 162.6508,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -353,14 +353,14 @@
     },
     "QDVE.DE": {
       "ticker": "QDVE.DE",
-      "price": 45.875,
+      "price": 46.425,
       "prevClose": 47.810001373291016,
       "currency": "EUR",
       "name": "iShares S&P 500 Information Technology Sector UCITS ETF USD (Acc)",
       "high52": 49.505,
-      "vol": 22.7,
-      "sma50": 45.5374,
-      "sma200": 40.2579,
+      "vol": 22.5,
+      "sma50": 45.5484,
+      "sma200": 40.2606,
       "low52": 31.88,
       "exchange": "GER",
       "exchangeFull": "XETRA"

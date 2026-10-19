@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-19T14:50:34.062189+00:00",
+  "updated": "2026-10-19T14:51:19.034718+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -45,14 +45,14 @@
     },
     "MTE.DE": {
       "ticker": "MTE.DE",
-      "price": 815.4,
+      "price": 816.1,
       "prevClose": 801.0,
       "currency": "EUR",
       "name": "Micron Technology, Inc.",
       "high52": 1102.6,
       "vol": 70.8,
-      "sma50": 860.172,
-      "sma200": 634.905,
+      "sma50": 860.186,
+      "sma200": 634.9085,
       "low52": 165.86,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -129,14 +129,14 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 132.18,
+      "price": 132.12,
       "prevClose": 134.97999572753906,
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
       "vol": 50.4,
-      "sma50": 145.7172,
-      "sma200": 154.4311,
+      "sma50": 145.716,
+      "sma200": 154.4308,
       "low52": 94.4,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 32.26,
+      "price": 32.305,
       "prevClose": 31.809999465942383,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 35.75,
       "vol": 65.2,
-      "sma50": 30.64,
-      "sma200": 22.033,
+      "sma50": 30.6409,
+      "sma200": 22.0332,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 181.735,
+      "price": 181.72,
       "prevClose": 176.97999572753906,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 53.9,
-      "sma50": 198.2851,
-      "sma200": 162.89,
+      "sma50": 198.2848,
+      "sma200": 162.8899,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -269,14 +269,14 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 193.96,
+      "price": 193.94,
       "prevClose": 193.24000549316406,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 216.25,
       "vol": 34.8,
-      "sma50": 195.237,
-      "sma200": 176.0308,
+      "sma50": 195.2366,
+      "sma200": 176.0307,
       "low52": 144.54,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -311,14 +311,14 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1483.6,
+      "price": 1485.2,
       "prevClose": 1477.199951171875,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
       "vol": 42.4,
-      "sma50": 1517.388,
-      "sma200": 1375.427,
+      "sma50": 1517.42,
+      "sma200": 1375.435,
       "low52": 822.2,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"
@@ -409,7 +409,7 @@
     },
     "PHAU.AS": {
       "ticker": "PHAU.AS",
-      "price": 342.75,
+      "price": 342.69,
       "prevClose": null,
       "currency": "EUR",
       "name": "WisdomTree Physical Gold",

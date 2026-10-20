@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-20T20:00:34.320862+00:00",
+  "updated": "2026-10-20T20:10:34.350048+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 181.16,
+      "price": 181.25,
       "prevClose": 182.9499969482422,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 53.9,
-      "sma50": 198.1022,
-      "sma200": 163.1338,
+      "sma50": 198.104,
+      "sma200": 163.1343,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -297,14 +297,14 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 373.0,
+      "price": 377.5,
       "prevClose": 375.5,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 432.5,
       "vol": 39.9,
-      "sma50": 378.92,
-      "sma200": 344.2775,
+      "sma50": 379.01,
+      "sma200": 344.3,
       "low52": 236.0,
       "exchange": "DUS",
       "exchangeFull": "Dusseldorf"

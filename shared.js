@@ -143,7 +143,8 @@ const Shared = (() => {
     ((sig && sig.items) || []).concat((sig && sig.errors) || []).forEach(i => { if (i.pattern_symbol) usOf[i.symbol.toUpperCase()] = i.pattern_symbol.toUpperCase(); });
     const find = ticker => {
       const t = String(ticker || '').toUpperCase(), us = usOf[t], qn = (quotes[t] || {}).name;
-      return pool.find(h => (h.eu || '').toUpperCase() === t || h.sym.toUpperCase() === t || (us && h.sym.toUpperCase() === us))
+      const hit = s => !!s && pool.find(h => h.sym.toUpperCase() === s || (h.alt || []).some(a => String(a).toUpperCase() === s));
+      return pool.find(h => (h.eu || '').toUpperCase() === t) || hit(t) || hit(us)
         || (qn ? pool.find(h => normName(h.name) === normName(qn)) : null) || null;
     };
     return { find, usOf, quotes };

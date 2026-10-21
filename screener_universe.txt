@@ -299,3 +299,7 @@ GALP.LS
 JMT.LS
 BCP.LS
 NOS.LS
+
+# ── Eigen posities die anders buiten de brede scan vallen (ze verschijnen op Beoordeling) ──
+ZETA
+TSFA.DU      # TSMC rapporteert in Taiwanese dollars: wordt niet gescoord, wel als "zelf beoordelen" getoond

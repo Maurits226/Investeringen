@@ -72,7 +72,7 @@ WORLD_NEWS_QUERIES = ["stock market", "oil prices", "war", "Federal Reserve", "t
 # Handmatig vastleggen of uitsluiten, bv. {"45C.DE": "XYZ"} of {"PHAU.AS": None}
 # Goud en zilver: Yahoo heeft voor de Europese ETC's (te) weinig historie, dus het patroon
 # komt van de grote Amerikaanse ETF op hetzelfde metaal.
-US_LISTING_OVERRIDES = {"PHAU.AS": "GLD", "WSLV.MI": "SLV"}
+US_LISTING_OVERRIDES = {"PHAU.AS": "GLD", "WSLV.MI": "SLV", "TSFA.DU": "TSM"}
 
 # Patronen zonder voordeel: na minstens zoveel backtest-plannen met een negatief gemiddeld resultaat
 # én een trefkans niet beter dan zonder signaal, telt een patroon niet meer mee (het wordt wel gemeten).

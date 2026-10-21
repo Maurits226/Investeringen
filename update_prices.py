@@ -81,15 +81,23 @@ def fetch_one(ticker):
         "price": meta.get("regularMarketPrice"),
         "prevClose": prev_close,
         "currency": meta.get("currency", "USD"),
-        "name": meta.get("longName") or meta.get("shortName") or ticker,
+        "name": clean(meta.get("longName") or meta.get("shortName")) or ticker,
         "high52": high52,
         "vol": round(vol, 1) if vol else None,
         "sma50": round(sma(50), 4) if sma(50) else None,
         "sma200": round(sma(200), 4) if sma(200) else None,
         "low52": low52,
-        "exchange": meta.get("exchangeName"),
-        "exchangeFull": meta.get("fullExchangeName"),
+        "exchange": clean(meta.get("exchangeName")),
+        "exchangeFull": clean(meta.get("fullExchangeName")),
     }
+
+def clean(s, n=120):
+    """Tekst van de databron zonder HTML-tekens of stuurtekens (de pagina's escapen ook, dit is een extra slot)."""
+    if not isinstance(s, str):
+        return None
+    s = "".join(ch for ch in s if ch.isprintable()).replace("<", "").replace(">", "").replace('"', "").strip()
+    return s[:n] or None
+
 
 def main():
     tickers = read_tickers()

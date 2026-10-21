@@ -194,7 +194,7 @@ function rowHTML(r) {
   const tick = (it && it.region === 'VS') ? it.sym : r.ticker;
   const head = `<div class="b-head" data-key="${esc(r.key)}">
       <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
-        <div class="b-sub">${esc(tick)}${it && it.sector ? ' · ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${OWN && q && q.due ? ' · <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
+        <div class="b-sub">${esc(tick)}${it && it.sector ? ' · ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? ` · <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due ? ' · <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
         <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span></div>
       <div class="b-score">${c && c.s != null ? `<b class="${lvl[1]}">${c.s}</b><small>/125</small>` : '<b class="v-na">—</b><small>geen data</small>'}</div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
@@ -211,7 +211,8 @@ function rowHTML(r) {
           <div><label for="why-${esc(r.key)}">Waarom ik dit bezit</label><textarea id="why-${esc(r.key)}" data-field="why" maxlength="2000" placeholder="Bijv. marktleider in AI-chips, groeit 30%+ met hoge marges">${esc(rv.why || '')}</textarea></div>
           <div><label for="exit-${esc(r.key)}">Wat me zou laten verkopen</label><textarea id="exit-${esc(r.key)}" data-field="exit" maxlength="2000" placeholder="Bijv. marge zakt onder 40%, CEO vertrekt, fraude">${esc(rv.exit || '')}</textarea></div>
         </div>
-        <div class="qcheck"><span class="${q.due ? 'due' : ''}">${esc(q.txt)}</span><button class="toggle" data-qcheck="1">✓ Kwartaal gecheckt</button></div>` : ''}
+        <div class="qcheck"><span class="${q.due ? 'due' : ''}">${esc(q.txt)}</span><button class="toggle" data-qcheck="1">✓ Kwartaal gecheckt</button></div>
+        ${it && it.earnings ? `<div class="qcheck" style="margin-top:8px">Volgende kwartaalcijfers: <b style="color:var(--text)">${esc(new Date(it.earnings).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</b>${Number.isInteger(it.earn_days) ? ` (over ${it.earn_days} d)` : ''}. Lees daarna de cijfers en vink hierboven af.</div>` : ''}` : ''}
       </div>
       <div><div class="d-k">De 12 stappen <span>${it && it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : 'zelf beoordelen'}</span></div>
         ${Steps.panel(it ? it.s12 : BLANK, { ticks: rv.ticks || {}, tickable: OWN })}</div>

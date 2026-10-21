@@ -161,7 +161,8 @@
   .dist-l .u { color: var(--up); } .dist-l .f { color: #6b7075; } .dist-l .d { color: var(--down); }
   .cc-basis { font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 9px; margin-top: auto; }
   .cc-basis b { color: var(--mark); font-weight: 500; }
-  @media (max-width: 760px) { .clim { grid-template-columns: 1fr; } }
+  .clim.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 760px) { .clim, .clim.c4 { grid-template-columns: 1fr; } }
   /* Crashradar: derde kaart (amber) + uitklapbare historie sinds 1950 */
   .cc.cr { --mark: #f5b544; }
   .cc.cr.koop { --tone: var(--up); }
@@ -512,6 +513,7 @@
 
 <script src="vault.js"></script>
 <script src="shared.js"></script>
+<script src="techwarn.js"></script>
 <script>
 // Welke radar: je eigen investeringen (standaard) of de Top 250 (signals.html?set=top250)
 const SET = new URLSearchParams(location.search).get('set') === 'top250' ? 'top250' : 'investeringen';
@@ -544,6 +546,7 @@ const extLink = (u, text) => { const s = safeUrl(u); return s ? `<a href="${esc(
 
 let data = null;
 let crash = null;              // crash.json: crashradar sinds 1950 (scripts/crash.py)
+let tech = null;               // tech.json: techradar, dreigt een terugval in tech en chips (scripts/tech.py)
 let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [] };
 // Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
 try { ui = { ...ui, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
@@ -591,6 +594,10 @@ async function load() {
   try {
     const c = await fetch('crash.json?t=' + Date.now(), { cache: 'no-store' });
     if (c.ok) crash = await c.json();
+  } catch (e) {}
+  try {
+    const t = await fetch('tech.json?t=' + Date.now(), { cache: 'no-store' });
+    if (t.ok) tech = await t.json();
   } catch (e) {}
   try {
     const r = await fetch(CFG.file + '?t=' + Date.now(), { cache: 'no-store' });
@@ -809,7 +816,8 @@ function climateCards(reg, byKey, wk) {
       </div>` : ''}
       <div class="cc-basis">Gebaseerd op <b>angstindex</b> (rustig &lt; 18 · paniek ≥ 25) en <b>Nasdaq 100</b> t.o.v. zijn 50-daags gemiddelde · <b>blauw gemarkeerd in onderstaande tegels</b></div>
     </div>`;
-  if (!wk) return `<div class="clim">${today}${crashCard()}</div>`;
+  const tc = techCard();
+  if (!wk) return `<div class="clim${tc ? ' c4' : ''}">${today}${crashCard()}${tc}</div>`;
   const flat = wk.n - wk.up - wk.down;
   const w = x => (x / wk.n * 100).toFixed(1) + '%';
   const week = `<div class="cc wk ${wk.cls === 'pos' ? 'good' : wk.cls === 'neg' ? 'bad' : 'mid'}">
@@ -820,7 +828,13 @@ function climateCards(reg, byKey, wk) {
       <div class="dist-l"><em class="u">${wk.up} omhoog</em><em class="f">${flat} vlak</em><em class="d">${wk.down} omlaag</em></div>
       <div class="cc-basis">Gebaseerd op <b>${wk.n} ${SET === 'investeringen' ? 'stocks in je portefeuille' : 'kansen'}</b>${SET === 'investeringen' ? ', <b>gewogen naar positiewaarde</b>' : ', gelijk gewogen'}</div>
     </div>`;
-  return `<div class="clim">${today}${week}${crashCard()}</div>`;
+  return `<div class="clim${tc ? ' c4' : ''}">${today}${week}${crashCard()}${tc}</div>`;
+}
+// Vierde tegel: techradar (techwarn.js); zonder tech.json of script geen tegel
+function techCard() {
+  if (!tech || typeof TechWarn === 'undefined') return '';
+  TechWarn.css();
+  return TechWarn.tile(tech);
 }
 
 // ── Crashradar: wanneer cash klaarzetten om een dip te kopen (S&P 500 sinds 1950) ──

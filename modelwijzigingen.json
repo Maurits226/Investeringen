@@ -10,5 +10,8 @@
   { "datum": "2026-10-08", "wijziging": "Koopmoment: scorecard 90+/100+, 10-25% onder de top, trend intact; gevolgd tegen de S&P 500, met maandelijkse scorecard-check" },
   { "datum": "2026-10-08", "wijziging": "Scorecard (van 125) is het hoofdgetal en bepaalt de kansenlijst (75+) en de Top 250-radar; Score 2.0 heet voortaan marktrang (P0-100)" },
   { "datum": "2026-10-08", "wijziging": "Patroonradar: alleen nog koopadviezen (kopen, daarna verkopen op doel of stop); verkoop- en nog-niet-kopen-adviezen vervallen, negatieve patronen remmen alleen nog de koopscore" },
-  { "datum": "2026-10-12", "wijziging": "Crashradar: derde beursklimaat-tegel; 7 waarschuwingssignalen nagerekend op de S&P 500 sinds 1950, met berenmarkten, kooplad en dip-rendementen" }
+  { "datum": "2026-10-12", "wijziging": "Crashradar: derde beursklimaat-tegel; 7 waarschuwingssignalen nagerekend op de S&P 500 sinds 1950, met berenmarkten, kooplad en dip-rendementen" },
+  { "datum": "2026-10-21", "wijziging": "Top 250: de 12 stappen en de 125-punten scorecard uit 'How to Find the Best Stocks' vervangen het formuleblad; marktrang-pijler F = scorecard; koopmomenten alleen als de harde stappen (1, 2, 3, 8, 11) gehaald zijn" },
+  { "datum": "2026-10-21", "wijziging": "Nieuwe pagina Beoordeling: je eigen aandelen door de 12 stappen (behouden / kritisch bekijken / these herzien) en Survivors in de Top 250" },
+  { "datum": "2026-10-21", "wijziging": "Techradar: waarschuwing als een terugval in tech en chips dreigt (Nasdaq-100, halfgeleiders, Nasdaq-angstindex), nagerekend op de geschiedenis" }
 ]

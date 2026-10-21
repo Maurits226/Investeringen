@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Beoordeling</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root {
+    --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
+    --muted: #83888d; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
+    --warn: #f5b544; --accent: #4f8ff0; --gold: #c9a45c;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%), var(--ink);
+    color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh; padding: 28px 18px 60px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header.top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 20px; }
+  .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px; }
+  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.5; }
+  .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+          text-align: left; font: inherit; color: inherit; cursor: pointer; min-height: 44px; }
+  .stat.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .stat .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 6px; }
+  .stat .sub { font-size: 11.5px; margin-top: 3px; color: var(--muted); }
+
+  .howto { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; }
+  .howto[open] { border-color: rgba(201,164,92,.5); }
+  .howto summary { cursor: pointer; font-size: 13px; list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; min-height: 44px; }
+  .howto summary::-webkit-details-marker { display: none; }
+  .howto .h-sub { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .howto .h-btn { margin-left: auto; font-size: 11px; color: var(--gold); border: 1px solid rgba(201,164,92,.5); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .howto .h-btn::after { content: ' ▾'; } .howto[open] .h-btn::after { content: ' ▴'; }
+  .howto .h-less { display: none; } .howto[open] .h-more { display: none; } .howto[open] .h-less { display: inline; }
+  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 4px 14px 14px; font-size: 12.5px; line-height: 1.6; color: #c8cbcf; }
+  .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .howto-body b { color: var(--text); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 14px; }
+  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
+  .seg button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 12.5px; padding: 7px 11px; border-radius: 7px; cursor: pointer; min-height: 36px; }
+  .seg button.on { background: rgba(201,164,92,.16); color: var(--gold); box-shadow: inset 0 0 0 1px rgba(201,164,92,.55); }
+  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .sync { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .b-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; position: relative; overflow: hidden; }
+  .b-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+  .b-card.vc-good::before { background: var(--up); } .b-card.vc-mid::before { background: var(--warn); } .b-card.vc-bad::before { background: var(--down); }
+  .b-head { display: grid; grid-template-columns: minmax(0, 1.6fr) 92px minmax(0, 1.4fr) auto; gap: 16px; align-items: center; padding: 14px 16px 14px 20px; cursor: pointer; }
+  .b-name { min-width: 0; }
+  .b-title { font-size: 16.5px; font-weight: 700; letter-spacing: -.2px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .b-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .b-verdict { font-size: 11px; font-weight: 600; margin-top: 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
+  .b-score { text-align: center; }
+  .b-score b { display: block; font-family: var(--mono); font-size: 24px; font-weight: 600; line-height: 1; }
+  .b-score small { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+  .b-steps { min-width: 0; }
+  .b-steps .why { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11.5px; padding: 7px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; min-height: 36px; }
+  .toggle:hover { border-color: var(--gold); color: var(--text); }
+  .b-body { border-top: 1px solid var(--line); padding: 16px 16px 16px 20px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 22px; }
+  .d-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; }
+  .d-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
+  .advice { font-size: 13px; line-height: 1.55; margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid var(--line); }
+  .notes { display: grid; gap: 10px; margin: 14px 0; }
+  .notes label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .notes textarea { width: 100%; min-height: 64px; resize: vertical; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+                    color: var(--text); font: inherit; font-size: 13px; padding: 9px 10px; line-height: 1.45; }
+  .notes textarea:focus { outline: none; border-color: var(--gold); }
+  .qcheck { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .qcheck .due { color: var(--warn); }
+  .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
+  .section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 26px 0 10px; }
+  .etf { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .etf div { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+  .etf small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
+
+  @media (max-width: 900px) {
+    .b-head { grid-template-columns: minmax(0, 1fr) 72px; }
+    .b-steps { grid-column: 1 / -1; }
+    .b-head .toggle { grid-column: 1 / -1; justify-self: start; }
+    .b-body { grid-template-columns: 1fr; }
+    .howto-body { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    body { padding: 18px 12px calc(40px + env(safe-area-inset-bottom)); }
+    .title-block h1 { font-size: 22px; }
+    .howto .h-sub { display: none; }
+    .b-head, .b-body { padding-left: 16px; padding-right: 12px; }
+    .sync { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="pulse"></span><span id="pageTitle">Beoordeling</span></h1>
+      <p id="pageSub">Je eigen aandelen door de 12 stappen van <i>How to Find the Best Stocks</i>: behouden, kritisch bekijken of these herzien</p>
+    </div>
+    <div class="updated" id="updated">laden…</div>
+  </header>
+
+  <div class="summary" id="summary"></div>
+
+  <details class="howto">
+    <summary>📘 Zo werkt de beoordeling
+      <span class="h-sub">12 stappen · survivor · prijs is nooit een reden</span>
+      <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
+    <div class="howto-body">
+      <div><h4>Survivor</h4>
+        Elke stap werkt als <b>Survivor</b>: zakt een bedrijf voor één stap, dan valt het af, hoe mooi het verhaal ook klinkt.
+        Wat uit de cijfers te halen is, rekent het dashboard elke run na; de rest (bedrijf in één zin, marktomvang, CEO-checklijst, bear case) vink je hier zelf af.</div>
+      <div><h4>Je oordeel per aandeel</h4>
+        De 12 stappen zijn gemaakt om te <b>kopen</b>; voor wat je al hebt telt of je these breekt.
+        <b class="v-good">Behouden</b>: scorecard 75+ en geen afvaller. <b class="v-mid">Kritisch bekijken</b>: zou als nieuwe aankoop afvallen (bijv. stap 3, de pre-screen).
+        <b class="v-bad">These herzien</b>: scorecard onder 75, een zwakke balans (stap 8) of rode vlaggen (stap 11). Alleen duur (stap 12) is nooit een reden om te verkopen.</div>
+      <div><h4>Na de 12 stappen</h4>
+        <b>Koop langzaam</b> (vast bedrag, vaste datum). <b>Schrijf je exit op vóór je koopt</b>: waarom je het bezit en wat je zou doen verkopen.
+        Breekt de these langzaam, verkoop dan geleidelijk over ±18 maanden; fraude betekent direct eruit. <b>Check elk kwartaal</b> en herhaal de scorecard jaarlijks.</div>
+    </div>
+  </details>
+
+  <div class="toolbar" id="toolbar">
+    <span class="tb-label">Volgorde</span>
+    <div class="seg" id="sortSeg"><button data-v="verdict" class="on">Eerst aandacht</button><button data-v="score">Scorecard</button><button data-v="name">Naam</button></div>
+    <span class="sync" id="sync"></span>
+  </div>
+
+  <div class="list" id="list"><div class="empty">Laden…</div></div>
+  <div id="extra"></div>
+
+  <p class="foot">
+    Cijfers uit de wekelijkse scan van de Top 250 (Yahoo Finance), dezelfde scorecard en 12 stappen als op de andere pagina's.
+    Je notities en afgevinkte punten staan versleuteld in je eigen state (zelfde synchronisatie als Investeringen). Dit is geen beleggingsadvies.
+  </p>
+</div>
+
+<script src="vault.js"></script>
+<script src="shared.js"></script>
+<script src="steps.js"></script>
+<script>
+const OWN = new URLSearchParams(location.search).get('set') !== 'top';   // standaard: je eigen aandelen
+const $ = id => document.getElementById(id);
+const esc = Steps.esc;
+const SECTOR_NL = { Technology: 'Technologie', Healthcare: 'Gezondheidszorg', 'Financial Services': 'Financieel', 'Consumer Cyclical': 'Cyclische consumptie',
+  'Consumer Defensive': 'Basisconsumptie', Industrials: 'Industrie', 'Communication Services': 'Communicatie', Energy: 'Energie', Utilities: 'Nutsbedrijven',
+  'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen' };
+const today = () => new Date().toISOString().slice(0, 10);
+let rows = [], extraRows = [], DATA = null, sortBy = 'verdict', filter = null;
+const openSet = new Set();
+// Geen cijfers (bv. andere valuta)? Dan alle 12 stappen als zelf-te-beoordelen lijst
+const BLANK = { list: Array.from({ length: 12 }, (_, i) => ({ n: i + 1, s: 'manual', c: [] })), fail: null, nfail: 0, survivor: false, auto_ok: 0 };
+Steps.css();
+
+async function getJSON(u) { try { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } }
+
+const VORDER = { 'v-bad': 0, 'v-mid': 1, 'v-good': 2, 'v-na': 3 };
+function sorted(list) {
+  const s = list.slice();
+  if (sortBy === 'score') s.sort((a, b) => ((b.it && b.it.card && b.it.card.s) ?? -1) - ((a.it && a.it.card && a.it.card.s) ?? -1));
+  else if (sortBy === 'name') s.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+  else s.sort((a, b) => VORDER[a.v.cls] - VORDER[b.v.cls] || ((a.it && a.it.card && a.it.card.s) ?? 0) - ((b.it && b.it.card && b.it.card.s) ?? 0));
+  return s;
+}
+
+function quarterInfo(rv) {
+  if (!rv || !rv.checked) return { due: true, txt: 'nog nooit gecheckt' };
+  const days = Math.round((Date.now() - new Date(rv.checked).getTime()) / 86400000);
+  return { due: days > 100, txt: `gecheckt ${new Date(rv.checked).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })} (${days} d geleden)` };
+}
+
+function rowHTML(r) {
+  const it = r.it, c = it && it.card, open = openSet.has(r.key);
+  const lvl = c && c.s != null ? (Steps.LEVEL[c.lvl] || Steps.LEVEL.low) : null;
+  const q = OWN ? quarterInfo(r.review) : null;
+  const tick = (it && it.region === 'VS') ? it.sym : r.ticker;
+  const head = `<div class="b-head" data-key="${esc(r.key)}">
+      <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
+        <div class="b-sub">${esc(tick)}${it && it.sector ? ' · ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${OWN && q && q.due ? ' · <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
+        <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span></div>
+      <div class="b-score">${c && c.s != null ? `<b class="${lvl[1]}">${c.s}</b><small>/125</small>` : '<b class="v-na">—</b><small>geen data</small>'}</div>
+      <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
+      <button class="toggle">${open ? 'sluiten ▴' : 'details ▾'}</button>
+    </div>`;
+  if (!open) return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}</div>`;
+  const rv = r.review || {};
+  const body = `<div class="b-body">
+      <div>
+        <div class="advice"><b class="${r.v.cls}">${esc(r.v.label)}.</b> ${esc(r.v.text)}</div>
+        <div class="d-k">Scorecard <span>stap 6</span></div>
+        ${it ? Steps.cardTable(c) : `<div class="empty">${esc(r.missing || 'Nog niet gescand.')}</div>`}
+        ${OWN ? `<div class="notes">
+          <div><label for="why-${esc(r.key)}">Waarom ik dit bezit</label><textarea id="why-${esc(r.key)}" data-field="why" maxlength="2000" placeholder="Bijv. marktleider in AI-chips, groeit 30%+ met hoge marges">${esc(rv.why || '')}</textarea></div>
+          <div><label for="exit-${esc(r.key)}">Wat me zou laten verkopen</label><textarea id="exit-${esc(r.key)}" data-field="exit" maxlength="2000" placeholder="Bijv. marge zakt onder 40%, CEO vertrekt, fraude">${esc(rv.exit || '')}</textarea></div>
+        </div>
+        <div class="qcheck"><span class="${q.due ? 'due' : ''}">${esc(q.txt)}</span><button class="toggle" data-qcheck="1">✓ Kwartaal gecheckt</button></div>` : ''}
+      </div>
+      <div><div class="d-k">De 12 stappen <span>${it && it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : 'zelf beoordelen'}</span></div>
+        ${Steps.panel(it ? it.s12 : BLANK, { ticks: rv.ticks || {}, tickable: OWN })}</div>
+    </div>`;
+  return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}${body}</div>`;
+}
+
+async function save(r, change) {
+  if (!OWN) return;
+  $('sync').textContent = '☁ opslaan…';
+  const res = await Shared.saveState(st => {
+    st[r.key] = st[r.key] || {};
+    const rv = Object.assign({}, st[r.key].review || {});
+    change(rv);
+    rv.updated = new Date().toISOString();
+    st[r.key].review = rv;
+    r.review = rv;
+  });
+  $('sync').textContent = res === 'synced' ? '☁ opgeslagen en gesynchroniseerd' : res === 'local' ? '☁ opgeslagen op dit apparaat' : '⚠ sync mislukt, lokaal bewaard';
+}
+
+function bind(el, r) {
+  el.querySelector('.b-head').onclick = e => {
+    openSet.has(r.key) ? openSet.delete(r.key) : openSet.add(r.key);
+    el.outerHTML = rowHTML(r);
+    bind(document.getElementById('c-' + r.key), r);
+  };
+  el.querySelectorAll('input[type=checkbox][data-step]').forEach(cb => cb.onchange = () => save(r, rv => {
+    const t = Object.assign({}, rv.ticks || {}), n = cb.dataset.step, i = +cb.dataset.i;
+    const set = new Set(t[n] || []);
+    cb.checked ? set.add(i) : set.delete(i);
+    t[n] = [...set].sort((a, b) => a - b);
+    rv.ticks = t;
+  }));
+  el.querySelectorAll('textarea[data-field]').forEach(ta => ta.onchange = () => save(r, rv => { rv[ta.dataset.field] = ta.value.slice(0, 2000); }));
+  const qb = el.querySelector('[data-qcheck]');
+  if (qb) qb.onclick = async () => { await save(r, rv => { rv.checked = today(); }); el.outerHTML = rowHTML(r); bind(document.getElementById('c-' + r.key), r); render(true); };
+}
+
+function render(summaryOnly) {
+  const cnt = k => rows.filter(r => r.v.cls === k).length;
+  const due = OWN ? rows.filter(r => quarterInfo(r.review).due).length : 0;
+  const tiles = OWN
+    ? [['v-good', 'Behouden', cnt('v-good'), 'scorecard 75+, geen afvaller'], ['v-mid', 'Kritisch bekijken', cnt('v-mid'), 'zou als aankoop afvallen'],
+       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlag'], ['due', 'Kwartaalcheck', due, 'niet gecheckt in 100 d']]
+    : [['survivor', 'Survivors', rows.length, 'overleven alle stappen'], ['v-good', 'Ook goedkoop', rows.filter(r => r.it.s12.list[11].s === 'pass').length, 'bear-case DCF boven de koers'],
+       ['near', 'Bijna', extraRows.length, 'alleen te duur (stap 12)'], ['top', '100+', rows.filter(r => r.it.card.s >= 100).length, 'uitzonderlijke scorecard']];
+  $('summary').innerHTML = tiles.map(([k, l, v, s]) => `<button class="stat ${filter === k ? 'active' : ''}" data-f="${k}"><div class="label">${l}</div>
+      <div class="value ${k.startsWith('v-') ? k : ''}">${v}</div><div class="sub">${s}</div></button>`).join('');
+  $('summary').querySelectorAll('.stat').forEach(b => b.onclick = () => { filter = filter === b.dataset.f ? null : b.dataset.f; render(); });
+  if (summaryOnly) return;
+  let list = rows;
+  if (filter && filter.startsWith('v-')) list = OWN ? rows.filter(r => r.v.cls === filter) : rows.filter(r => r.it.s12.list[11].s === 'pass');
+  else if (filter === 'due') list = rows.filter(r => quarterInfo(r.review).due);
+  else if (filter === 'near') list = extraRows;
+  else if (filter === 'top') list = rows.filter(r => r.it.card.s >= 100);
+  const box = $('list');
+  box.innerHTML = list.length ? sorted(list).map(rowHTML).join('')
+    : `<div class="empty">${OWN ? 'Geen aandelen in deze groep.' : 'Op dit moment overleeft geen enkel bedrijf alle stappen. Dat is precies de bedoeling van de gids: de lat ligt hoog.'}</div>`;
+  sorted(list).forEach(r => { const el = document.getElementById('c-' + r.key); if (el) bind(el, r); });
+}
+
+async function load() {
+  const [scr, sig, data] = await Promise.all([getJSON('screener.json'), getJSON('signals.json'), getJSON('data.json')]);
+  DATA = scr;
+  if (!scr) { $('list').innerHTML = '<div class="empty">Nog geen screener.json. Draai eerst de workflow Top 250.</div>'; return; }
+  $('updated').textContent = 'data van ' + new Date(scr.updated).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!OWN) {
+    document.title = 'Survivors';
+    $('pageTitle').textContent = 'Survivors';
+    $('pageSub').innerHTML = 'Bedrijven uit de Top 250 die alle 12 stappen van <i>How to Find the Best Stocks</i> overleven';
+    const pool = (scr.items || []).filter(it => it.s12 && it.card && it.card.s != null);
+    const mk = it => ({ key: it.sym.replace(/[^A-Za-z0-9]/g, '_'), name: it.name, ticker: it.eu || it.sym, it, v: Steps.verdict(it) });
+    rows = pool.filter(it => it.s12.survivor).map(mk);
+    extraRows = pool.filter(it => !it.s12.survivor && it.s12.nfail === 1 && it.s12.fail === 12).map(mk);
+    render();
+    return;
+  }
+  const { find, usOf, quotes } = Shared.stockIndex(scr, sig, data);
+  const pos = await Shared.positions();
+  const stocks = pos.filter(p => !p.watch && p.section === 'Stocks');
+  const other = pos.filter(p => !p.watch && p.section !== 'Stocks');
+  rows = stocks.map(p => {
+    const t = p.ticker.toUpperCase(), us = usOf[t], qn = (quotes[t] || {}).name;
+    const it = find(t);
+    const skip = (scr.own_skip || {})[us || t];
+    return { key: p.id.replace(/[^A-Za-z0-9]/g, '_'), id: p.id, name: (it && it.name) || qn || p.label || p.ticker, ticker: p.ticker, it, review: p.review,
+             v: Steps.verdict(it), missing: it ? null : skip ? `niet te scoren (${skip}): beoordeel dit aandeel zelf met de 12 stappen`
+               : 'nog niet gescand: komt mee in de volgende runs van de Top 250' };
+  });
+  rows.forEach(r => { r.key = r.id; });   // sleutel = positie-id (zelfde als op Investeringen)
+  render();
+  $('extra').innerHTML = other.length ? `<div class="section-h">ETF's en edelmetalen · niet van toepassing</div>
+    <div class="etf">${other.map(p => `<div>${esc(p.label || (quotes[p.ticker.toUpperCase()] || {}).name || p.ticker)}<small>${esc(p.ticker)} · ${esc(p.section)} — de 12 stappen gelden voor losse bedrijven; beoordeel ETF's op spreiding, kosten en overlap (Portefeuillecheck)</small></div>`).join('')}</div>` : '';
+}
+
+$('sortSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
+  sortBy = b.dataset.v; $('sortSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render();
+});
+Shared.onRefresh(() => { if (!document.querySelector('textarea:focus')) load(); });
+load();
+</script>
+</body>
+</html>

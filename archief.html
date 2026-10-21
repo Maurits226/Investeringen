@@ -2,6 +2,11 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Archief</title>
 <style>
@@ -298,7 +303,7 @@ const UI_KEY = CFG.ui;
 const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', { style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 const nf = (v, d = 1) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (n, d = 1) => n == null ? '–' : (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
-const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 function toDate(iso) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
   return new Date(iso);
@@ -500,7 +505,7 @@ function tradeRow(t, soort) {
   return `<div class="h-row">
     <span class="h-date">${tijd(dicht ? t.closed_at : t.date)}</span>
     <span class="h-name">${esc(t.name)}<small>${esc(t.symbol)}</small></span>
-    <span class="pill ${t.dir}">${dicht ? (up ? 'VERKOCHT' : 'TERUGGEKOCHT') : (up ? 'GEKOCHT' : 'VERKOCHT')}</span>
+    <span class="pill ${up ? 'up' : 'down'}">${dicht ? (up ? 'VERKOCHT' : 'TERUGGEKOCHT') : (up ? 'GEKOCHT' : 'VERKOCHT')}</span>
     <span class="h-px">${dicht ? `${fmt(t.price, cur)} → ${fmt(t.close_price, cur)}<small>${up ? 'gekocht' : 'verkocht'} ${dag(t.date)}</small>` : `${fmt(t.price, cur)}<small>doel ${fmt(t.plan.target, cur)} · stop ${fmt(t.plan.stop, cur)}</small>`}</span>
     <span class="h-res">${dicht ? `<span class="${r >= 0 ? 'c-up' : 'c-down'}">${pct(r)}</span><small>${up ? 'resultaat' : 'voordeel'}</small>` : `<span style="color:var(--accent)">advies opgevolgd</span>${t.status === 'closed' ? `<small>afgerond ${dag(t.closed_at)}</small>` : '<small>staat bij Opgevolgd</small>'}`}</span>
   </div>`;

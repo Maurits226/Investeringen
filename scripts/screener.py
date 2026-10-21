@@ -10,10 +10,10 @@ Zoekt kansen BUITEN je portefeuille in een breed universum:
 Alleen euro- en dollarbedrijven: bedrijven die in een andere valuta noteren of rapporteren vallen af.
 
 Per stock:
-  * Formuleblad (Investments_formuleblad.xlsx) — 10 criteria van 0/5/10 punten
-  * Kwaliteit — moat, CEO, recessiebestendig (whiteboard stap 5-7), 0-10 per stuk.
-    Handmatig oordeel uit kwaliteit.json; ontbreekt dat, dan een schatting uit de cijfers.
-  * De 7 stappen van het whiteboard als checklist
+  * De 12 stappen en de 125-punten scorecard uit 'How to Find the Best Stocks' (Tom Nash):
+    alles wat uit de cijfers te halen is wordt nagerekend, de rest staat als checklist klaar.
+    Moat, CEO e.d.: handmatig oordeel uit kwaliteit.json, anders een strenge schatting uit de cijfers.
+  * Marktrang (Score 2.0): scorecard + kwaliteit, groei, waardering en momentum t.o.v. de sector
   * Verwacht rendement komende 12 maanden (analisten-koersdoel + dividend)
 
 Amerikaanse bedrijven: cijfers komen van de dollarnotering, koers en koersdoel worden
@@ -48,7 +48,7 @@ DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven 
 DYN_EU = {"min_cap": 1e9, "limit": 200,                    # eurozone: per thuisbeurs boven €1 mld
           "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS"]}
 OK_FIN_CUR = {"USD", "EUR"}
-# Score 2.0: vijf pijlers. Formuleblad is absoluut (0-100), de andere vier zijn percentielen binnen de sector.
+# Score 2.0 (marktrang): vijf pijlers. F = scorecard van de gids (absoluut), de andere vier zijn percentielen binnen de sector.
 PILLAR_W = {"F": 0.30, "Q": 0.20, "G": 0.20, "V": 0.15, "M": 0.15}
 MIN_PEERS = 15               # minder bedrijven in een sector? Dan vergelijken met de hele markt
 METRICS = {                  # kenmerk: (pijler, hoger = beter)
@@ -107,7 +107,7 @@ EXCH_NAME = {
 EU_LISTING_PREF = ["AMS", "GER", "FRA", "DUS", "VIE"]
 US_EXCH = {"NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NYQ": "NYSE", "ASE": "NYSE American",
            "PCX": "NYSE Arca", "BTS": "Cboe"}
-CACHE_V = 3                                 # v3: extra cijfers voor Score 2.0 (kwaliteit, groei, waardering, momentum)
+CACHE_V = 4                                 # v4: extra cijfers voor de 12 stappen (balans, kwartalen, insiders, winstverrassingen)
 # S&P 500-lijst (GICS) -> Yahoo-sectornamen, als Yahoo zelf geen sector geeft
 GICS_TO_YAHOO = {
     "Information Technology": "Technology", "Health Care": "Healthcare", "Financials": "Financial Services",
@@ -250,8 +250,11 @@ TS_ANNUAL = ["TotalRevenue", "OperatingRevenue", "OperatingIncome", "OperatingEx
              "CashCashEquivalentsAndShortTermInvestments",
              "CurrentAssets", "CurrentLiabilities", "TotalDebt",
              "GrossProfit", "TotalAssets", "FreeCashFlow", "OperatingCashFlow", "NetIncome",
-             "DilutedAverageShares", "EBITDA", "InterestExpense"]
-TS_QUARTER = ["CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments", "TotalDebt"]
+             "DilutedAverageShares", "EBITDA", "InterestExpense",
+             # 12 stappen: Loan Officer Test (stap 8) en rode vlaggen (stap 11)
+             "TotalLiabilitiesNetMinorityInterest", "StockholdersEquity", "Goodwill", "Inventory"]
+TS_QUARTER = ["CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments", "TotalDebt",
+              "FreeCashFlow", "TotalRevenue"]     # stap 3: vrije kasstroom en netto cash over 4-6 kwartalen
 
 
 def timeseries(y, sym):
@@ -276,7 +279,7 @@ def timeseries(y, sym):
                 rows.append([d, v])
         rows.sort()
         if rows:
-            out[t[0]] = rows[-2:] if t[0].startswith("quarterly") else rows[-5:]
+            out[t[0]] = rows[-6:] if t[0].startswith("quarterly") else rows[-5:]
     # dubbele reeksen weglaten
     if out.get("annualTotalRevenue"):
         out.pop("annualOperatingRevenue", None)
@@ -289,7 +292,7 @@ def timeseries(y, sym):
 def summary(y, sym):
     """Kerngegevens, eigendom, analisten en profiel."""
     mods = ("price,summaryDetail,defaultKeyStatistics,financialData,assetProfile,summaryProfile,"
-            "earningsTrend,calendarEvents")
+            "earningsTrend,calendarEvents,earningsHistory,netSharePurchaseActivity")
     j = y.get(f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{quote(sym)}"
               f"?modules={mods}", crumb=True)
     r = j["quoteSummary"]["result"][0]
@@ -338,7 +341,8 @@ def summary(y, sym):
         "tgt": raw("financialData", "targetMeanPrice"),
         "tgt_px": raw("financialData", "currentPrice"),
         "n_an": raw("financialData", "numberOfAnalystOpinions"),
-        "rating": (r.get("financialData") or {}).get("recommendationKey"),
+        "rating": (r.get("financialData") or {}).get("recommendationKey")
+        if (r.get("financialData") or {}).get("recommendationKey") in ("strong_buy", "buy", "hold", "underperform", "sell") else None,
         "fcur": (r.get("financialData") or {}).get("financialCurrency"),
         "gm": raw("financialData", "grossMargins"),
         "om": raw("financialData", "operatingMargins"),
@@ -361,6 +365,15 @@ def summary(y, sym):
         "country": ap.get("country"),
         "emp": ap.get("fullTimeEmployees") if isinstance(ap.get("fullTimeEmployees"), (int, float)) else None,
         "founder": any("founder" in (o.get("title") or "").lower() for o in ap.get("companyOfficers") or []) or None,
+        # 12 stappen
+        "co_ceo": any(re.search(r"co-?\s?(ceo|chief executive)", (o.get("title") or ""), re.I)
+                      for o in ap.get("companyOfficers") or []) or None,
+        "about": (ap.get("longBusinessSummary") or "")[:240] or None,
+        "eps_hist": [[(h.get("epsActual") or {}).get("raw"), (h.get("epsEstimate") or {}).get("raw")]
+                     for h in ((r.get("earningsHistory") or {}).get("history") or [])][-4:] or None,
+        "ins_buy": raw("netSharePurchaseActivity", "buyInfoShares"),
+        "ins_sell": raw("netSharePurchaseActivity", "sellInfoShares"),
+        "ins_net": raw("netSharePurchaseActivity", "netInfoShares"),
     }
 
 
@@ -573,10 +586,16 @@ def load_universe(cache, y=None, dyn=None):
     try:
         with urllib.request.urlopen(urllib.request.Request(SP500_URL, headers={"User-Agent": UA}),
                                     timeout=30) as r:
+            sp = {}
             for row in csv.DictReader(io.StringIO(r.read().decode("utf-8"))):
-                s = row["Symbol"].strip().upper().replace(".", "-")
-                uni[s] = {"region": "VS", "src": "S&P 500", "name": row.get("Security"),
-                          "gics": GICS_TO_YAHOO.get((row.get("GICS Sector") or "").strip())}
+                s = (row.get("Symbol") or "").strip().upper().replace(".", "-")
+                if not re.fullmatch(r"[A-Z]{1,5}(-[A-Z]{1,2})?", s):
+                    continue                      # geen geldige ticker: overslaan
+                sp[s] = {"region": "VS", "src": "S&P 500", "name": row.get("Security"),
+                         "gics": GICS_TO_YAHOO.get((row.get("GICS Sector") or "").strip())}
+        if not 450 <= len(sp) <= 550:             # externe lijst ziet er vreemd uit: niet vertrouwen
+            raise ValueError(f"onverwacht aantal bedrijven ({len(sp)})")
+        uni.update(sp)
         print(f"S&P 500: {len(uni)} bedrijven")
     except Exception as e:  # noqa: BLE001
         print(f"S&P 500-lijst niet opgehaald ({e}); vorige lijst uit de cache gebruikt")
@@ -1039,51 +1058,60 @@ def pricing_power(gm_rows):
     return p, round(delta, 1)
 
 
+def pts_q(v):
+    """Kwalitatief oordeel 0-10 naar de 0/5/10 van de scorecard: sterk (8+) = 10, enigszins (4-7) = 5, geen = 0."""
+    if v is None:
+        return None
+    return 10 if v >= 8 else 5 if v >= 4 else 0
+
+
 def scorecard(it, sp5):
-    """Scorecard 125 (eigen veld 'card'). Gebruikt percentielen uit Score 2.0, dus pas na pct_ranks."""
-    d = it.pop("_card")
+    """Scorecard volgens 'How to Find the Best Stocks' (stap 6): 13 categorieën, elk 0, 5 of 10 punten,
+    op de laatste 12 maanden. 100-125 uitzonderlijk · 75-100 watchlist/investeerbaar · onder 75 absoluut niet.
+    Ontbreekt een cijfer (bv. short interest in Europa), dan telt die categorie neutraal (5) en staat 'geen data'."""
+    d = it["_card"]
     qual, m, mp = it["q"], it["m"], it["mp"]
     crit = []
 
-    # 1. Cash vs debt, met schuld-draagkracht: meer cash dan schuld = 10, anders netto schuld / EBITDA
+    # 1. Cash vs. schuld (laatste kwartaal): meer schuld dan cash 0 · meer cash dan schuld 5 · 2x+ cash 10
     cash, debt = d["cash"], d["debt"]
-    nd_e = cov = None
-    if NO_CASHDEBT.search(it.get("industry") or ""):
+    if cash is None or debt is None:
         p1 = None
-    elif cash is None or debt is None:
-        p1 = None
-    elif cash >= debt:
+    elif debt <= 0 or cash >= 2 * debt:
         p1 = 10
+    elif cash > debt:
+        p1 = 5
     else:
-        ebitda = d["ebitda"] if d["ebitda"] is not None else d["oi"]     # zonder EBITDA: bedrijfsresultaat (strenger)
-        nd_e = (debt - cash) / ebitda if ebitda and ebitda > 0 else None
-        p1 = 0 if nd_e is None else 8 if nd_e <= 1 else 5 if nd_e <= 2.5 else 2 if nd_e <= 4 else 0
-        if d["oi"] is not None and d["intexp"]:
-            cov = d["oi"] / d["intexp"]
-            if cov < 3:
-                p1 = max(0, p1 - 2)                       # rente nauwelijks te dragen
-    crit.append({"k": "cashdebt", "v": rnd(cash / debt, 2) if cash is not None and debt else None, "p": p1,
-                 "nd_ebitda": rnd(nd_e, 1), "cov": rnd(cov, 1)})
+        p1 = 0
+    crit.append({"k": "cashdebt", "v": rnd(cash / debt, 2) if cash is not None and debt else None, "p": p1})
 
-    # 2-6. Cijfers uit het formuleblad, met de grenzen van de scorecard
-    g = d["rev_cagr"] if d["rev_cagr"] is not None else d["rev_yoy"]
-    crit.append({"k": "omzet", "v": rnd(g, 1), "p": pts3(g, 10, 3)})
-    crit.append({"k": "marge", "v": rnd(d["margin"], 1), "p": pts3(d["margin"], 15, 5)})
-    crit.append({"k": "short", "v": rnd(d["short"], 1), "p": pts3(d["short"], 5, 10, high_is_good=False)})
-    crit.append({"k": "inst", "v": rnd(d["inst"], 0), "p": pts3(d["inst"], 50, 30)})
-    crit.append({"k": "schaal", "v": rnd(d["scale"], 1), "p": pts3(d["scale"], -2, 2, high_is_good=False)})
+    # 2. Omzetgroei laatste 12 mnd: < 10% 0 · 10-20% 5 · > 20% 10
+    g = d["g12"]
+    crit.append({"k": "omzet", "v": rnd(g, 1), "p": None if g is None else 10 if g > 20 else 5 if g >= 10 else 0})
+    # 3. Operationele marge laatste 12 mnd: < 10% 0 · 10-25% 5 · > 25% 10
+    om = d["om12"]
+    crit.append({"k": "marge", "v": rnd(om, 1), "p": None if om is None else 10 if om > 25 else 5 if om >= 10 else 0})
+    # 4. Short interest: > 10% 0 · 5-10% 5 · < 5% 10
+    si = d["short"]
+    crit.append({"k": "short", "v": rnd(si, 1), "p": None if si is None else 10 if si < 5 else 5 if si <= 10 else 0})
+    # 5. Institutioneel bezit: < 30% 0 · 30-60% 5 · > 60% 10
+    inst = d["inst"]
+    crit.append({"k": "inst", "v": rnd(inst, 0), "p": None if inst is None else 10 if inst > 60 else 5 if inst >= 30 else 0})
+    # 6. Omzet groeit harder dan de kosten: nee 0 · ja 10
+    ry, oy = d["rev_yoy"], d["opex_yoy"]
+    crit.append({"k": "schaal", "v": rnd(ry - oy, 1) if ry is not None and oy is not None else None,
+                 "p": None if ry is None or oy is None else 10 if ry > oy else 0})
 
-    # 7. 5 jaar koers t.o.v. de S&P 500 (zelfde valuta)
+    # 7. 5 jaar koers t.o.v. de S&P 500 (zelfde valuta): slechter 0 · 10-20 procentpunt beter 5 · 20+ beter 10
     r5, p7, v7 = d["r5"], None, None
     sp = (sp5 or {}).get("VS" if it["region"] == "VS" else "EU")
     if r5 and sp is not None and r5.get("yrs", 0) >= 4.5:
-        rel = (1 + r5["r"]) / (1 + sp)
-        p7 = 10 if rel >= 1.10 else 5 if rel >= 0.90 else 0
         v7 = (r5["r"] - sp) * 100
+        p7 = 10 if v7 >= 20 else 5 if v7 >= 10 else 0
     crit.append({"k": "sp5", "v": rnd(v7, 0), "p": p7, "r": rnd(r5["r"] * 100, 0) if r5 else None,
                  "sp": rnd(sp * 100, 0) if sp is not None else None})
 
-    # 8-13. Kwalitatief, 0-10: eigen oordeel uit kwaliteit.json, anders een schatting uit de cijfers
+    # 8-13. Kwalitatief (zo streng mogelijk): oordeel uit kwaliteit.json, anders een schatting uit de cijfers
     cur = d["curated"]
     pp, gm_delta = pricing_power(d["gm"])
     rec = qual["recessie"]["s"]
@@ -1115,21 +1143,285 @@ def scorecard(it, sp5):
              "recessie": {"s": rec_p, "src": qual["recessie"]["src"], "rec": rec, "pricing": pp, "gm_delta": gm_delta},
              "trend": q("trend"), "cultuur": q("cultuur"), "talent": q("talent")}
     for k, o in quali.items():
-        crit.append(dict({"k": k, "p": o["s"] if o else None}, **({kk: vv for kk, vv in (o or {}).items() if kk != "s"})))
+        crit.append(dict({"k": k, "p": pts_q(o["s"]) if o else None, "raw": o["s"] if o else None},
+                         **({kk: vv for kk, vv in (o or {}).items() if kk != "s"})))
 
-    got = [c["p"] for c in crit if c["p"] is not None]
-    if len(got) < CARD_MIN:
-        it["card"] = {"n": len(got), "crit": crit}
+    missing = [c["k"] for c in crit if c["p"] is None]
+    if len(crit) - len(missing) < CARD_MIN:
+        it["card"] = {"n": len(crit) - len(missing), "crit": crit}
         return
-    base = sum(got) / (10 * len(got)) * CARD_MAX
-
-    # Verwatering: aandelen erbij = aftrek, inkoop van eigen aandelen = bonus
-    dil, adj = m.get("dilution"), 0
-    if dil is not None:
-        adj = -6 if dil >= 5 else -3 if dil >= 2 else 3 if dil <= -2 else 0
-    total = max(0, min(CARD_MAX, base + adj))
-    it["card"] = {"s": rnd(total, 1), "base": rnd(base, 1), "adj": adj, "dil": rnd(dil, 1), "n": len(got),
+    for c in crit:                                       # geen data = neutraal (5), wel zichtbaar
+        if c["p"] is None:
+            c["p"], c["nodata"] = 5, True
+    total = min(CARD_MAX, sum(c["p"] for c in crit))
+    it["card"] = {"s": total, "n": len(crit) - len(missing), "nodata": missing, "dil": rnd(m.get("dilution"), 1),
                   "lvl": "top" if total >= 100 else "watch" if total >= 75 else "low", "crit": crit}
+
+
+# ── De 12 stappen ('How to Find the Best Stocks', Tom Nash) ─────────────────
+# Survivor: zakt een bedrijf voor één stap, dan valt het af. Wat niet uit de cijfers te halen is,
+# staat als 'zelf beoordelen' bij de stap (status 'pass' zegt dan: de cijfers zijn in orde).
+SKIP_INDUSTRY = re.compile(r"^(Oil & Gas|Coal|Thermal Coal|Coking Coal|Gold|Silver|Copper|Aluminum|Steel|Other Industrial Metals|"
+                           r"Other Precious Metals|Agricultural Inputs|Farm Products|Lumber|Uranium|Airlines)", re.I)
+SKIP_COUNTRY = {"China", "Hong Kong", "Macau"}
+SOFTWARE = re.compile(r"^Software", re.I)       # Rule of 40 is hard voor software/abonnementen
+DCF_R = {"bull": 0.08, "base": 0.10, "bear": 0.12}
+DCF_TG = 0.04                     # eindgroei: 4%, 'een regel die je niet breekt'
+
+
+def _series(ts, key):
+    return [v for _, v in (ts.get(key) or [])]
+
+
+def _yoy(vals):
+    return [(b / a - 1) * 100 for a, b in zip(vals, vals[1:]) if a and a > 0]
+
+
+def dcf_value(rev0, g, margin, r, cash, debt, shares):
+    """10-20 minuten-DCF: 5 jaar vrije kasstroom, eindwaarde met 4% groei, plus cash min schuld, per aandeel."""
+    if not rev0 or not shares or margin is None or r <= DCF_TG:
+        return None
+    pv, rev = 0.0, rev0
+    for t in range(1, 6):
+        rev *= 1 + g
+        pv += rev * margin / (1 + r) ** t
+    tv = rev * margin * (1 + DCF_TG) / (r - DCF_TG) / (1 + r) ** 5
+    return (pv + tv + (cash or 0) - (debt or 0)) / shares
+
+
+def implied_growth(price, rev0, margin, cash, debt, shares):
+    """Omgekeerde DCF: welke jaarlijkse omzetgroei (5 jaar) zit er in de koers van vandaag?"""
+    if not price or not rev0 or not shares or not margin or margin <= 0:
+        return None
+    lo, hi = -0.5, 1.5
+    if dcf_value(rev0, hi, margin, 0.10, cash, debt, shares) < price:
+        return hi
+    if dcf_value(rev0, lo, margin, 0.10, cash, debt, shares) > price:
+        return lo
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if dcf_value(rev0, mid, margin, 0.10, cash, debt, shares) < price:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+def twelve_steps(it, med):
+    """Alle 12 stappen per bedrijf. med = sectormedianen voor de juiste multiple (stap 12)."""
+    d, card = it["_card"], it.get("card") or {}
+    ts, c = d["ts"], d["c"]
+    pts = {x["k"]: x["p"] for x in card.get("crit", [])}
+    steps = []
+
+    # De vaste zelf-te-beoordelen punten per stap staan in steps.js (Steps.MANUAL); hier alleen de extra's per bedrijf
+    def step(n, status, checks, manual=None, note=None, **extra):
+        steps.append(dict({"n": n, "s": status, "c": checks}, **({"m": manual} if manual else {}), **({"note": note} if note else {}), **extra))
+
+    def chk(text, ok, val=None):
+        return [text, ok, val]
+
+    rev = _series(ts, "annualTotalRevenue") or _series(ts, "annualOperatingRevenue")
+    oi = _series(ts, "annualOperatingIncome")
+    fcf = _series(ts, "annualFreeCashFlow")
+    ni = _series(ts, "annualNetIncome")
+    rev_g = _yoy(rev)
+    om_hist = [o / r * 100 for o, r in zip(oi[-len(rev):], rev[-len(oi):]) if r] if oi and rev else []
+    g12, om12 = d["g12"], d["om12"]
+    cash, debt = d["cash"], d["debt"]
+    mcap_usd = d["mcap_usd"]
+    age = d["age"]
+
+    # 1. De seculiere trend en de zones die je overslaat
+    skip = []
+    if mcap_usd is not None and mcap_usd < 2e9:
+        skip.append("small cap")
+    if (c.get("country") or "") in SKIP_COUNTRY:
+        skip.append("Chinees bedrijf")
+    if SKIP_INDUSTRY.search(it.get("industry") or ""):
+        skip.append("grondstoffen" if "Airlines" not in (it.get("industry") or "") else "luchtvaart")
+    c1 = [chk("Echte vraag en betalende klanten", bool(rev[-1] > 0 and (rev_g[-1] if rev_g else 0) > -5) if rev else None),
+          chk("Duurzame groei van omzet en winst", None if d["rev_cagr"] is None else (d["rev_cagr"] > 0 and bool(ni) and ni[-1] > 0),
+              f"omzet {d['rev_cagr']:+.0f}% per jaar" if d["rev_cagr"] is not None else None),
+          chk("Een moat, geen grondstof", None if pts.get("moat") is None else pts["moat"] >= 5),
+          chk("Lift mee op een trend", None if pts.get("trend") is None else pts["trend"] >= 5)]
+    bad1 = skip or any(x[1] is False for x in c1)
+    step(1, "fail" if bad1 else "pass", c1,
+         note=("Overslaan: " + ", ".join(skip)) if skip else None)
+
+    # 2. Sanity check (No B***t Rule): minstens 2 van 3
+    grew = None if len(rev_g) < 2 else (sum(1 for x in rev_g[-3:] if x > 0) >= max(2, len(rev_g[-3:]) - 1) and rev_g[-1] > 0)
+    prof = None if not ni and c.get("eps") is None else ((ni[-1] > 0) if ni else c["eps"] > 0)
+    more_cash = None if cash is None or debt is None else cash > debt
+    c2 = [chk("Omzet groeide de afgelopen jaren", grew), chk("Winstgevend", prof), chk("Meer cash dan schuld", more_cash)]
+    okn = sum(1 for x in c2 if x[1])
+    known = sum(1 for x in c2 if x[1] is not None)
+    st2 = "pass" if okn >= 2 else "fail" if known - okn >= 2 else "check"
+    step(2, st2, c2, ["Eén gemist? Alleen goed bij infrastructuur die schuld nodig heeft of een duidelijk pad naar winst"] if okn == 2 else [])
+
+    # 3. Pre-screen: alle zes, twee 30-secondentests en de directe afvallers
+    qf = _series(ts, "quarterlyFreeCashFlow")
+    qc = dict(map(tuple, ts.get("quarterlyCashCashEquivalentsAndShortTermInvestments") or ts.get("quarterlyCashAndCashEquivalents") or []))
+    qd = dict(map(tuple, ts.get("quarterlyTotalDebt") or []))
+    qdates = sorted(set(qc) & set(qd))
+    fcf_pos = (all(x > 0 for x in qf[-6:]) if len(qf) >= 4 else (all(x > 0 for x in fcf[-2:]) if len(fcf) >= 2 else None))
+    net_cash = (all(qc[q] > qd[q] for q in qdates[-6:]) if len(qdates) >= 4 else more_cash)
+    fcf_margin = (fcf[-1] / rev[-1] * 100) if fcf and rev and rev[-1] else None
+    r40 = g12 + fcf_margin if g12 is not None and fcf_margin is not None else None
+    soft = bool(SOFTWARE.search(it.get("industry") or ""))
+    scal = None if d["rev_yoy"] is None or d["opex_yoy"] is None else d["rev_yoy"] > d["opex_yoy"]
+    c3 = [chk("Positieve vrije kasstroom (4-6 kwartalen)", fcf_pos),
+          chk("Netto cash positief (4-6 kwartalen)", net_cash),
+          chk("Omzetgroei 10% of meer", None if g12 is None else g12 >= 10, f"{g12:.0f}%" if g12 is not None else None),
+          chk("Een echte moat", None if pts.get("moat") is None else pts["moat"] >= 5),
+          chk("CEO en team met trackrecord", None if pts.get("ceo") is None else pts["ceo"] >= 5),
+          chk(f"Rule of 40 (groei + FCF-marge){' · software' if soft else ''}", None if r40 is None else (r40 >= 40 if soft else None if r40 < 40 else True),
+              f"{r40:.0f}" if r40 is not None else None),
+          chk("Schaalbaar: omzet groeit harder dan kosten", scal)]
+    misses = None
+    if d["eps_hist"]:
+        h = [x for x in d["eps_hist"] if x and x[0] is not None and x[1] is not None]
+        misses = sum(1 for a, e in h if a < e) if len(h) >= 3 else None
+    falling = len(rev_g) >= 2 and rev_g[-1] < rev_g[-2]
+    kills = [k for k, hit in [
+        ("beurswaarde onder $1 mld", mcap_usd is not None and mcap_usd < 1e9),
+        ("meer schuld dan cash", cash is not None and debt is not None and debt > cash),
+        ("omzetgroei onder 10% en dalend", g12 is not None and g12 < 10 and falling),
+        ("short interest boven 10%", d["short"] is not None and d["short"] > 10),
+        ("operationele marge onder 20%", om12 is not None and om12 < 20),
+        ("2+ keer winstverwachting gemist (4 kwartalen)", misses is not None and misses >= 2),
+    ] if hit]
+    bad3 = kills or any(x[1] is False for x in c3)
+    young = age is not None and age < 10
+    step(3, "fail" if bad3 else "pass", c3,
+         [f"Pas {age:.0f} jaar op de beurs: is het bedrijf zelf minstens 10 jaar oud (oprichting)?"] if young else None,
+         note=("Directe afvaller: " + ", ".join(kills)) if kills else None, misses=misses)
+
+    # 4. Definieer het bedrijf (zelf invullen)
+    step(4, "manual", [], about=c.get("about"))
+
+    # 5. Marktpotentieel (zelf checken)
+    step(5, "manual", [chk("Omzet nu", None, f"{(rev[-1] if rev else 0) / 1e9:.1f} mld" if rev else None)])
+
+    # 6. De scorecard
+    s6 = card.get("s")
+    step(6, "pass" if s6 is not None and s6 >= 75 else "fail" if s6 is not None else "check",
+         [chk("Scorecard 75 of hoger (100+ = uitzonderlijk)", None if s6 is None else s6 >= 75, f"{s6}/125" if s6 is not None else None)])
+
+    # 7. Omzetmotor en 5 jaar geschiedenis
+    cash_y = _series(ts, "annualCashCashEquivalentsAndShortTermInvestments") or _series(ts, "annualCashAndCashEquivalents")
+    debt_y = _series(ts, "annualTotalDebt")
+    n_cd = min(len(cash_y), len(debt_y))
+    c7 = [chk("Omzet groeit elk jaar", None if len(rev_g) < 2 else all(x > 0 for x in rev_g), f"{len(rev)} jaar"),
+          chk("Operationele marge stijgt", None if len(om_hist) < 3 else om_hist[-1] > om_hist[0],
+              f"{om_hist[0]:.0f}% → {om_hist[-1]:.0f}%" if len(om_hist) >= 2 else None),
+          chk("Vrije kasstroom positief en stijgend", None if len(fcf) < 3 else (all(x > 0 for x in fcf) and fcf[-1] > fcf[0])),
+          chk("Elk jaar meer cash dan schuld", None if n_cd < 3 else all(a > b for a, b in zip(cash_y[-n_cd:], debt_y[-n_cd:])))]
+    f7 = sum(1 for x in c7 if x[1] is False)
+    step(7, "fail" if f7 >= 2 else "check" if f7 == 1 or sum(1 for x in c7 if x[1] is None) >= 2 else "pass", c7)
+
+    # 8. Loan Officer Test
+    last = lambda k: (_series(ts, k) or [None])[-1]  # noqa: E731
+    intexp = d["intexp"]
+    cov = (oi[-1] / intexp) if oi and intexp else (None if not oi else 99)
+    ta, gw, tl, eq = last("annualTotalAssets"), last("annualGoodwill") or 0, last("annualTotalLiabilitiesNetMinorityInterest"), last("annualStockholdersEquity")
+    ca, cl = last("annualCurrentAssets"), last("annualCurrentLiabilities")
+    a2l = (ta - gw) / tl if ta and tl else None
+    cr = ca / cl if ca and cl else None
+    de = (tl / eq) if tl and eq and eq > 0 else (99 if tl and eq is not None and eq <= 0 else None)
+    c8 = [chk("Rentedekking 4x of meer", None if cov is None else cov >= 4, "geen rente" if cov == 99 else f"{cov:.1f}x" if cov is not None else None),
+          chk("Bezittingen (zonder goodwill) / schulden 2:1+", None if a2l is None else a2l >= 2, f"{a2l:.1f}:1" if a2l is not None else None),
+          chk("Current ratio 1,0+", None if cr is None else cr >= 1.0, f"{cr:.2f}" if cr is not None else None),
+          chk("Schuld / eigen vermogen onder 4", None if de is None else de < 4, "negatief eigen vermogen" if de == 99 else f"{de:.1f}" if de is not None else None)]
+    f8 = sum(1 for x in c8 if x[1] is False)
+    step(8, "fail" if f8 >= 2 or (de is not None and de >= 4) else "check" if f8 == 1 else "pass", c8,
+         note="Vergelijk met de sector: een retailer lijkt altijd minder liquide door zijn voorraad." if cr is not None and cr < 1 else None)
+
+    # 9. Concurrentievoordeel (moat)
+    mt = pts.get("moat")
+    c9 = [chk("Moat (oordeel)", None if mt is None else mt >= 10 if mt != 5 else None, {10: "sterk", 5: "zwak", 0: "geen"}.get(mt)),
+          chk("Marge bewijst het (operationele marge 25%+)", None if om12 is None else om12 >= 25, f"{om12:.0f}%" if om12 is not None else None)]
+    step(9, "fail" if mt == 0 else "pass" if mt == 10 and (om12 or 0) >= 20 else "check", c9,
+         types=d["curated"].get("moat_types"))
+
+    # 10. Management
+    ceo = pts.get("ceo")
+    insider = None
+    if d["ins_buy"] is not None or d["ins_sell"] is not None:
+        insider = (d["ins_buy"] or 0) > (d["ins_sell"] or 0)
+    ta_hist = _series(ts, "annualTotalAssets")
+    gw_hist = _series(ts, "annualGoodwill")
+    spree = len(gw_hist) >= 3 and gw_hist[-3] > 0 and gw_hist[-1] / gw_hist[-3] >= 1.5 and ta_hist and gw_hist[-1] >= 0.2 * ta_hist[-1]
+    c10 = [chk("CEO (oordeel): superster", None if ceo is None else ceo >= 10 if ceo != 5 else None, {10: "superster", 5: "redelijk", 0: "clown"}.get(ceo)),
+           chk("Oprichter aan het roer", True if d["founder"] else None),
+           chk("Insiders kopen zelf aandelen", insider),
+           chk("Verslaat de winstverwachting consequent", None if misses is None else misses <= 1, f"{4 - misses if misses is not None else '?'} van 4" if misses is not None else None),
+           chk("Geen co-CEO-structuur", False if d["co_ceo"] else True),
+           chk("Geen overnamerace", False if spree else True)]
+    red10 = d["co_ceo"] or spree or ceo == 0
+    step(10, "fail" if red10 else "pass" if ceo == 10 and (misses is None or misses <= 1) else "check", c10)
+
+    # 11. Vernietig iets moois: rode vlaggen en de hype-val
+    inv = _series(ts, "annualInventory")
+    inv_pile = len(inv) >= 2 and len(rev) >= 2 and inv[-2] > 0 and rev[-2] > 0 and \
+        (inv[-1] / inv[-2] - 1) * 100 > (rev[-1] / rev[-2] - 1) * 100 + 20
+    margin_down = len(om_hist) >= 3 and om_hist[-1] < om_hist[-2] < om_hist[-3]
+    chg = d["chg12"]
+    ins_dump = (d["ins_sell"] or 0) > 2 * max(1, d["ins_buy"] or 0) and chg is not None and chg > 30
+    dil = d["dilution"]
+    hype = [rev and rev[-1] <= 0, (card.get("s") or 0) < 60, dil is not None and dil > 3]
+    flags = [k for k, hit in [("dalende marges (2 jaar)", margin_down), ("voorraad stijgt veel harder dan omzet", inv_pile),
+                              ("insiders verkopen flink terwijl de koers loopt", ins_dump), ("overnamerace / overexpansie", spree),
+                              ("hype-val: geen omzet, zwakke cijfers en steeds nieuwe aandelen", all(hype))] if hit]
+    c11 = [chk("Marges dalen niet", not margin_down if len(om_hist) >= 3 else None),
+           chk("Voorraad loopt niet op t.o.v. omzet", not inv_pile if len(inv) >= 2 else None),
+           chk("Geen zware insider-verkopen tijdens een koersrally", not ins_dump),
+           chk("Geen verwatering boven 3% per jaar", None if dil is None else dil <= 3, f"{dil:+.1f}%" if dil is not None else None)]
+    step(11, "fail" if flags else "pass", c11,
+         note=("Rode vlag: " + ", ".join(flags)) if flags else None)
+
+    # 12. Waardering: DCF (bull 8% · basis 10% · bear 12%), omgekeerde DCF, juiste multiple en PEG
+    price, shares = d["price"], d["shares"]
+    rev3, fcf3 = rev[-3:], fcf[-3:]
+    margins = [f / r for f, r in zip(fcf[-3:], rev[-3:]) if r] if len(fcf3) == len(rev3) else []
+    margin = sum(margins) / len(margins) if margins else None
+    cagr = ((rev3[-1] / rev3[0]) ** (1 / (len(rev3) - 1)) - 1) if len(rev3) >= 2 and rev3[0] > 0 and rev3[-1] > 0 else None
+    g_used = max(-0.05, min(0.25, cagr * 0.8)) if cagr is not None else None      # groei inperken: conservatief blijven
+    rev0 = d["rev_ttm"] or (rev[-1] if rev else None)
+    vals = {k: dcf_value(rev0, g_used, margin, r, cash, debt, shares) if g_used is not None and margin and margin > 0 else None
+            for k, r in DCF_R.items()}
+    impl = implied_growth(price, rev0, margin, cash, debt, shares)
+    pe, peg = d["fpe"], d["peg"]
+    ps = (d["mcap_n"] / rev0) if d["mcap_n"] and rev0 else None
+    unprofitable = (oi and oi[-1] <= 0) or (c.get("eps") is not None and c["eps"] <= 0)
+    if soft:
+        mult = ("Rule of 40", f"{r40:.0f}" if r40 is not None else "—", "40+ is goed")
+    elif unprofitable:
+        mult = ("Koers/omzet", f"{ps:.1f}x" if ps else "—", f"sector {med.get(('ps', it.get('sector')), 0):.1f}x" if med.get(("ps", it.get("sector"))) else "")
+    else:
+        mult = ("Verwachte K/W", f"{pe:.1f}" if pe and pe < 9999 else "—", f"sector {med.get(('pe', it.get('sector')), 0):.1f}" if med.get(("pe", it.get("sector"))) else "")
+    peg_lbl = None if not peg else "ondergewaardeerd" if peg < 1 else "redelijk" if peg <= 2 else "erg duur"
+    c12 = [chk("Bear case (12%) boven de koers", None if vals["bear"] is None or not price else vals["bear"] >= price,
+               f"{vals['bear']:.2f}" if vals["bear"] is not None else None),
+           chk("Basis (10%) boven de koers", None if vals["base"] is None or not price else vals["base"] >= price,
+               f"{vals['base']:.2f}" if vals["base"] is not None else None),
+           chk("PEG onder 2", None if not peg else peg <= 2, f"{peg:.1f} · {peg_lbl}" if peg else None)]
+    if vals["base"] is None:
+        st12 = "check"
+    elif price and vals["bear"] >= price:
+        st12 = "pass"
+    elif price and vals["base"] >= price:
+        st12 = "check"
+    else:
+        st12 = "fail"
+    step(12, st12, c12,
+         dcf={k: rnd(v, 2) for k, v in vals.items()}, price=rnd(price, 2), g=rnd(g_used * 100 if g_used is not None else None, 1),
+         margin=rnd(margin * 100 if margin is not None else None, 1), implied=rnd(impl * 100 if impl is not None else None, 1),
+         actual=rnd(cagr * 100 if cagr is not None else None, 1), mult=mult)
+
+    fails = [s_["n"] for s_ in steps if s_["s"] == "fail"]
+    it["s12"] = {"list": steps, "fail": fails[0] if fails else None, "nfail": len(fails),
+                 "survivor": not fails, "auto_ok": sum(1 for s_ in steps if s_["s"] == "pass")}
 
 
 def valuation_check(it):
@@ -1155,8 +1447,14 @@ KOOP_NEW_DAYS = 60          # zelfde aandeel pas na zoveel dagen opnieuw als nie
 HORIZONS = [("1m", 30), ("3m", 91), ("6m", 182), ("12m", 365)]
 
 
+HARD_STEPS = (1, 2, 3, 8, 11)   # stappen met harde afvallers in de gids: zakt een bedrijf hier, dan nooit een koopmoment
+
+
 def koopmoment(it):
     """Status 'zone' (alle voorwaarden), 'bijna' (net niet diep genoeg) of None, met instapzone en risico."""
+    s12 = it.get("s12") or {}
+    if any(x["s"] == "fail" for x in s12.get("list", []) if x["n"] in HARD_STEPS):
+        return None
     card = (it.get("card") or {}).get("s")
     price, hi, sma = it.get("price"), it.get("hi52"), it.get("sma200")
     if card is None or card < KOOP_MIN_CARD or not price or not hi:
@@ -1193,6 +1491,14 @@ def koopmoment(it):
             "stop": rnd(stop, 2), "risk": rnd((1 - stop / price) * 100, 1), "why": [txt for key, ok, txt in checks if ok and key != "scorecard"]}
 
 
+def s12_brief(s12):
+    """De 12 stappen in het kort (status per stap), genoeg voor de vakjes op Koopmoment."""
+    if not s12:
+        return None
+    return {"list": [{"n": x["n"], "s": x["s"], **({"note": x["note"]} if x.get("note") else {})} for x in s12["list"]],
+            "fail": s12.get("fail"), "nfail": s12.get("nfail"), "survivor": s12.get("survivor"), "auto_ok": s12.get("auto_ok")}
+
+
 def koop_rows(items):
     """Compacte regels voor koopmoment.json (ook eigen posities: 'bijkopen')."""
     rows = []
@@ -1206,7 +1512,7 @@ def koop_rows(items):
                      "hi52": it.get("hi52"), "sma200": it.get("sma200"),
                      "card": it["card"]["s"], "lvl": it["card"]["lvl"], "val": (it.get("val") or {}).get("lvl"),
                      "score": it.get("score"), "exp": (it.get("exp") or {}).get("pct"), "earn_days": it.get("earn_days"),
-                     "own": it.get("own"), "watch": it.get("watch"), **k})
+                     "own": it.get("own"), "watch": it.get("watch"), "s12": s12_brief(it.get("s12")), **k})
     rows.sort(key=lambda r: (r["status"] != "zone", -r["card"]))
     return rows
 
@@ -1337,14 +1643,6 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         exp["tgt_eur"] = rnd(exp.pop("tgt") * k, 2)
 
     cash, debt = extra.get("cash_now"), extra.get("debt_now")
-    steps = [
-        None if cash is None or debt is None else int(cash > debt),
-        None if extra.get("rev_yoy") is None else int(extra["rev_yoy"] >= 10),
-        None if extra.get("margin") is None else int(extra["margin"] >= 15),
-        None if extra.get("rev_yoy") is None or extra.get("opex_yoy") is None
-        else int(extra["rev_yoy"] > extra["opex_yoy"]),
-        int(qual["moat"]["s"] >= 7), int(qual["ceo"]["s"] >= 7), int(qual["recessie"]["s"] >= 7),
-    ]
     hi, lo = q.get("hi52") or c.get("hi52"), q.get("lo52") or c.get("lo52")
     nm = norm_name(c.get("name"))
 
@@ -1400,6 +1698,19 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         "r5": c.get("r5"), "founder": c.get("founder"), "ins": c.get("ins"),
         "gm": [gp_by[d] / r for d, r in rev_rows if r and gp_by.get(d) is not None],
         "curated": curated or {},
+        # scorecard volgens de gids: laatste 12 maanden
+        "g12": avg([x for x in (extra.get("rev_yoy"), c["rev_g"] * 100 if c.get("rev_g") is not None else None) if x is not None]),
+        "om12": c["om"] * 100 if c.get("om") is not None else extra.get("margin"),
+        "opex_yoy": extra.get("opex_yoy"),
+        # 12 stappen
+        "ts": ts, "c": c, "price": price_native, "rev_ttm": c.get("rev_ttm"),
+        "mcap_n": mcap_n, "mcap_usd": (mcap_n if region == "VS" else mcap_n * fx) if mcap_n else None,
+        "shares": (mcap_n / price_native) if mcap_n and price_native else (sh or None),
+        "age": ((now().date() - datetime.fromisoformat((c.get("first") or {})["d"]).date()).days / 365.25)
+               if (c.get("first") or {}).get("d") else None,
+        "eps_hist": c.get("eps_hist"), "ins_buy": c.get("ins_buy"), "ins_sell": c.get("ins_sell"),
+        "co_ceo": c.get("co_ceo"), "chg12": chg12, "dilution": m.get("dilution"),
+        "fpe": fpe if fpe and fpe > 0 else None, "peg": m.get("peg"),
     }
     above200 = (price_native > sma200) if sma200 else None
     earn = c.get("earnings")
@@ -1424,7 +1735,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         "m": m, "mp": {}, "above200": above200, "chg12": rnd(chg12, 1),
         "branch": branch_of(sym if region == "VS" else (eu_sym or sym), c.get("sector") or gics, c.get("industry")),
         "earnings": earn if earn_days is not None and earn_days >= 0 else None, "earn_days": earn_days if earn_days is not None and earn_days >= 0 else None,
-        "kwal": kwal, "crit": crit, "q": qual, "steps": steps, "exp": exp,
+        "kwal": kwal, "q": qual, "exp": exp,
         "cashdebt": [rnd(cash / 1e9 * (1 / fx if region == "VS" else 1), 2) if cash is not None else None,
                      rnd(debt / 1e9 * (1 / fx if region == "VS" else 1), 2) if debt is not None else None],
         "watch": sym in own["watch"] or (eu_sym or "") in own["watch"] or nm in own["names_watch"],
@@ -1443,6 +1754,11 @@ def main():
         cache, dyn = {}, None
     uni, dyn = load_universe(cache, y, dyn)
     own = owned_positions()
+    # Elke eigen positie met een dollarnotering hoort erin (ook als hij te klein is voor de brede scan),
+    # zodat je ze allemaal op de pagina Beoordeling terugziet. Euro-noteringen van VS-bedrijven lopen via die dollarnotering.
+    for s_ in sorted(own["own"]):
+        if re.fullmatch(r"[A-Z][A-Z0-9-]{0,6}", s_) and s_ not in uni:
+            uni[s_] = {"region": "VS", "src": "eigen", "name": None}
     quality_map = load_quality()
     print(f"Universum: {len(uni)} stocks · eigen posities: {len(own['own'])} · kwaliteitsoordelen: {len(quality_map)}")
 
@@ -1459,7 +1775,8 @@ def main():
     # 1. Fundamentele cijfers verversen: oudste eerst, binnen het tijdsbudget
     # eigen posities worden ook gescand: ze dienen als referentie en tellen mee in de vergelijking
     todo = [s for s in uni if needs_refresh(cache.get(s), uni[s]["region"])]
-    todo.sort(key=lambda s: (cache.get(s) or {}).get("f") or "")
+    # eigen posities eerst (die beoordeel je zelf), dan de oudste
+    todo.sort(key=lambda s: (0 if is_owned(s) else 1, (cache.get(s) or {}).get("f") or ""))
     print(f"Te verversen: {len(todo)}")
     fails, done = 0, 0
     for sym in todo:
@@ -1529,15 +1846,38 @@ def main():
         qual_pct = it["kwal"] / 30 * 100
         fin_q = mean(by["Q"])
         mom = by["M"] + ([100.0 if it["above200"] else 0.0] if it["above200"] is not None else [])
-        pil = {"F": it["formule"],
+        scorecard(it, sp5)
+        cs = (it.get("card") or {}).get("s")
+        # Pijler F = de scorecard van de gids (0-125 → 0-100); zonder scorecard het oude formuleblad
+        pil = {"F": cs / 1.25 if cs is not None else it["formule"],
                "Q": 0.5 * fin_q + 0.5 * qual_pct if fin_q is not None else qual_pct,
                "G": mean(by["G"]), "V": mean(by["V"]), "M": mean(mom)}
         wsum = sum(PILLAR_W[k] for k, v in pil.items() if v is not None)
         it["composite"] = round(sum(PILLAR_W[k] * v for k, v in pil.items() if v is not None) / wsum, 2) if wsum else 0
         it["pillars"] = {k: (round(v, 1) if v is not None else None) for k, v in pil.items()}
-        scorecard(it, sp5)
         it["val"] = valuation_check(it)
+    # 12 stappen (de juiste multiple vergelijkt met de sector: mediane verwachte K/W en koers/omzet)
+    med = {}
+    for key, fn in (("pe", lambda it: it["_card"]["fpe"]),
+                    ("ps", lambda it: it["_card"]["mcap_n"] / it["_card"]["rev_ttm"] if it["_card"]["mcap_n"] and it["_card"]["rev_ttm"] else None)):
+        by = {}
+        for it in items:
+            v = fn(it)
+            if v and 0 < v < 1000:
+                by.setdefault(it.get("sector"), []).append(v)
+        for sec, vs in by.items():
+            vs.sort()
+            med[(key, sec)] = vs[len(vs) // 2]
+    for it in items:
+        try:
+            twelve_steps(it, med)
+        except Exception as e:  # noqa: BLE001
+            print(f"  {it['sym']:<10} 12 stappen mislukt: {e}")
+            it["s12"] = None
+        it.pop("_card", None)
         it["koop"] = koopmoment(it)
+        if not it["own"] and ((it.get("card") or {}).get("s") or 0) < CARD_SELECT:
+            it["s12"] = s12_brief(it["s12"])      # niet getoond in de lijst: alleen de status per stap (scheelt veel data)
         # relatieve sterkte t.o.v. de referentie-ETF van de branche (12 maanden, in euro)
         b = bench.get(it.get("branch") or "")
         if b and b.get("ret12") is not None and it.get("chg12") is not None:
@@ -1580,6 +1920,9 @@ def main():
         "branches": bench,
         "refs": refs,
         "items": items[:TOP_N],
+        # eigen posities die niet te scoren zijn (bv. rapporteert in een andere valuta), met de reden
+        "own_skip": {s_: (cache.get(s_) or {}).get("skip") for s_ in uni
+                     if s_ in own["own"] and (cache.get(s_) or {}).get("skip")},
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))

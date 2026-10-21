@@ -2,6 +2,11 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Investeringen</title>
 <style>
@@ -178,7 +183,7 @@
     height: 38px; padding: 0 14px; border-radius: 9px; font-size: 13px; white-space: nowrap;
   }
   .tb-reset:hover { border-color: var(--accent); color: var(--text); }
-  @media (max-width: 640px) { .toolbar { grid-template-columns: 1fr 1fr; gap: 10px 12px; } }
+  @media (max-width: 640px) { .toolbar { grid-template-columns: 1fr 1fr; gap: 10px 12px; } .tb-row2 { flex-wrap: wrap; row-gap: 8px; } }
   .sync-btn {
     font-family: inherit; cursor: pointer; font-weight: 500; font-size: 13px;
     padding: 9px 15px; border-radius: 10px; transition: .15s;
@@ -762,7 +767,7 @@ function renderCheck() {
       if (hits.length) {
         issues++;
         const short = n => String(n || '').replace(/\b(Corporation|Corp\.?|Inc\.?|Incorporated|Holdings?|plc|N\.V\.|SE|AG|Class [A-C]|Common Stock|Ltd\.?)\b/gi, '').replace(/[,.]+\s*$/, '').replace(/\s+/g, ' ').trim();
-        rows.push(`<div class="pc-row"><span><b>${e.ticker.split('.')[0]}</b> bevat ook ${hits.map(h => `${esc(short(h.name))} <small>${h.w.toFixed(1).replace('.', ',')}%</small>`).join(', ')}</span></div>`);
+        rows.push(`<div class="pc-row"><span><b>${esc(e.ticker.split('.')[0])}</b> bevat ook ${hits.map(h => `${esc(short(h.name))} <small>${h.w.toFixed(1).replace('.', ',')}%</small>`).join(', ')}</span></div>`);
       }
     });
     cards.push(`<div class="pc ${rows.length ? 'warn' : 'ok'}"><div class="pc-k">ETF-doorkijk <span>${rows.length ? 'dubbele blootstelling' : 'geen overlap'}</span></div>
@@ -780,7 +785,7 @@ function renderCheck() {
     const mini = pl => ['F', 'Q', 'G', 'V', 'M'].map(k => `<i><b style="height:${(pl || {})[k] || 0}%;background:${col((pl || {})[k])}"></b></i>`).join('');
     cards.push(`<div class="pc ${weak.length ? 'warn' : 'ok'}"><div class="pc-k">Kwaliteit van je posities <span>${scored.length} gescoord</span></div>
       ${scored.slice(0, 8).map(x => { const c = cardOf(x.r); return `<div class="pc-row"><span>${esc(x.r.name)}</span><span><span class="pc-score" title="Scorecard ${Math.round(c)} van 125 · marktrang P${Math.round(x.r.score)}" style="color:${c >= 100 ? 'var(--up)' : c >= 75 ? 'var(--warn)' : 'var(--down)'}">${Math.round(c)}<small style="color:var(--muted);font-weight:400">/125</small></span><span class="pc-mini" title="Marktrang: Formuleblad · Kwaliteit · Groei · Waardering · Momentum">${mini(x.r.pillars)}</span></span></div>`; }).join('')}
-      <div class="pc-note">Zelfde scorecard als bij Kansen portefeuille: 100+ once-in-a-lifetime, 75–100 watchlist, onder 75 afvallen. Zwakste eerst${weak.length ? `; <b style="color:var(--warn)">${weak.length} onder de 75</b>` : ''}.</div></div>`);
+      <div class="pc-note">Zelfde scorecard als bij Kansen portefeuille: 100+ uitzonderlijk, 75–100 watchlist, onder 75 absoluut niet. Per aandeel alle 12 stappen: tabblad Beoordeling. Zwakste eerst${weak.length ? `; <b style="color:var(--warn)">${weak.length} onder de 75</b>` : ''}.</div></div>`);
   }
 
   // 3. Trend
@@ -850,14 +855,14 @@ function positionCard(p, q, err) {
   el.className = 'position';
   if (err || !q) {
     el.innerHTML = `
-      <div class="p-name"><span class="p-ticker">${p.ticker}</span>
+      <div class="p-name"><span class="p-ticker">${esc(p.ticker)}</span>
         <span class="p-company err">Koers niet geladen — bronnen geblokkeerd</span></div>
       <div style="grid-column: span 3; font-size:12px; color:var(--muted); line-height:1.5">
         Nog geen data voor deze ticker. Staat hij in <code>tickers.txt</code>? Draai anders
         de GitHub Action één keer handmatig (tab <strong>Actions</strong> → <strong>Run workflow</strong>)
         en ververs daarna.
       </div>
-      <div class="p-actions"><button class="remove" data-t="${p.ticker}">verwijder</button></div>`;
+      <div class="p-actions"><button class="remove" data-t="${esc(p.ticker)}">verwijder</button></div>`;
     el.querySelector('.remove').onclick = () => removePosition(p.ticker);
     return el;
   }
@@ -921,13 +926,13 @@ function positionCard(p, q, err) {
           const heropend = laatsteVerkoop(s.level) === s && tredeVervallen(s.level);
           const cls = heropend ? 'sell-row reopened' : 'sell-row';
           const mark = heropend ? '↻' : '✓';
-          return `<div class="${cls}">${mark} +${s.level*50}% → ${s.pct}% verkocht <span class="sell-date">${s.date}</span> <button class="undo-sell" data-id="${id}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
+          return `<div class="${cls}">${mark} +${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht <span class="sell-date">${esc(s.date)}</span> <button class="undo-sell" data-id="${esc(id)}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
         })
         .join('') + '</div>';
     }
 
     const btnHtml = canRealise
-      ? `<button class="realise" data-id="${id}" data-step="${nextStep}" data-pct="${nextSellPct}">
+      ? `<button class="realise" data-id="${esc(id)}" data-step="${nextStep}" data-pct="${nextSellPct}">
            ${isHeropend ? 'Opnieuw realiseren' : 'Realiseer'} +${nextTargetPct}% (verkoop ${nextSellPct}%)
          </button>`
       : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
@@ -942,8 +947,8 @@ function positionCard(p, q, err) {
 
   el.innerHTML = `
     <div class="p-name">
-      <span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(p.ticker) || ''}"></span>${p.label || q.name}</span>
-      <span class="p-company">(${p.ticker})${(() => { const k = exchangeKeyOf(p.ticker); return k && EXCHANGES[k] ? ' · ' + EXCHANGES[k].name : ''; })()} <span class="src src-live">● data</span></span>
+      <span class="p-ticker"><span class="exch-dot" data-exch="${esc(exchangeKeyOf(p.ticker) || '')}"></span>${esc(p.label || q.name)}</span>
+      <span class="p-company">(${esc(p.ticker)})${(() => { const k = exchangeKeyOf(p.ticker); return k && EXCHANGES[k] ? ' · ' + EXCHANGES[k].name : ''; })()} <span class="src src-live">● data</span></span>
     </div>
     <div class="p-block">
       <div class="k">Huidige koers</div>
@@ -958,7 +963,7 @@ function positionCard(p, q, err) {
         <div class="bar-marker" style="left:${rangePos}%"></div>
       </div>
       <div class="drop-tag" style="color:${alert?'var(--down)':'var(--muted)'}">
-        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${thr}%${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${p.thresh}%">(slim)</span>` : ''}
+        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${thr}%${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${+p.thresh || 20}%">(slim)</span>` : ''}
       </div>
       ${alert && trendUp != null ? `<div class="trend-tag" style="color:${trendUp ? 'var(--up)' : 'var(--warn)'}">${trendUp
         ? '✓ dip in een stijgende trend (boven 200-daags gemiddelde)'
@@ -972,8 +977,8 @@ function positionCard(p, q, err) {
         if (!isWatch && m.openSell) return '<span class="badge sell">VERKOOPSIGNAAL</span>';
         return '<span class="badge hold">geen actie</span>';
       })()}
-      ${isWatch ? '' : `<button class="edit-cost" data-id="${id}">Aankoopprijs aanpassen</button>`}
-      <button class="remove" data-id="${id}">verwijder</button>
+      ${isWatch ? '' : `<button class="edit-cost" data-id="${esc(id)}">Aankoopprijs aanpassen</button>`}
+      <button class="remove" data-id="${esc(id)}">verwijder</button>
     </div>`;
 
   // Knop: verwijderen
@@ -1016,7 +1021,7 @@ function positionCard(p, q, err) {
       const idx = parseInt(btn.dataset.idx);
       if (userState[id] && userState[id].sells) {
         const s = userState[id].sells[idx];
-        const oms = s ? ` (+${s.level*50}% → ${s.pct}% verkocht op ${s.date})` : '';
+        const oms = s ? ` (+${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht op ${String(s.date || '')})` : '';
         if (!confirm(`Weet je zeker dat je deze verkoopregistratie${oms} wilt verwijderen?`)) return;
         userState[id].sells.splice(idx, 1);
         saveState(); render();
@@ -1190,6 +1195,7 @@ document.getElementById('f-cancel').onclick = () => dlg.close();
 document.getElementById('f-save').onclick = () => {
   const t = document.getElementById('f-ticker').value.trim().toUpperCase();
   if (!t) return;
+  if (!/^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/.test(t)) { alert('Ongeldige ticker. Gebruik de Yahoo-ticker, bv. ASML.AS, NVD.DE of NVDA.'); return; }
   const section = document.getElementById('f-section').value;
   const isWatch = section === 'Watchlist';
   const costVal = parseFloat(document.getElementById('f-cost').value);
@@ -1443,11 +1449,19 @@ document.getElementById('syncBtn').onclick = async () => {
   if (huidige) {
     const keuze = confirm('Synchronisatie is actief op dit apparaat.\n\nOK = token vervangen\nAnnuleren = token verwijderen (terug naar alleen dit apparaat)');
     if (keuze) {
-      const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...):', '');
+      const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...).\n\n' + Shared.TOKEN_HELP, '');
       if (nieuw) {
+        const fout = await Shared.checkToken(nieuw);
+        if (fout) { alert(fout + '\n\n' + Shared.TOKEN_HELP); return; }
         // Had dit apparaat de gegevens al open (juiste oude token)? Dan versleutelen we ze opnieuw met de nieuwe token.
         const hadOpen = stateLocked !== 'verkeerde-token';
+        // Ook je opgevolgde adviezen (radar.json) nog met de oude token openen, zodat ze mee overgaan naar de nieuwe
+        const oldRadar = hadOpen ? await Shared.ghReadFull('radar.json') : null;
         setToken(nieuw.trim());
+        if (oldRadar && oldRadar.status === 'ok' && oldRadar.data && Array.isArray(oldRadar.data.trades)) {
+          const trades = Shared.mergeTrades(oldRadar.data.trades, Shared.lsGet('radar_trades', []));
+          await Shared.ghWrite('radar.json', Object.assign({}, oldRadar.data, { trades }), oldRadar.sha, 'Opgevolgde adviezen opnieuw versleuteld (nieuwe token)');
+        }
         if (!hadOpen) {
           const remote = await loadStateFromGitHub();      // op een ander apparaat al omgezet? Dan opent de nieuwe token hem
           if (remote) { userState = mergeState(remote, userState); saveStateLocal(); positions.forEach(applyState); render(); }
@@ -1462,8 +1476,10 @@ document.getElementById('syncBtn').onclick = async () => {
     }
     return;
   }
-  const t = prompt('Plak je GitHub-token (github_pat_...) om je gegevens tussen apparaten te synchroniseren.\n\nDe token wordt alleen op dit apparaat bewaard, niet in de code.', '');
+  const t = prompt('Plak je GitHub-token (github_pat_...) om je gegevens versleuteld tussen apparaten te synchroniseren.\n\n' + Shared.TOKEN_HELP, '');
   if (t) {
+    const fout = await Shared.checkToken(t);
+    if (fout) { alert(fout + '\n\n' + Shared.TOKEN_HELP); return; }
     setToken(t.trim());
     syncStatus = 'syncing'; updateSyncBadge();
     // Bij het aanzetten: haal eerst remote op, en als die er niet is, push de lokale

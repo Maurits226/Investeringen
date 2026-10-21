@@ -2,6 +2,11 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vandaag</title>
 <style>
@@ -58,6 +63,7 @@
   .t .ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(79,143,240,.12); }
   .t.buy .ic { background: rgba(62,207,142,.14); } .t.sell .ic { background: rgba(245,181,68,.14); }
   .t.sig .ic { background: rgba(79,143,240,.14); } .t.earn .ic { background: rgba(167,139,250,.16); } .t.trade .ic { background: rgba(240,89,95,.12); }
+  .t.rev .ic { background: rgba(201,164,92,.16); }
   .t-main { min-width: 0; }
   .t-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .t-sub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -84,6 +90,7 @@
     <div><h1 id="hello">Vandaag</h1><div class="date" id="date"></div></div>
     <div class="status" id="status"></div>
   </header>
+  <div id="techwarn"></div>
   <div class="kpis" id="kpis"></div>
   <div class="cols">
     <div class="panel"><div class="p-head"><h2>Te doen vandaag</h2><span id="todoCount"></span></div><div class="todo" id="todo"><div class="empty">Laden…</div></div></div>
@@ -94,10 +101,12 @@
 
 <script src="vault.js"></script>
 <script src="shared.js"></script>
+<script src="steps.js"></script>
+<script src="techwarn.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const nf = (v, d = 1) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const nf = (v, d = 1) => v == null || v === '' || !isFinite(+v) ? '—' : (+v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (v, d = 1) => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
 const tone = v => v == null ? '' : v >= 0.5 ? 'good' : v <= -0.5 ? 'bad' : 'mid';
@@ -116,24 +125,8 @@ async function getJSON(u) {
 }
 const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
 
-// Posities: uit dit apparaat (localStorage); anders de openbare lijst uit portfolio.html (zonder aankoopprijzen)
-async function loadPositions() {
-  let pos = ls('portfolio_positions', null);
-  if (!pos || !pos.length) {
-    try {
-      const html = await (await fetch('portfolio.html?t=' + Date.now())).text();
-      pos = [...html.matchAll(/\{[^{}]*?ticker:\s*'([^']+)'[^{}]*?\}/g)].map(m => {
-        const o = m[0], g = re => (o.match(re) || [])[1];
-        return { ticker: m[1], section: g(/section:\s*(?:'|")(.*?)(?:'|")/), watch: /watch:\s*true/.test(o), thresh: +(g(/thresh:\s*([0-9.]+)/) || 20) };
-      });
-    } catch (e) { pos = []; }
-  }
-  const st = await Shared.loadState();      // zelfde gegevens als het tabblad Investeringen (lokaal + GitHub)
-  return pos.map(p => {
-    const s = st[(p.section || 'X') + '|' + p.ticker] || {};
-    return { ...p, cost: s.cost ?? p.cost ?? null, qty: s.qty ?? p.qty ?? 1, sells: s.sells || [] };
-  });
-}
+// Posities en state: zelfde bron als alle andere pagina's (shared.js)
+const loadPositions = Shared.positions;
 
 // Zelfde regels als het Overzicht (shared.js): slimme koopdrempel en winstnemingstrap
 const thresholdFor = Shared.thresholdFor;
@@ -151,7 +144,8 @@ function ageTxt(iso) {
 }
 
 async function render() {
-  const [data, sig, scr, pos, sigTop, trades] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), getJSON('signals_top250.json'), Shared.loadTrades()]);
+  const [data, sig, scr, pos, sigTop, trades, tech] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), getJSON('signals_top250.json'), Shared.loadTrades(), getJSON('tech.json')]);
+  const idx = Shared.stockIndex(scr, sig, data);
   const quotes = (data && data.quotes) || {};
   const q = t => quotes[(t || '').toUpperCase()];
   const now = new Date();
@@ -176,6 +170,13 @@ async function render() {
   const sorted = held.slice().sort((a, b) => dayOf(b) - dayOf(a));
   const upN = held.filter(x => dayOf(x) > 0).length;
   const nm = x => x.q.name || x.p.ticker;
+
+  // Techradar: dreigt er een terugval in tech en chips? Met hoeveel van je portefeuille daarin zit.
+  if (typeof TechWarn !== 'undefined') {
+    TechWarn.css();
+    const exposure = Shared.techExposure(held.map(x => ({ p: x.p, value: val(x) })), idx.find);
+    $('techwarn').innerHTML = tech ? TechWarn.banner(tech, exposure) : '';
+  }
 
   // Beursklimaat vandaag en deze week (zelfde regels als de Patroonradar)
   const reg = (sig && sig.world && sig.world.regime) || {};
@@ -225,7 +226,18 @@ async function render() {
       sub: `${s.isHeropend ? 'trede ' + s.nextStep + ' weer open (koers 25% onder je verkoop)' : 'trede ' + s.nextStep + ' (+' + s.nextTargetPct + '%) bereikt'} · resultaat ${pct(pl, 0)}`,
       val: `<span class="c-warn">${s.nextSellPct}% verkopen</span>`, go: 'investeringen', prio: 1 });
   });
-  // 3. Nieuwe radaradviezen (afgelopen handelsdag)
+  // 3. Beoordeling (12 stappen): these herzien, en de kwartaalcheck uit de gids
+  const stocks = pos.filter(p => !p.watch && p.section === 'Stocks');
+  stocks.forEach(p => {
+    const it = idx.find(p.ticker), v = Steps.verdict(it);
+    if (v.cls !== 'v-bad') return;
+    todo.push({ g: 'Beoordelen', cls: 'rev', ic: '🧭', title: `These herzien: ${(it && it.name) || p.label || p.ticker}`,
+      sub: v.text.split('. ')[0] + '.', val: '<span class="c-down">herzien</span>', go: 'beoordeling', prio: 1 });
+  });
+  const due = stocks.filter(p => !(p.review && p.review.checked) || (Date.now() - new Date(p.review.checked).getTime()) / 86400000 > 100);
+  if (due.length) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '📋', title: `Kwartaalcheck: ${due.length} ${due.length === 1 ? 'aandeel' : 'aandelen'}`,
+    sub: 'Na de kwartaalcijfers: is er iets wezenlijks veranderd aan het bedrijf? Vink af op Beoordeling.', val: '', go: 'beoordeling', prio: 3 });
+  // 4. Nieuwe radaradviezen (afgelopen handelsdag)
   const cut = newCutoff();
   ((sig && sig.history) || []).filter(e => e.dir === 'up' && !e.end && !e.bootstrap && e.start && new Date(e.start) >= cut).forEach(e => {
     const it = ((sig && sig.items) || []).find(i => i.symbol === e.symbol) || {};
@@ -233,14 +245,14 @@ async function render() {
       sub: `nieuw signaal · verwacht ${pct(e.projected_pct)} in ${horizon} dagen`, val: '<span class="c-up">kopen</span>',
       go: 'patroonradar', prio: 1 });
   });
-  // 4. Opgevolgde adviezen
+  // 5. Opgevolgde adviezen
   (trades || []).filter(t => t && !t.deleted && t.status === 'open').forEach(t => {
     const it = ((sig && sig.items) || []).concat((sigTop && sigTop.items) || []).find(i => i.symbol === t.symbol);
     const px = it && it.price, res = px && t.price ? (t.dir === 'up' ? px / t.price - 1 : 1 - px / t.price) * 100 : null;
     todo.push({ g: 'Opgevolgd', cls: 'trade', ic: '🎯', title: `${t.name || t.symbol}`, sub: `opgevolgd ${t.dir === 'up' ? 'koopadvies' : 'verkoopadvies'}${t.plan && t.plan.target ? ' · doel ' + nf(t.plan.target, 2) : ''}`,
       val: `<span class="${cls(res)}">${pct(res)}</span>`, go: (t.set === 'top250' ? 'top250-radar' : 'patroonradar'), prio: 3 });
   });
-  // 5. Kwartaalcijfers binnen 7 dagen
+  // 6. Kwartaalcijfers binnen 7 dagen
   ((sig && sig.items) || []).forEach(it => {
     const e = it.context && it.context.earnings;
     if (e && e.days != null && e.days >= 0 && e.days <= 7)
@@ -248,14 +260,14 @@ async function render() {
         sub: e.days === 0 ? 'vandaag' : `over ${e.days} ${e.days === 1 ? 'dag' : 'dagen'}${e.date ? ' · ' + new Date(e.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}`,
         val: '', go: 'patroonradar', prio: 4 });
   });
-  const groups = ['Kopen', 'Winst nemen', 'Radar', 'Opgevolgd', 'Agenda'];
+  const groups = ['Kopen', 'Winst nemen', 'Beoordelen', 'Radar', 'Opgevolgd', 'Agenda'];
   $('todoCount').textContent = todo.length ? `${todo.length} ${todo.length === 1 ? 'punt' : 'punten'}` : '';
   $('todo').innerHTML = todo.length ? groups.map(g => {
     const xs = todo.filter(t => t.g === g).sort((a, b) => a.prio - b.prio);
     return xs.length ? `<div class="grp">${g}</div>` + xs.slice(0, 6).map(t => `<div class="t ${t.cls}" onclick="go('${t.go}')">
       <div class="ic">${t.ic}</div><div class="t-main"><div class="t-title">${esc(t.title)}</div><div class="t-sub">${esc(t.sub)}</div></div><div class="t-val">${t.val}</div></div>`).join('')
       + (xs.length > 6 ? `<div class="t-sub" style="padding:2px 10px">en nog ${xs.length - 6}…</div>` : '') : '';
-  }).join('') : '<div class="empty">Niets dringends vandaag 🎉<br>Geen koopsignalen, winstnemingen, nieuwe adviezen of cijfers.</div>';
+  }).join('') : '<div class="empty">Niets dringends vandaag 🎉<br>Geen koopsignalen, winstnemingen, beoordelingen, nieuwe adviezen of cijfers.</div>';
 
   // Kansen van de dag
   const own = new Set(pos.filter(p => !p.watch).map(p => p.ticker.toUpperCase()));

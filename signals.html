@@ -2,6 +2,11 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Patroonradar</title>
 <style>
@@ -532,7 +537,10 @@ const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
   style: 'currency', currency: cur || 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2
 }).format(n);
 const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
-const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+// Externe links (nieuws): alleen http(s), anders gewoon tekst. Nieuw tabblad zonder verwijzing terug naar het dashboard.
+const safeUrl = u => { try { const x = new URL(String(u || ''), location.href); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch (e) { return ''; } };
+const extLink = (u, text) => { const s = safeUrl(u); return s ? `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text); };
 
 let data = null;
 let crash = null;              // crash.json: crashradar sinds 1950 (scripts/crash.py)
@@ -762,7 +770,7 @@ function renderWorld() {
   }).join('');
   const hl = w.headlines || [];
   const heads = hl.map(h =>
-    `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title)}</a><span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
+    `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span>${extLink(h.link, h.title)}<span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
   // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
   const vix = byKey.vix, nd = byKey.nasdaq;
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
@@ -785,7 +793,7 @@ function climateCards(reg, byKey, wk) {
     calm:    ['good', 'Rustig & stijgend', 'Angstindex laag en de Nasdaq in een stijgende trend.'],
     neutral: ['mid',  'Neutraal', 'Geen duidelijke risico-aan- of risico-uit-stand.'],
     off:     ['bad',  'Risico-uit', 'Angstindex hoog of Nasdaq onder zijn trend: voorzichtig met kopen.']
-  }[reg.state] || ['', '—', reg.text || 'Nog geen gegevens.'];
+  }[reg.state] || ['', '—', esc(reg.text || 'Nog geen gegevens.')];
   // angstindex op een schaal van 10 tot 40 (groen < 18, oranje 18-25, rood ≥ 25)
   const vixPos = vix ? Math.max(0, Math.min(100, (vix.last - 10) / 30 * 100)) : null;
   const up = nd && nd.trend === 'up';
@@ -963,12 +971,12 @@ function contextDetail(it) {
       `<li>${esc(x.label)}<small>beweegt ${pct(x.beta, 2)} per 1% · vandaag ${pct(x.today_pct, 1)} → ${pct(x.impact_pct, 1)}</small></li>`).join('')}</ul>`;
   }
   if (c.analysts && c.analysts.n) {
-    h += `<div class="d-k">Analisten</div><p class="note" style="margin-bottom:14px">${c.analysts.n} analisten, advies <b>${RATING[c.analysts.rating] || c.analysts.rating || '–'}</b>, gemiddeld koersdoel ${pct(c.analysts.upside_pct, 1)} t.o.v. de koers nu.</p>`;
+    h += `<div class="d-k">Analisten</div><p class="note" style="margin-bottom:14px">${c.analysts.n} analisten, advies <b>${esc(RATING[c.analysts.rating] || (c.analysts.rating === 'none' ? '' : c.analysts.rating) || '–')}</b>, gemiddeld koersdoel ${pct(c.analysts.upside_pct, 1)} t.o.v. de koers nu.</p>`;
   }
   const news = c.news || [];
   if (news.length) {
     h += `<div class="d-k">Nieuws</div><ul class="news">${news.map(n =>
-      `<li><span class="c-${n.sent > 0 ? 'up' : n.sent < 0 ? 'down' : 'info'}">${n.sent > 0 ? '▲' : n.sent < 0 ? '▼' : '•'}</span> <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a><span class="meta">${esc(n.publisher || '')} · ${geleden(n.time)}</span></li>`).join('')}</ul>`;
+      `<li><span class="c-${n.sent > 0 ? 'up' : n.sent < 0 ? 'down' : 'info'}">${n.sent > 0 ? '▲' : n.sent < 0 ? '▼' : '•'}</span> ${extLink(n.link, n.title)}<span class="meta">${esc(n.publisher || '')} · ${geleden(n.time)}</span></li>`).join('')}</ul>`;
   }
   return h;
 }
@@ -1082,7 +1090,7 @@ function render() {
   cards.innerHTML = '';
   if (!filtered.length && !errs.length) {
     const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
-    const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : ui.cat !== 'all' ? CFG.noun[1] + ' in ' + ui.cat.toLowerCase() : CFG.noun[1];
+    const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : ui.cat !== 'all' ? CFG.noun[1] + ' in ' + esc(ui.cat.toLowerCase()) : CFG.noun[1];
     const beurs = ui.mkt !== 'all' && EXCHANGES[ui.mkt] ? ' op ' + EXCHANGES[ui.mkt].name : '';
     cards.innerHTML = `<div class="empty">Op dit moment geen ${cat}${beurs} ${wat}.</div>`;
   } else if (ui.sort === 'section') {

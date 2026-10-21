@@ -33,7 +33,7 @@ import xml.etree.ElementTree as ET
 from bisect import bisect_right
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 # ── Instellingen ─────────────────────────────────────────────────────────
@@ -105,6 +105,19 @@ TICKER_KEYS = {"ticker", "symbol", "yahoo", "yahooticker", "yahoo_symbol", "sym"
 
 
 # ── Tickers ──────────────────────────────────────────────────────────────
+RATINGS = {"strong_buy", "buy", "hold", "underperform", "sell"}
+
+
+def safe_link(u):
+    """Alleen gewone webadressen (http/https) als nieuwslink; al het andere (javascript:, data:) wordt leeg."""
+    u = (u or "").strip() if isinstance(u, str) else ""
+    try:
+        p = urlsplit(u)
+    except ValueError:
+        return ""
+    return u if p.scheme in ("http", "https") and p.netloc else ""
+
+
 def load_top250():
     """Kansen portefeuille uit screener.json: scorecard 75+. Amerikaanse bedrijven op hun dollarnotering
     (zoals in het overzicht), eurozone-bedrijven op hun thuisbeurs in euro."""
@@ -516,7 +529,7 @@ def world_headlines():
                 continue
             seen.add(key)
             out.append({"title": title, "publisher": src.text if src is not None else "",
-                        "link": it.findtext("link"), "time": when.isoformat(), "topic": q,
+                        "link": safe_link(it.findtext("link")), "time": when.isoformat(), "topic": q,
                         "sent": sentiment(title)})
             n += 1
             if n >= 2:
@@ -536,7 +549,7 @@ def stock_news(query):
         if t < cutoff:
             continue
         out.append({"title": n.get("title", ""), "publisher": n.get("publisher", ""),
-                    "link": n.get("link", ""), "time": datetime.fromtimestamp(t, tz=timezone.utc).isoformat(),
+                    "link": safe_link(n.get("link")), "time": datetime.fromtimestamp(t, tz=timezone.utc).isoformat(),
                     "sent": sentiment(n.get("title", ""))})
     return out[:6]
 
@@ -569,7 +582,7 @@ def quote_summary(sym):
     tgt, cur, n = raw(fd, "targetMeanPrice"), raw(fd, "currentPrice"), raw(fd, "numberOfAnalystOpinions")
     if tgt and cur and n:
         info["analysts"] = {"upside_pct": round((tgt / cur - 1) * 100, 1), "n": int(n),
-                            "rating": fd.get("recommendationKey")}
+                            "rating": fd.get("recommendationKey") if fd.get("recommendationKey") in RATINGS else None}
     return info
 
 

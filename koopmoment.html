@@ -2,6 +2,11 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Koopmoment</title>
 <style>
@@ -117,6 +122,7 @@
     .tb-count { margin-left: 0; }
     .facts { grid-template-columns: 1fr 1fr; }
   }
+  .k-s12 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -176,6 +182,7 @@
   </p>
 </div>
 
+<script src="steps.js"></script>
 <script>
 const OWN_SET = new URLSearchParams(location.search).get('set') === 'own';   // Mijn investeringen: alleen bijkopen
 const PREF = 'koop_prefs';
@@ -187,7 +194,8 @@ const SECTOR_NL = {
 };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const nf = (v, d = 2) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const nf = (v, d = 2) => v == null || v === '' || !isFinite(+v) ? '—' : (+v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+Steps.css();
 const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
 // VS-bedrijven in dollars (eigen notering), eurozone in euro's, net als in de Top 250
@@ -234,18 +242,22 @@ function card(r, own) {
   const beurs = isUSD(r) ? (r.us_exch || 'VS-beurs') : r.exch;
   const mine = isOwn(r, own);
   const chips = [
-    `<span class="chip ${r.status}">${r.status === 'zone' ? 'in de zone' : 'bijna'}</span>`,
+    `<span class="chip ${r.status === 'zone' ? 'zone' : 'bijna'}">${r.status === 'zone' ? 'in de zone' : 'bijna'}</span>`,
     `<span class="chip card">scorecard ${Math.round(r.card)}/125</span>`,
     mine ? '<span class="chip own">bijkopen</span>' : '',
     r.watch ? '<span class="chip">op watchlist</span>' : '',
-    r.earn_days != null ? `<span class="chip" title="Volgende kwartaalcijfers">cijfers over ${r.earn_days} d</span>` : ''
+    Number.isInteger(r.earn_days) ? `<span class="chip" title="Volgende kwartaalcijfers">cijfers over ${r.earn_days} d</span>` : ''
   ].join('');
-  return `<div class="k-card ${r.status}">
+  const st = r.status === 'zone' ? 'zone' : 'bijna';
+  const s12 = r.s12 ? `<div class="k-s12">${Steps.dots(r.s12)}<span>${r.s12.survivor ? '<b class="c-up">survivor</b>: alle 12 stappen'
+    : esc(Steps.failText(r.s12))}</span></div>` : '';
+  return `<div class="k-card ${st}">
     <div class="k-name">
       <div class="k-title">${esc(r.name)}</div>
       <div class="k-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[r.sector] || r.sector || '—')}</div>
       <div class="chips">${chips}</div>
       <div class="why">${(r.why || []).map(esc).join(' · ')}</div>
+      ${s12}
     </div>
     <div>
       ${ladder(r)}
@@ -277,7 +289,7 @@ function trackHTML() {
     <table class="an-t"><tr><th>na</th><th>n</th><th>gem.</th><th>S&amp;P 500</th><th>beter</th></tr>${tr}</table>
     <div class="an-note">Elk aandeel dat in de zone komt, gemeten vanaf die dag tegen de S&amp;P 500 in dezelfde valuta. Pas na
       <b>3 maanden en 20+ koopmomenten</b> zegt dit echt iets.</div></div>`;
-  const G = { top: '100+ (once-in-a-lifetime)', watch: '75–100 (watchlist)' };
+  const G = { top: '100+ (uitzonderlijk)', watch: '75–100 (watchlist)' };
   const cr = coh.slice().reverse().map(c => Object.keys(G).map(g => {
     const x = (c.res || {})[g];
     if (!x) return '';

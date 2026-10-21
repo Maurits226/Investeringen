@@ -1,0 +1,7 @@
+# Houdt de vastgepinde GitHub Actions (checkout, setup-python) bij: Dependabot opent een PR als er een nieuwe versie is.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

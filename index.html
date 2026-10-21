@@ -2,8 +2,23 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Investeringen</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141517">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Investeringen">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -16,7 +31,8 @@
   body {
     display: flex; flex-direction: column;
     font-family: 'Space Grotesk', system-ui, sans-serif;
-    padding-top: env(safe-area-inset-top, 0px);
+    /* als app op het beginscherm: niet onder de notch, de statusbalk of de thuisbalk */
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
   nav.tabs {
     flex: 0 0 auto; display: flex; justify-content: center;
@@ -44,6 +60,11 @@
   /* tweede niveau: welk scherm (licht blauw) */
   .seg.view button.active { background: rgba(79,143,240,.16); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(79,143,240,.55); }
   .seg button .n { font-size: 11px; font-weight: 600; opacity: .75; margin-left: 4px; }
+  .seg button .short { display: none; }
+  @media (max-width: 1000px) and (min-width: 721px), (max-width: 520px) {
+    .seg.view button .full { display: none; }
+    .seg.view button .short { display: inline; }
+  }
   @media (max-width: 720px) {
     nav.tabs { padding: 10px 12px; }
     .navwrap { flex-direction: column; gap: 6px; }
@@ -70,31 +91,34 @@
       </div>
       <div class="seg view" role="tablist" aria-label="Scherm">
         <button role="tab" data-view="overzicht">Overzicht</button>
-        <button role="tab" data-view="radar">Patroonradar</button>
+        <button role="tab" data-view="score" title="De 12 stappen en de scorecard per aandeel"><span class="full">Beoordeling</span><span class="short">Score</span></button>
+        <button role="tab" data-view="radar"><span class="full">Patroonradar</span><span class="short">Radar</span></button>
         <button role="tab" data-view="archief">Archief</button>
-        <button role="tab" data-view="koop">Koopmoment</button>
+        <button role="tab" data-view="koop"><span class="full">Koopmoment</span><span class="short">Koop</span></button>
       </div>
     </div>
   </nav>
   <main>
     <iframe id="home" title="Vandaag" data-src="vandaag.html"></iframe>
     <iframe id="inv-overzicht" title="Investeringen" src="portfolio.html"></iframe>
+    <iframe id="inv-score" title="Beoordeling · Investeringen" data-src="beoordeling.html"></iframe>
     <iframe id="inv-radar" title="Patroonradar · Investeringen" data-src="signals.html"></iframe>
     <iframe id="inv-archief" title="Archief · Investeringen" data-src="archief.html"></iframe>
     <iframe id="inv-koop" title="Bijkopen · Investeringen" data-src="koopmoment.html?set=own"></iframe>
     <iframe id="top-overzicht" title="Kansen portefeuille" data-src="screener.html"></iframe>
+    <iframe id="top-score" title="Survivors · Kansen portefeuille" data-src="beoordeling.html?set=top"></iframe>
     <iframe id="top-radar" title="Patroonradar · Kansen portefeuille" data-src="signals.html?set=top250"></iframe>
     <iframe id="top-archief" title="Archief · Kansen portefeuille" data-src="archief.html?set=top250"></iframe>
     <iframe id="top-koop" title="Koopmoment · Kansen portefeuille" data-src="koopmoment.html"></iframe>
   </main>
 <script>
-  // Twee niveaus: wereld (je eigen investeringen of de Top 250) × scherm (overzicht, radar, archief)
-  const WORLDS = ['inv', 'top'], VIEWS = ['overzicht', 'radar', 'archief', 'koop'];
+  // Twee niveaus: wereld (je eigen investeringen of de Top 250) × scherm (overzicht, beoordeling, radar, archief, koopmoment)
+  const WORLDS = ['inv', 'top'], VIEWS = ['overzicht', 'score', 'radar', 'archief', 'koop'];
   const HASH = {            // mooie adressen, ook de oude (#patroonradar, #archief, #top250) blijven werken
     'home': 'vandaag',
     'inv-overzicht': 'investeringen', 'inv-radar': 'patroonradar', 'inv-archief': 'archief',
     'top-overzicht': 'top250', 'top-radar': 'top250-radar', 'top-archief': 'top250-archief',
-    'inv-koop': 'bijkopen', 'top-koop': 'koopmoment'
+    'inv-koop': 'bijkopen', 'top-koop': 'koopmoment', 'inv-score': 'beoordeling', 'top-score': 'survivors'
   };
   const FROM_HASH = Object.fromEntries(Object.entries(HASH).map(([k, v]) => [v, k]));
   FROM_HASH.signalen = 'inv-radar';
@@ -102,7 +126,8 @@
     'home': 'Vandaag',
     'inv-overzicht': 'Investeringen', 'inv-radar': 'Patroonradar · Investeringen', 'inv-archief': 'Archief · Investeringen',
     'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille',
-    'inv-koop': 'Bijkopen · Investeringen', 'top-koop': 'Koopmoment · Kansen portefeuille'
+    'inv-koop': 'Bijkopen · Investeringen', 'top-koop': 'Koopmoment · Kansen portefeuille',
+    'inv-score': 'Beoordeling · Investeringen', 'top-score': 'Survivors · Kansen portefeuille'
   };
   let world = 'inv', view = 'overzicht';
 
@@ -125,7 +150,7 @@
     document.querySelectorAll('main iframe').forEach(f => {
       const on = f.id === id;
       if (on && !f.getAttribute('src') && f.dataset.src) f.src = f.dataset.src;   // pas laden bij eerste keer openen
-      else if (on) try { f.contentWindow.postMessage({ type: 'dashboard-shown' }, '*'); } catch (e) {}   // tabblad weer getoond: bijwerken (shared.js)
+      else if (on) try { f.contentWindow.postMessage({ type: 'dashboard-shown' }, location.origin); } catch (e) {}   // tabblad weer getoond: bijwerken (shared.js)
       f.classList.toggle('active', on);
     });
     document.title = TITLE[id];

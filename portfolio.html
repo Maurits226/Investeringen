@@ -60,6 +60,8 @@
   .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
 
   .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  /* Sync en + Positie blijven samen; past het niet naast de datum, dan samen naar de volgende regel */
+  .ctl-btns { display: flex; gap: 10px; margin-left: auto; }
   button {
     font-family: inherit; cursor: pointer; border: 1px solid var(--line);
     background: var(--panel-2); color: var(--text); padding: 9px 15px;
@@ -85,7 +87,8 @@
     border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
   }
   .stat.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
-  .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+  /* Hover alleen met een muis: op een touchscreen blijft hij na een tik 'hangen' */
+  @media (hover: hover) { .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); } }
   .stat.clickable:active { transform: translateY(0); }
   .stat.clickable.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
@@ -103,19 +106,23 @@
     min-width: 0;
   }
   .mkt { cursor: pointer; transition: border-color .15s, transform .15s, opacity .15s; }
-  .mkt:hover { border-color: var(--accent); transform: translateY(-2px); }
+  @media (hover: hover) {
+    .mkt:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .markets.filtering .mkt:not(.active):hover { opacity: 1; }
+  }
   .mkt:active { transform: translateY(0); }
   .mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mkt.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .markets.filtering .mkt:not(.active) { opacity: .5; }
-  .markets.filtering .mkt:not(.active):hover { opacity: 1; }
   .mkt-top { display: flex; align-items: center; gap: 8px; }
   .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .mkt-time { white-space: nowrap; }
   .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .mkt.open .mkt-dot { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
   .mkt.closed .mkt-dot { background: var(--down); }
   .mkt-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  /* groeit mee, zodat de voetregels van kaarten naast elkaar op één lijn staan */
+  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); flex-grow: 1; }
   .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
   .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
   .mkt-count { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
@@ -138,7 +145,7 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   }
   .tb-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .toolbar select {
     font-family: inherit; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
     height: 38px; padding: 0 11px; border-radius: 9px; font-size: 13px; width: 100%; min-width: 0; cursor: pointer;
@@ -147,22 +154,28 @@
   /* Portefeuillecheck */
   .pcheck { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 18px; transition: border-color .15s; }
   .pcheck:hover, .pcheck[open] { border-color: rgba(79,143,240,.5); }
-  .pcheck > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 13.5px; }
+  .pcheck > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 12px 14px; font-size: 13.5px; }
   .pcheck > summary::-webkit-details-marker { display: none; }
-  .pcheck .h-sub { color: var(--muted); font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  .pcheck .h-title { white-space: nowrap; }
+  /* Smal scherm: titel en knop op de eerste regel, de toelichting eronder over de volle breedte */
+  .pcheck .h-sub { color: var(--muted); font-size: 12px; font-family: 'IBM Plex Mono', monospace; order: 2; flex: 1 1 100%; min-width: 0; }
   .pcheck .h-sub b { color: var(--warn); font-weight: 600; }
-  .pcheck .h-btn { margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .pcheck .h-btn { margin-left: auto; font-size: 11px; color: var(--accent); border: 1px solid rgba(79,143,240,.45); padding: 4px 10px; border-radius: 8px; white-space: nowrap; order: 1; }
+  @media (min-width: 900px) { .pcheck .h-sub, .pcheck .h-btn { order: 0; } .pcheck .h-sub { flex: 1 1 0; } }
   .pcheck .h-btn::after { content: ' ▾'; } .pcheck[open] .h-btn::after { content: ' ▴'; }
   .pcheck .h-less { display: none; } .pcheck[open] .h-more { display: none; } .pcheck[open] .h-less { display: inline; }
   .pc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 2px 14px 14px; }
   .pc { position: relative; overflow: hidden; border-radius: 12px; padding: 13px 15px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); --mark: var(--accent); }
   .pc::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
   .pc.warn { --mark: var(--warn); } .pc.ok { --mark: var(--up); } .pc.violet { --mark: #a78bfa; }
-  .pc-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .pc-k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .pc-k span { text-transform: none; letter-spacing: 0; font-family: 'IBM Plex Mono', monospace; }
-  .pc-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed #26282b; }
+  /* baseline: kleine monotekst rechts op dezelfde regel als de naam links; rechts breekt niet af */
+  .pc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed #26282b; }
   .pc-row:last-child { border-bottom: 0; }
-  .pc-row small { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .pc-row > span:first-child { min-width: 0; }
+  .pc-row > small, .pc-row > span + span { flex-shrink: 0; white-space: nowrap; text-align: right; }
+  .pc-row small { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; white-space: nowrap; }
   .pc-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
   .pc-score { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
   .pc-mini { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 6px; }
@@ -183,7 +196,7 @@
     height: 38px; padding: 0 14px; border-radius: 9px; font-size: 13px; white-space: nowrap;
   }
   .tb-reset:hover { border-color: var(--accent); color: var(--text); }
-  @media (max-width: 640px) { .toolbar { grid-template-columns: 1fr 1fr; gap: 10px 12px; } .tb-row2 { flex-wrap: wrap; row-gap: 8px; } }
+  @media (max-width: 640px) { .toolbar { grid-template-columns: 1fr 1fr; gap: 10px 12px; } .tb-row2 { flex-wrap: wrap; row-gap: 8px; } .summary { grid-template-columns: repeat(2, 1fr); } }
   .sync-btn {
     font-family: inherit; cursor: pointer; font-weight: 500; font-size: 13px;
     padding: 9px 15px; border-radius: 10px; transition: .15s;
@@ -209,9 +222,15 @@
   .position {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 20px; display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr 1.6fr 1.3fr auto; gap: 18px; align-items: center;
+    /* vaste kolommen (geen 'auto'), zodat koers, balk, winst en knoppen in elke kaart op dezelfde plek staan */
+    grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) minmax(0,1.5fr) 150px;
+    gap: 18px; align-items: center;
     position: relative; overflow: hidden; transition: .2s;
   }
+  @media (max-width: 1100px) { .position { gap: 14px; } }
+  /* knoppen altijd in de laatste kolom, ook als het winstblok ontbreekt (watchlist, geen aankoopprijs) */
+  .position > .p-actions { grid-column: -2 / -1; }
+  .p-msg { grid-column: span 3; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .position::before {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line);
   }
@@ -227,27 +246,37 @@
   }
 
   .p-name { display: flex; flex-direction: column; gap: 4px; }
-  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
-  .p-company { font-size: 12px; color: var(--muted); max-width: 200px; }
-  .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; display: inline-block; }
+  /* flex: het beursbolletje blijft vóór de eerste regel staan, ook als de naam afbreekt */
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; display: flex; align-items: baseline; }
+  .p-ticker .exch-dot { flex-shrink: 0; top: 0; }
+  .p-company { font-size: 12px; color: var(--muted); }
+  .src { font-size: 11px; font-weight: 600; margin-left: 4px; white-space: nowrap; display: inline-block; }
   .src-live { color: var(--up); }
   .src-proxy { color: var(--warn); }
 
-  .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-  .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
+  /* één regel, zodat de waarden van koers en resultaat op dezelfde hoogte staan */
+  .p-block .k { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .v.up { color: var(--up); } .v.down { color: var(--down); }
 
-  .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
-  .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
-  .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
+  .bar-wrap { display: flex; flex-direction: column; gap: 7px; min-width: 0; container-type: inline-size; }
+  .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; white-space: nowrap; }
+  /* smalle kolom: '52-wk' in plaats van '52-wk range', heel smal alleen laag en hoog (anders lopen de bedragen over elkaar) */
+  .bar-labels > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  @container (max-width: 215px) { .bar-labels .bl-long { display: none; } }
+  @container (max-width: 150px) { .bar-labels > span:nth-child(2) { display: none; } }
+  /* overflow zichtbaar: het koersstreepje steekt boven en onder de balk uit */
+  .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; }
   .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, var(--down), var(--warn), var(--up)); }
-  .bar-marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
-  .day-chg { font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin-top: 3px; }
+  .bar-marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 0 2px var(--panel); }
+  .day-chg { font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin-top: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .day-chg.up { color: var(--up); }
   .day-chg.down { color: var(--down); }
   .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  /* beide knoppen in één groep: bij weinig ruimte gaan ze samen naar de volgende regel */
+  .p-btns { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
   .badge.sell { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
@@ -257,12 +286,12 @@
   .edit-cost { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
   .edit-cost:hover { border-color: var(--accent); color: var(--text); }
 
-  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
-  .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .profit-block .k { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
   .sells { display: flex; flex-direction: column; gap: 3px; }
-  .sell-row { font-size: 11px; color: var(--up); font-family: 'IBM Plex Mono', monospace; display: flex; align-items: center; gap: 4px; }
+  .sell-row { font-size: 11px; color: var(--up); font-family: 'IBM Plex Mono', monospace; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
   .sell-row.reopened { color: var(--warn); }
-  .sell-date { color: var(--muted); margin-left: 2px; }
+  .sell-date { color: var(--muted); white-space: nowrap; }
   .undo-sell { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0 2px; margin-left: auto; opacity: .5; }
   .undo-sell:hover { color: var(--down); opacity: 1; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
@@ -276,43 +305,70 @@
   .state { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
   .err { color: var(--warn); }
 
+  /* margin: auto centreert de dialoog weer (de reset * { margin: 0 } schakelt dat uit) */
   dialog {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 16px; padding: 24px; width: min(420px, 92vw);
+    border-radius: 16px; padding: 24px; width: min(420px, calc(100vw - 32px));
+    margin: auto; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto;
   }
   dialog::backdrop { background: rgba(4,8,18,.7); }
   dialog h3 { margin-bottom: 16px; font-size: 18px; }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
   .field input, .field select {
-    width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--text);
-    padding: 10px 12px; border-radius: 9px; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+    width: 100%; height: 42px; background: var(--ink); border: 1px solid var(--line); color: var(--text);
+    padding: 0 12px; border-radius: 9px; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
   }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  /* onderaan uitlijnen: een label over twee regels duwt zijn veld niet lager dan het buurveld */
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 
   .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
   .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
-  @media (max-width: 860px) {
-    .summary { grid-template-columns: repeat(2, 1fr); }
-    .position { grid-template-columns: 1fr 1fr; }
-    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
-    .bar-wrap { grid-column: span 2; }
-    .profit-block { grid-column: span 2; }
+  /* Tablet: naam | koers | resultaat op één rij; balk, winstblok en knoppen eronder over de volle breedte */
+  @media (max-width: 980px) {
+    .position { grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); }
+    .position > .p-actions, .bar-wrap, .profit-block { grid-column: 1 / -1; }
+    .p-msg { grid-column: span 2; }
+    .p-actions { flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    .p-actions .badge { margin-right: auto; }
+    .p-btns { flex-direction: row; align-items: center; }
+  }
+  /* Aanraakscherm of smal venster: knoppen groot genoeg voor een vinger (±40px), velden 16px (anders zoomt iOS in) */
+  @media (pointer: coarse), (max-width: 860px) {
+    .ctl-btns button, .dialog-actions button { min-height: 40px; }
+    .toolbar select, .tb-reset { height: 40px; }
+    .toolbar select, .field input, .field select { font-size: 16px; }
+    .switch { min-height: 40px; }
+    .edit-cost { min-height: 40px; padding: 8px 10px; }
+    .remove { min-height: 40px; padding: 8px 10px; margin-right: -10px; }
+    .undo-sell { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: flex-end; opacity: .7; }
+    .realise { min-height: 40px; padding: 10px 12px; }
   }
   @media (max-width: 520px) {
-    .markets { grid-template-columns: repeat(2, 1fr); }
-    .mkt-top { flex-wrap: wrap; }
+    /* Beurzen: één rij kaarten om horizontaal door te vegen in plaats van drie rijen onder elkaar */
+    .markets {
+      display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 12px;
+      gap: 8px; margin: -4px -12px 14px; padding: 4px 12px 6px; scrollbar-width: none;
+    }
+    .markets::-webkit-scrollbar { display: none; }
+    .mkt { flex: 0 0 190px; scroll-snap-align: start; }
+    .mkt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
     .controls { justify-content: space-between; }
+    /* Categorieën compact: label links, aantal rechts */
     .summary { gap: 10px; }
-    .stat { padding: 12px 14px; }
-    .stat .value { font-size: 20px; }
-    .position { grid-template-columns: 1fr 1fr; padding: 16px; gap: 14px; }
-    .p-name { grid-column: span 2; }
+    .stat { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 12px; }
+    .stat .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stat .value { font-size: 18px; margin-top: 0; }
+    .stat .sub { display: none; }
+    .position { grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding: 16px; gap: 14px; }
+    .p-name, .p-msg { grid-column: 1 / -1; }
     .p-ticker { font-size: 22px; }
+    .edit-cost .lbl-long { display: none; }
+    dialog { padding: 18px; }
   }
 </style>
 </head>
@@ -325,15 +381,17 @@
     </div>
     <div class="controls">
       <span class="updated" id="updated">laden…</span>
-      <button id="syncBtn" class="sync-btn" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
-      <button class="primary" id="add">+ Positie</button>
+      <div class="ctl-btns">
+        <button id="syncBtn" class="sync-btn" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
+        <button class="primary" id="add">+ Positie</button>
+      </div>
     </div>
   </header>
 
   <div class="markets" id="markets"></div>
 
   <details class="pcheck" id="pcheck" hidden>
-    <summary>🩺 Portefeuillecheck <span class="h-sub" id="pcSub"></span>
+    <summary><span class="h-title">🩺 Portefeuillecheck</span> <span class="h-sub" id="pcSub"></span>
       <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
     <div class="pc-grid" id="pcGrid"></div>
   </details>
@@ -344,7 +402,7 @@
     <div class="tb-group">
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
-        <option value="section">Categorie (standaard)</option>
+        <option value="section">Categorie</option>
         <option value="result">Resultaat (hoog → laag)</option>
         <option value="signal">Dichtst bij koopsignaal</option>
         <option value="sellsignal">Dichtst bij verkoopsignaal</option>
@@ -428,16 +486,13 @@
       </select>
     </div>
   </div>
-  <div class="row2">
-    <div class="field">
-      <label>Aankoopvaluta (weergave)</label>
-      <select id="f-cur">
-        <option value="native" selected>zoals genoteerd</option>
-        <option value="EUR">EUR</option>
-        <option value="USD">USD</option>
-      </select>
-    </div>
-    <div class="field"></div>
+  <div class="field">
+    <label>Aankoopvaluta (weergave)</label>
+    <select id="f-cur">
+      <option value="native" selected>zoals genoteerd</option>
+      <option value="EUR">EUR</option>
+      <option value="USD">USD</option>
+    </select>
   </div>
   <div class="dialog-actions">
     <button id="f-cancel">Annuleren</button>
@@ -717,7 +772,7 @@ function metrics(p, q) {
 const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
   style: 'currency', currency: cur || 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
 }).format(n);
-const pct = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const pct = n => (n >= 0 ? '+' : '') + n.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
 
 // De data komt uit data.json, dat GitHub Actions elke 15 min bijwerkt.
 // Geen CORS, geen proxy — het dashboard leest gewoon zijn eigen bestand.
@@ -803,7 +858,7 @@ function renderCheck() {
     .filter(x => x.e && x.e.days >= 0 && x.e.days <= 14).sort((a, b) => a.e.days - b.e.days);
   issues += soon.length;
   cards.push(`<div class="pc ${soon.length ? 'warn' : 'ok'}"><div class="pc-k">Kwartaalcijfers <span>komende 14 dagen</span></div>
-    ${soon.map(x => `<div class="pc-row"><span>${esc(qn(x.p))}</span><small>${x.e.days === 0 ? 'vandaag' : 'over ' + x.e.days + ' dagen'}${x.e.date ? ' · ' + new Date(x.e.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</small></div>`).join('')
+    ${soon.map(x => `<div class="pc-row"><span>${esc(qn(x.p))}</span><small>${x.e.days === 0 ? 'vandaag' : x.e.days === 1 ? 'morgen' : 'over ' + x.e.days + ' dagen'}${x.e.date ? ' · ' + new Date(x.e.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}</small></div>`).join('')
       || '<div class="pc-note">Geen cijfers binnen twee weken.</div>'}
     <div class="pc-note">Rond cijfers kan de koers hard springen; liever niet vlak ervoor kopen.</div></div>`);
 
@@ -857,7 +912,7 @@ function positionCard(p, q, err) {
     el.innerHTML = `
       <div class="p-name"><span class="p-ticker">${esc(p.ticker)}</span>
         <span class="p-company err">Koers niet geladen — bronnen geblokkeerd</span></div>
-      <div style="grid-column: span 3; font-size:12px; color:var(--muted); line-height:1.5">
+      <div class="p-msg">
         Nog geen data voor deze ticker. Staat hij in <code>tickers.txt</code>? Draai anders
         de GitHub Action één keer handmatig (tab <strong>Actions</strong> → <strong>Run workflow</strong>)
         en ververs daarna.
@@ -894,11 +949,12 @@ function positionCard(p, q, err) {
     ? `<div class="p-block">
          <div class="k">Op watchlist</div>
          <div class="v" style="color:var(--muted)">volgen</div>
-         <div class="drop-tag" style="color:var(--muted)">geen positie</div>
+         <div class="day-chg" style="color:var(--muted)">geen positie</div>
        </div>`
     : `<div class="p-block">
-         <div class="k">Resultaat (koop ${fmt(p.cost, cur)})</div>
+         <div class="k">Resultaat</div>
          <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
+         <div class="day-chg" style="color:var(--muted)">koop ${fmt(p.cost, cur)}</div>
        </div>`;
 
   // Winstniveau-blok (niet voor watchlist)
@@ -953,17 +1009,17 @@ function positionCard(p, q, err) {
     <div class="p-block">
       <div class="k">Huidige koers</div>
       <div class="v ${q.prevClose ? (dayChg >= 0 ? 'up' : 'down') : ''}">${fmt(q.price, cur)}</div>
-      ${q.prevClose ? `<div class="day-chg ${dayChg >= 0 ? 'up' : 'down'}">${dayChg >= 0 ? '+' : ''}${dayChg.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% vandaag</div>` : ''}
+      ${q.prevClose ? `<div class="day-chg ${dayChg >= 0 ? 'up' : 'down'}">${dayChg >= 0 ? '+' : ''}${dayChg.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% vandaag</div>` : '<div class="day-chg">&nbsp;</div>'}
     </div>
     ${resultBlock}
     <div class="bar-wrap">
-      <div class="bar-labels"><span>${fmt(q.low52, cur)}</span><span>52-wk range</span><span>${fmt(q.high52, cur)}</span></div>
+      <div class="bar-labels"><span>${fmt(q.low52, cur)}</span><span>52-wk<span class="bl-long"> range</span></span><span>${fmt(q.high52, cur)}</span></div>
       <div class="bar">
         <div class="bar-fill" style="width:100%"></div>
         <div class="bar-marker" style="left:${rangePos}%"></div>
       </div>
       <div class="drop-tag" style="color:${alert?'var(--down)':'var(--muted)'}">
-        ${dropFromHigh.toFixed(1)}% onder de top · drempel ${thr}%${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${+p.thresh || 20}%">(slim)</span>` : ''}
+        ${dropFromHigh.toFixed(1).replace('.', ',')}% onder de top · drempel ${thr}%${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${+p.thresh || 20}%">(slim)</span>` : ''}
       </div>
       ${alert && trendUp != null ? `<div class="trend-tag" style="color:${trendUp ? 'var(--up)' : 'var(--warn)'}">${trendUp
         ? '✓ dip in een stijgende trend (boven 200-daags gemiddelde)'
@@ -977,8 +1033,10 @@ function positionCard(p, q, err) {
         if (!isWatch && m.openSell) return '<span class="badge sell">VERKOOPSIGNAAL</span>';
         return '<span class="badge hold">geen actie</span>';
       })()}
-      ${isWatch ? '' : `<button class="edit-cost" data-id="${esc(id)}">Aankoopprijs aanpassen</button>`}
-      <button class="remove" data-id="${esc(id)}">verwijder</button>
+      <div class="p-btns">
+        ${isWatch ? '' : `<button class="edit-cost" data-id="${esc(id)}" title="Aankoopprijs aanpassen">Aankoopprijs<span class="lbl-long"> aanpassen</span></button>`}
+        <button class="remove" data-id="${esc(id)}">verwijder</button>
+      </div>
     </div>`;
 
   // Knop: verwijderen
@@ -1350,7 +1408,7 @@ function renderMarkets() {
         <span class="mkt-dot"></span>
         <span class="mkt-name">${ex.name}</span>
       </div>
-      <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
+      <div class="mkt-hours">${ex.city} · <span class="mkt-time">${tijden[key].label}</span></div>
       <div class="mkt-state">${tekst}</div>
       <div class="mkt-foot">${counts[key]} ${counts[key] === 1 ? 'positie' : 'posities'}</div>
     </div>`;

@@ -46,9 +46,11 @@
   }
   .title-block h1 {
     font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
-    display: flex; align-items: center; gap: 12px;
+    display: flex; align-items: flex-start; gap: 12px;
   }
+  /* bovenaan: loopt de titel over twee regels, dan blijft de stip bij de eerste regel */
   .pulse {
+    flex-shrink: 0; margin-top: .45em;
     width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
     box-shadow: 0 0 0 0 rgba(79,143,240,.55);
     animation: pulse 2.4s infinite;
@@ -79,9 +81,12 @@
     background: linear-gradient(180deg, var(--panel), var(--ink));
     border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
   }
+  .stat { min-width: 0; }
   .stat.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
-  .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+  /* Hover alleen met een muis: op een touchscreen blijft hij na een tik 'hangen' */
+  @media (hover: hover) { .stat.clickable:hover { border-color: var(--accent); transform: translateY(-2px); } }
   .stat.clickable:active { transform: translateY(0); }
+  .stat.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .stat.clickable.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
   .stat .label.plain { text-transform: none; letter-spacing: .3px; font-size: 12px; }
@@ -161,7 +166,22 @@
   .dist-l .u { color: var(--up); } .dist-l .f { color: #6b7075; } .dist-l .d { color: var(--down); }
   .cc-basis { font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 9px; margin-top: auto; }
   .cc-basis b { color: var(--mark); font-weight: 500; }
+  /* Met de techradar (vierde, hoge tegel): de andere tegels links onder elkaar, de techradar rechts ernaast.
+     De onderste tegel links vult de rest van de hoogte, zodat de voetregels links en rechts op één lijn staan. */
   .clim.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 761px) {
+    .clim.c4 { grid-template-rows: auto auto 1fr; }
+    .clim.c4 > .cc { grid-column: 1; }
+    .clim.c4 > .tw-cc { grid-column: 2; grid-row: 1 / -1; }
+    .clim.c4:not(:has(> .cc.wk)), .clim.c4:not(:has(> .cc.cr)) { grid-template-rows: auto 1fr; }
+    /* onderbouwing van de techradar open: de tegels links niet meerekken tot die lengte */
+    .clim.c4:has(.tw-det[open]) { align-items: start; }
+  }
+  /* drie tegels zonder techradar: past de derde niet meer naast de andere twee, dan over de volle breedte */
+  @media (min-width: 761px) and (max-width: 960px) {
+    .clim:not(.c4) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .clim:not(.c4) > .cc:nth-child(3), .clim:not(.c4) > .cc:only-child { grid-column: 1 / -1; }
+  }
   @media (max-width: 760px) { .clim, .clim.c4 { grid-template-columns: 1fr; } }
   /* Crashradar: derde kaart (amber) + uitklapbare historie sinds 1950 */
   .cc.cr { --mark: #f5b544; }
@@ -171,13 +191,14 @@
   .pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--tone); }
   .pbar em { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--muted); transform: translateX(-1px); }
   .ladder3 { display: flex; gap: 4px; margin-top: 8px; }
-  .ladder3 span { flex: 1; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace; text-align: center; padding: 3px 0; border-radius: 5px;
+  .ladder3 span { flex: 1; font-size: 11px; font-family: 'IBM Plex Mono', monospace; text-align: center; padding: 3px 0; border-radius: 5px;
                   border: 1px dashed var(--line); color: var(--muted); }
   .ladder3 span.hit { border-style: solid; border-color: rgba(62,207,142,.6); color: var(--up); background: rgba(62,207,142,.08); }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-  .chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .chip.on { color: var(--warn); border-color: rgba(245,181,68,.5); background: rgba(245,181,68,.07); }
   .cc-basis a { color: #f5b544; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .cc-basis a:focus-visible { outline: 2px solid #f5b544; outline-offset: 2px; border-radius: 3px; }
   details.crashx { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin: -2px 0 14px; }
   details.crashx[open] { border-color: rgba(245,181,68,.45); }
   details.crashx > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-size: 13px; }
@@ -189,24 +210,56 @@
   details.crashx .h-show-less { display: none; }
   details.crashx[open] .h-show-more { display: none; }
   details.crashx[open] .h-show-less { display: inline; }
-  @media (max-width: 560px) { details.crashx .h-sub { display: none; } }
+  @media (max-width: 560px) { details.crashx .h-sub, .heads summary .h-sub { display: none; } }
   .cx-body { padding: 4px 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .cx-c { background: rgba(255,255,255,.02); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
   .cx-c.wide { grid-column: 1 / -1; }
-  .cx-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .cx-k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
   .cx-k span { text-transform: none; letter-spacing: 0; font-family: 'IBM Plex Mono', monospace; }
   .cx-t { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .cx-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; padding: 3px 0; }
+  .cx-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; padding: 3px 0; }
   .cx-t th:not(:first-child), .cx-t td:not(:first-child) { text-align: right; font-family: 'IBM Plex Mono', monospace; padding-left: 10px; white-space: nowrap; }
   .cx-t td { padding: 4px 0; border-top: 1px dashed #26282b; vertical-align: top; }
   .cx-t td.l { text-align: left !important; white-space: normal !important; font-family: inherit !important; }
   .cx-t tr.cur td { color: #f5b544; }
-  .cx-t .chip { font-size: 9.5px; padding: 1px 6px; margin: 0 3px 3px 0; display: inline-block; }
+  .cx-t .chip { font-size: 11px; font-weight: 500; padding: 1px 7px; margin: 0 3px 3px 0; display: inline-block; }
+  .cx-t td small { font-size: 11px; }
   .cx-note { font-size: 11.5px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
   .cx-note b { color: var(--text); font-weight: 600; }
   .cx-chart svg { width: 100%; height: 150px; display: block; }
+  /* jaartallen als gewone tekst over de grafiek: de svg rekt mee in de breedte, de letters niet */
+  .cx-plot { position: relative; }
+  .cx-plot span { position: absolute; transform: translate(-50%, -100%); font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1;
+                  color: #83888d; white-space: nowrap; pointer-events: none; }
+  .cx-plot span.bear { color: #f0595f; }
   .cx-wrap { overflow-x: auto; }
-  @media (max-width: 760px) { .cx-body { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .cx-body { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .cx-body { padding: 4px 10px 12px; gap: 10px; }
+    .cx-c { padding: 10px 12px; }
+    .cx-plot span.bear { display: none; }          /* te smal: jaartallen van berenmarkten vallen over elkaar */
+    .cx-t th, .cx-t th:not(:first-child) { white-space: normal; }
+    .cx-t th:not(:first-child), .cx-t td:not(:first-child) { padding-left: 8px; }
+    /* Brede tabellen: per rij eerst het label over de volle breedte, daaronder de cijfers in vaste kolommen
+       (koprij blijft staan, zonder de eerste kop). Zo hoeft er niets opzij te scrollen. */
+    .cx-t.stk, .cx-t.stk tbody { display: block; }
+    .cx-t.stk tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px 8px; padding: 6px 0; border-top: 1px dashed #26282b; }
+    .cx-t.stk tr:first-child { border-top: 0; padding: 0 0 2px; }
+    .cx-t.stk th:first-child { display: none; }
+    .cx-t.stk td, .cx-t.stk th { border-top: 0; padding: 0; text-align: left !important; white-space: normal; }
+    .cx-t.stk td:first-child { grid-column: 1 / -1; }
+    .cx-t.stk td small { display: block; }
+    .cx-t.lad tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cx-t.dip tr { grid-template-columns: minmax(0, .55fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr); }
+    /* Berenmarkten: periode en daling naast elkaar, de signalen eronder met een eigen label */
+    .cx-t.bears tr { grid-template-columns: minmax(0, 1fr) auto; }
+    .cx-t.bears tr:first-child { display: none; }
+    .cx-t.bears td:first-child { grid-column: auto; }
+    .cx-t.bears td:nth-child(2) { text-align: right !important; }
+    .cx-t.bears td:nth-child(n+3) { grid-column: 1 / -1; position: relative; padding-left: 5.8em; }
+    .cx-t.bears td[data-l]::before { content: attr(data-l); position: absolute; left: 0; top: 2px; color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+    .cx-t.bears td small { display: inline; }
+  }
   .fac.key { box-shadow: inset 0 2px 0 var(--accent); }
   .heads summary::-webkit-details-marker { display: none; }
   .heads ul { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
@@ -215,7 +268,7 @@
   .heads a:hover, .news a:hover { color: var(--accent); }
   .meta { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 6px; }
   .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
-  .tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .tag.warn { color: var(--warn); border-color: rgba(245,181,68,.45); }
   .tag.pos { color: var(--up); border-color: rgba(62,207,142,.4); }
   .tag.neg { color: var(--down); border-color: rgba(255,93,108,.4); }
@@ -232,19 +285,23 @@
     min-width: 0;
   }
   .mkt { cursor: pointer; transition: border-color .15s, transform .15s, opacity .15s; }
-  .mkt:hover { border-color: var(--accent); transform: translateY(-2px); }
+  @media (hover: hover) {
+    .mkt:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .markets.filtering .mkt:not(.active):hover { opacity: 1; }
+  }
   .mkt:active { transform: translateY(0); }
   .mkt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mkt.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .markets.filtering .mkt:not(.active) { opacity: .5; }
-  .markets.filtering .mkt:not(.active):hover { opacity: 1; }
   .mkt-top { display: flex; align-items: center; gap: 8px; }
   .mkt-hours { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .mkt-time { white-space: nowrap; }
   .mkt-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .mkt.open .mkt-dot { background: var(--up); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
   .mkt.closed .mkt-dot { background: var(--down); }
   .mkt-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
+  /* groeit mee, zodat de voetregels van kaarten naast elkaar op één lijn staan */
+  .mkt-state { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); flex-grow: 1; }
   .mkt.open .mkt-state b { color: var(--up); font-weight: 600; }
   .mkt.closed .mkt-state b { color: var(--down); font-weight: 600; }
   .mkt-foot {
@@ -265,7 +322,7 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   }
   .tb-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .toolbar select {
     font-family: inherit; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
     height: 38px; padding: 0 11px; border-radius: 9px; font-size: 13px; width: 100%; min-width: 0; cursor: pointer;
@@ -292,7 +349,8 @@
   .position {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 20px; display: grid;
-    grid-template-columns: minmax(0,1.15fr) minmax(0,.8fr) minmax(0,.85fr) minmax(0,1.75fr) minmax(220px,1.5fr) auto; gap: 18px; align-items: center;
+    /* vaste laatste kolom: dan staan koers, verwachting en plan op elke kaart op dezelfde plek */
+    grid-template-columns: minmax(0,1.2fr) minmax(118px,.8fr) minmax(118px,.85fr) minmax(0,1.6fr) minmax(220px,1.5fr) 176px; gap: 16px; align-items: center;
     position: relative; overflow: hidden; transition: .2s;
   }
   .position::before {
@@ -319,20 +377,21 @@
   .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
   .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
   .rank-tag { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); margin-right: 7px; }
-  .src { font-size: 10px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
+  .src { font-size: 11px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
   .src-live { color: var(--up); }
   .src-none { color: var(--warn); }
 
-  .p-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .p-block .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .p-block .v { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; }
   .v.up, .c-up { color: var(--up); } .v.down, .c-down { color: var(--down); }
   .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; color: var(--muted); }
   .drop-tag.c-up { color: var(--up); } .drop-tag.c-down { color: var(--down); }
 
   .bar-wrap { display: flex; flex-direction: column; gap: 7px; }
-  .bar-labels { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  /* drie gelijke vakken: 'nu' staat midden boven het witte streepje; past een label niet, dan op twee regels */
+  .bar-labels { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 6px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .bar-labels .doel { color: var(--up); }
-  .bar-labels > span { white-space: nowrap; }
+  .bar-labels > span:last-child { text-align: right; }
   .bar-wrap .drop-tag b { color: var(--text); font-weight: 600; }
   .bar { height: 8px; background: var(--panel-2); border-radius: 6px; position: relative; overflow: hidden; }
   .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
@@ -341,7 +400,7 @@
   .bar-marker { position: absolute; top: -3px; left: 50%; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
 
   .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 10px; }
-  .profit-block .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .profit-block .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: grid; grid-template-columns: 94px minmax(0,1fr) auto; align-items: baseline; gap: 6px; }
   .plan-row b { font-weight: 600; }
   .plan-row b { color: var(--text); }
@@ -349,7 +408,10 @@
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .plan-row .real-pct { grid-column: 2 / -1; margin-top: -3px; color: var(--up); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 
-  .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; min-width: 0; }
+  .p-actions .entry { white-space: normal; text-align: right; }
+  .p-btns { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .err-msg { grid-column: 2 / -2; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
   .badge.down { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
   .badge.up { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
@@ -365,7 +427,7 @@
   .spark { display: block; width: 100%; height: 130px; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 14px; border-top: 2px dashed currentColor; vertical-align: middle; margin-right: 5px; }
-  .d-k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+  .d-k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
   .pat { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .pat li { font-size: 13px; display: flex; gap: 8px; }
   .pat li.off { color: var(--muted); }
@@ -399,6 +461,7 @@
     gap: 18px; align-items: center; position: relative; overflow: hidden;
   }
   .trade::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+  .trade > .p-block { align-self: start; }      /* 'Koers nu' en 'Resultaat' op één lijn, ook al is het tweede blok hoger */
   .trade.go { border-color: rgba(62,207,142,.6); box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4); }
   .trade.go::before { background: var(--up); }
   .trade.stop { border-color: rgba(240,89,95,.6); box-shadow: 0 0 0 1px rgba(240,89,95,.25), 0 8px 30px -12px rgba(240,89,95,.4); }
@@ -410,42 +473,77 @@
   .t-btns { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
   .t-range { height: 6px; background: var(--panel-2); border-radius: 6px; position: relative; margin-top: 8px; }
   .t-range .dot { position: absolute; top: -4px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
-  .t-range-l { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 5px; }
+  .t-range-l { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 5px; }
 
   #pinned:not(:empty) { margin-bottom: 26px; }
   .sync-note { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
 
-  @media (max-width: 1040px) {
-    .position { grid-template-columns: 1fr 1fr; }
-    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
-    .bar-wrap { grid-column: span 2; }
-    .profit-block { grid-column: span 2; }
+  /* Desktop: de twee koersblokken even hoog (label op twee regels), dan staan de bedragen op één lijn */
+  @media (min-width: 1101px) {
+    .position > .p-block .k { min-height: 2.6em; line-height: 1.3; display: flex; align-items: flex-end; }
+    .position > .p-block .v { font-size: 16px; }
+  }
+  /* Tablet: naam | koers | verwachting op één rij; balk, plan en knoppen eronder over de volle breedte */
+  @media (max-width: 1100px) {
+    .position { grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); }
+    .position > .p-block { align-self: start; }
+    .p-actions, .bar-wrap, .profit-block { grid-column: 1 / -1; }
+    .err-msg { grid-column: 2 / -1; }
+    /* status links, knoppen rechts: zo staan ze op elke kaart op dezelfde plek */
+    .p-actions { flex-direction: row; justify-content: flex-start; align-items: center; flex-wrap: wrap; }
+    .p-actions .entry { text-align: left; }
+    .p-btns { flex-direction: row; align-items: center; margin-left: auto; }
+    /* plan: percentage direct naast de prijs, niet helemaal aan de rechterkant van de kaart */
+    .plan-row { grid-template-columns: 94px minmax(13ch, max-content) minmax(0,1fr); column-gap: 14px; }
+    .plan-row .pp { justify-self: start; }
+    .factors { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   @media (max-width: 860px) {
-    .trade { grid-template-columns: 1fr 1fr; }
-    .trade .t-action, .trade .t-btns { grid-column: span 2; }
+    .trade { grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); }
+    .trade .t-action, .trade .t-btns { grid-column: 1 / -1; }
     .summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .stat .label { min-height: 2.8em; }
-    .position { grid-template-columns: 1fr 1fr; }
-    .p-actions { grid-column: span 2; flex-direction: row; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
-    .bar-wrap { grid-column: span 2; }
-    .profit-block { grid-column: span 2; }
     .detail { grid-template-columns: 1fr; }
   }
+  /* Aanraakscherm of smal venster: knoppen groot genoeg voor een vinger (±40px), velden 16px (anders zoomt iOS in) */
+  @media (pointer: coarse), (max-width: 860px) {
+    .toggle { min-height: 40px; padding: 8px 12px; font-size: 12px; }
+    .t-btns { gap: 10px; }
+    .t-btns .toggle[data-del] { min-width: 40px; }
+    .toolbar select, .tb-reset { height: 40px; }
+    .toolbar select { font-size: 16px; }
+    .cc-basis a { padding: 12px 4px; margin: 0 -4px; }
+  }
   @media (max-width: 520px) {
-    .markets { grid-template-columns: repeat(2, 1fr); }
-    .mkt-top { flex-wrap: wrap; }
+    /* Beurzen: één rij kaarten om horizontaal door te vegen in plaats van drie rijen onder elkaar */
+    .markets {
+      display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 12px;
+      gap: 8px; margin: -4px -12px 14px; padding: 4px 12px 6px; scrollbar-width: none;
+    }
+    .markets::-webkit-scrollbar { display: none; }
+    .mkt { flex: 0 0 172px; scroll-snap-align: start; }        /* derde kaart steekt net in beeld: er is meer */
+    .mkt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
+    .title-block h1 { font-size: 22px; }
     .controls { justify-content: space-between; }
     .summary { gap: 10px; }
     .stat { padding: 12px 14px; }
     .stat .value { font-size: 20px; }
-    .position { grid-template-columns: 1fr 1fr; padding: 16px; gap: 14px; }
-    .p-name { grid-column: span 2; }
+    .position { grid-template-columns: repeat(2, minmax(0,1fr)); padding: 16px; gap: 14px; }
+    .p-name, .err-msg { grid-column: 1 / -1; }
     .p-ticker { font-size: 22px; }
-    .trade { padding: 16px; gap: 14px; }
-    .trade .t-name { grid-column: span 2; }
+    .factors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* zonder signaal is de balk leeg en is er geen plan: kaart compact houden (staat ook onder Details) */
+    .position:not(.flag) > .bar-wrap, .position:not(.flag) > .profit-block { display: none; }
+    .trade { grid-template-columns: repeat(2, minmax(0,1fr)); padding: 16px; gap: 14px; }
+    .trade .t-name { grid-column: 1 / -1; }
+  }
+  @media (max-width: 380px) {
+    .summary { gap: 8px; }
+    .stat { padding: 10px; }
+    .stat .label { letter-spacing: .4px; }
+    .stat .sub { font-size: 11px; }
   }
 </style>
 </head>
@@ -470,15 +568,15 @@
 
   <div class="toolbar">
     <div class="tb-group">
-      <span class="tb-label">Sorteer</span>
+      <label class="tb-label" for="sortSel">Sorteer</label>
       <select id="sortSel">
-        <option value="section">Categorie (standaard)</option>
+        <option value="section">Categorie</option>
         <option value="result">Resultaat (hoog → laag)</option>
         <option value="name">Naam (A → Z)</option>
       </select>
     </div>
     <div class="tb-group">
-      <span class="tb-label">Categorie</span>
+      <label class="tb-label" for="catSel">Categorie</label>
       <select id="catSel">
         <option value="all">Alle</option>
         <option value="Stocks">Stocks</option>
@@ -486,13 +584,13 @@
       </select>
     </div>
     <div class="tb-group">
-      <span class="tb-label">Beurs</span>
+      <label class="tb-label" for="mktSel">Beurs</label>
       <select id="mktSel">
         <option value="all">Alle</option>
       </select>
     </div>
     <div class="tb-group">
-      <span class="tb-label">Status</span>
+      <label class="tb-label" for="statusSel">Status</label>
       <select id="statusSel">
         <option value="all">Alle</option>
         <option value="up">Koopsignaal</option>
@@ -723,8 +821,7 @@ function card(it) {
       ${badge}
       ${entry}
       ${since}
-      ${followBtn}
-      <button class="toggle" data-sym="${esc(it.symbol)}">${open ? 'Minder' : 'Details'}</button>
+      <span class="p-btns">${followBtn}<button class="toggle" data-sym="${esc(it.symbol)}">${open ? 'Minder' : 'Details'}</button></span>
     </div>
     ${open ? detail(it) : ''}`;
   return el;
@@ -736,7 +833,8 @@ const TOPIC = { 'stock market': 'beurs', 'oil prices': 'olie', war: 'oorlog/conf
 const RATING = { strong_buy: 'sterk kopen', buy: 'kopen', hold: 'houden', underperform: 'onderpresteren', sell: 'verkopen' };
 function geleden(iso) {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
-  return m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' uur' : Math.round(m / 1440) + ' d';
+  // vaste spatie: getal en eenheid nooit over twee regels
+  return m < 60 ? m + '\u00a0min' : m < 1440 ? Math.round(m / 60) + '\u00a0uur' : Math.round(m / 1440) + '\u00a0d';
 }
 function fmtFactor(f) {
   const nl = (x, d) => x.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -782,6 +880,7 @@ function renderWorld() {
   const vix = byKey.vix, nd = byKey.nasdaq;
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
   const cxOpen = box.querySelector('details.crashx') && box.querySelector('details.crashx').open;
+  const twOpen = box.querySelector('details.tw-det') && box.querySelector('details.tw-det').open;
   const wk = weekOutlook();
   const clim = climateCards(reg, byKey, wk);
   box.innerHTML = `
@@ -792,6 +891,8 @@ function renderWorld() {
         <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>
         <span class="h-btn"><span class="h-show-more">tonen</span><span class="h-show-less">verbergen</span></span></summary>
         <ul>${heads}</ul></details>` : ''}`;
+  // de techradar (techwarn.js) kent geen open-stand: hier terugzetten
+  if (twOpen && box.querySelector('details.tw-det')) box.querySelector('details.tw-det').open = true;
 }
 // Twee kaarten: beursklimaat vandaag (blauw) en deze week (paars)
 function climateCards(reg, byKey, wk) {
@@ -867,7 +968,7 @@ function crashCard() {
       </div>
       <div class="chips">${on.length ? on.map(k => `<span class="chip on">${esc(names[k] || k)}</span>`).join('') : '<span class="chip">geen waarschuwingssignalen</span>'}</div>
       <div class="cc-basis">${n.k} van ${(c.signals || []).length} signalen aan · <b>${(c.bears || []).length} berenmarkten</b> sinds 1950 nagerekend ·
-        <a onclick="const d=document.querySelector('details.crashx'); d.open=true; d.scrollIntoView({behavior:'smooth', block:'start'})">historie bekijken</a></div>
+        <a href="#" role="button" onclick="event.preventDefault(); const d=document.querySelector('details.crashx'); d.open=true; d.scrollIntoView({behavior:'smooth', block:'start'})">historie bekijken</a></div>
     </div>`;
 }
 // Grafiek: hoe ver de S&P 500 onder de top stond (rood) en wanneer 3+ signalen tegelijk brandden (amber)
@@ -878,12 +979,13 @@ function crashChart(series, bears) {
   const area = 'M0,0 ' + series.map((s, i) => `L${x(i)},${y(s[1])}`).join(' ') + ` L${W},0 Z`;
   const warn = series.map((s, i) => s[2] >= 3 ? `<rect x="${x(i)}" y="0" width="${(W / n + 0.6).toFixed(2)}" height="${H}" fill="rgba(245,181,68,.13)"/>` : '').join('');
   const idx = Object.fromEntries(series.map((s, i) => [s[0], i]));
+  // Jaartallen als HTML boven op de svg (in % van de breedte/hoogte): de svg rekt mee, de letters blijven leesbaar
+  const lbl = (xi, yy, cls, t) => `<span class="${cls}" style="left:${(xi / W * 100).toFixed(2)}%;top:${(yy / H * 100).toFixed(2)}%">${esc(t)}</span>`;
   const labels = (bears || []).map(b => { const i = idx[b.trough.slice(0, 7)]; return i == null ? '' :
-    `<text x="${x(i)}" y="${Math.min(H - 4, +y(-b.depth) + 12)}" fill="#f0595f" font-size="11" text-anchor="middle" font-family="IBM Plex Mono, monospace">${b.peak.slice(0, 4)}</text>`; }).join('');
-  const years = [1960, 1980, 2000, 2020].map(yy => { const i = idx[yy + '-01']; return i == null ? '' :
-    `<text x="${x(i)}" y="${H - 2}" fill="#83888d" font-size="10" text-anchor="middle">${yy}</text>`; }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Stand onder de top sinds 1950">
-    ${warn}<path d="${area}" fill="rgba(240,89,95,.30)" stroke="#f0595f" stroke-width="1"/>${labels}${years}</svg>`;
+    lbl(+x(i), Math.min(H - 4, +y(-b.depth) + 12), 'bear', b.peak.slice(0, 4)); }).join('');
+  const years = [1960, 1980, 2000, 2020].map(yy => { const i = idx[yy + '-01']; return i == null ? '' : lbl(+x(i), H - 1, 'yr', yy); }).join('');
+  return `<div class="cx-plot"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Stand onder de top sinds 1950">
+    ${warn}<path d="${area}" fill="rgba(240,89,95,.30)" stroke="#f0595f" stroke-width="1"/></svg>${labels}${years}</div>`;
 }
 function crashDetails(isOpen) {
   const c = crash;
@@ -901,8 +1003,8 @@ function crashDetails(isOpen) {
   const bearRows = (c.bears || []).slice().reverse().map(x => {
     const dt = d => d ? new Date(d).toLocaleDateString('nl-NL', { month: 'short', year: 'numeric' }) : '—';
     return `<tr><td class="l"><b>${dt(x.peak)}</b> → ${dt(x.trough)}<br><small style="color:var(--muted)">${Math.round(x.days / 30.4)} mnd omlaag${x.rec ? ' · hersteld ' + dt(x.rec) : ' · nog niet hersteld'}</small></td>
-      <td class="c-down">${nl1(x.depth)}%</td><td class="l">${x.pre.length ? x.pre.map(chip).join('') : '<small style="color:var(--muted)">geen</small>'}</td>
-      <td class="l">${x.at10.length ? x.at10.map(chip).join('') : '<small style="color:var(--muted)">geen</small>'}</td></tr>`;
+      <td class="c-down">${nl1(x.depth)}%</td><td class="l" data-l="vooraf">${x.pre.length ? x.pre.map(chip).join('') : '<small style="color:var(--muted)">geen</small>'}</td>
+      <td class="l" data-l="bij −10%">${x.at10.length ? x.at10.map(chip).join('') : '<small style="color:var(--muted)">geen</small>'}</td></tr>`;
   }).join('');
   const dipRows = (c.dips || []).map(d => `<tr class="${n.dd >= d.lo && n.dd < d.hi ? 'cur' : ''}"><td class="l">${d.lo}–${d.hi === 100 ? '…' : d.hi}% onder top</td><td>${d.n}</td>
       <td>${d.med12 > 0 ? '+' : ''}${nl1(d.med12)}% <small style="color:var(--muted)">(${d.pos12}% pos.)</small></td>
@@ -917,19 +1019,19 @@ function crashDetails(isOpen) {
         ${crashChart(c.series, c.bears)}
         <div class="cx-note">Per maand sinds 1950. De amberkleurige stroken laten zien wanneer 3 of meer waarschuwingssignalen tegelijk brandden; jaartallen = begin van een berenmarkt.</div></div>
       <div class="cx-c"><div class="cx-k">Kooplad <span>gespreid kopen</span></div>
-        <table class="cx-t"><tr><th>stap</th><th>niveau</th><th>stand</th></tr>${lad}</table>
+        <table class="cx-t stk lad"><tr><th>stap</th><th>niveau</th><th>stand</th></tr>${lad}</table>
         <div class="cx-note">Top ${nf(n.top, 0)} op ${new Date(n.top_date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}. Wie een derde koopt bij elke stap, hoeft het dieptepunt niet te raden.
           Je S&amp;P 500-ETF (VUAA) beweegt vrijwel gelijk mee.</div></div>
       <div class="cx-c"><div class="cx-k">Dip kopen <span>rendement daarna</span></div>
-        <div class="cx-wrap"><table class="cx-t"><tr><th>stand</th><th>mnd</th><th>12 mnd</th><th>24 mnd</th><th>slechtst</th></tr>${dipRows}</table></div>
+        <div class="cx-wrap"><table class="cx-t stk dip"><tr><th>stand</th><th>mnd</th><th>12 mnd</th><th>24 mnd</th><th>slechtst</th></tr>${dipRows}</table></div>
         <div class="cx-note">Mediaan rendement na een maand met die stand onder de top (S&amp;P 500, zonder dividend). Hoe dieper de dip, hoe vaker het twee jaar later hoger stond.</div></div>
       <div class="cx-c wide"><div class="cx-k">Waarschuwingssignalen <span>kans op daling binnen 12 mnd · tussen haakjes normaal</span></div>
-        <div class="cx-wrap"><table class="cx-t"><tr><th>signaal</th><th>nu</th><th>≥10%</th><th>≥20%</th><th>×kans 20%</th></tr>${sigRows}</table></div>
+        <div class="cx-wrap"><table class="cx-t stk"><tr><th>signaal</th><th>nu</th><th>≥10%</th><th>≥20%</th><th>×kans 20%</th></tr>${sigRows}</table></div>
         <div class="cx-note">Normaal volgt in ${Math.round(b.p10 || 0)}% van de maanden binnen een jaar een daling van 10% en in ${Math.round(b.p20 || 0)}% een van 20%.
           <b>Geen enkel signaal voorspelt een crash op zichzelf</b>; trendsignalen gaan pas af als de daling al begonnen is. Samen zeggen ze meer:</div>
         <div class="cx-wrap" style="margin-top:8px"><table class="cx-t"><tr><th>signalen</th><th>tijd</th><th>≥10%</th><th>≥20%</th><th>mediaan 12 mnd</th></tr>${kRows}</table></div></div>
       <div class="cx-c wide"><div class="cx-k">Berenmarkten sinds 1950 <span>≥ 20% onder de top · nieuwste eerst</span></div>
-        <div class="cx-wrap"><table class="cx-t"><tr><th>top → bodem</th><th>daling</th><th style="text-align:left">signalen in 12 mnd vóór de top</th><th style="text-align:left">bij −10%</th></tr>${bearRows}</table></div>
+        <div class="cx-wrap"><table class="cx-t stk bears"><tr><th>top → bodem</th><th>daling</th><th style="text-align:left">signalen in 12 mnd vóór de top</th><th style="text-align:left">bij −10%</th></tr>${bearRows}</table></div>
         <div class="cx-note">Zo zie je welke patronen een crash vooraf aankondigden, en welke pas zichtbaar werden toen de daling al 10% was. Bronnen: S&amp;P 500, 10-jaars- en 3-maandsrente (Yahoo),
           inflatie en werkloosheid (FRED). Bijgewerkt ${new Date(c.updated).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Geen beleggingsadvies.</div></div>
     </div></details>`;
@@ -1059,7 +1161,7 @@ function errorCard(e) {
   el.innerHTML = `
     <div class="p-name"><span class="p-ticker"><span class="exch-dot" data-exch="${exchangeKeyOf(e.symbol) || ''}"></span>${esc(e.label || e.name || e.symbol)}</span>
       <span class="p-company">(${esc(e.symbol)})${exchName(e.symbol)} <span class="src src-none" title="Geen koershistorie">● geen data</span></span></div>
-    <div style="grid-column: span 4; font-size:12px; color:var(--muted); line-height:1.5">
+    <div class="err-msg">
       <span class="err">Geen signaal mogelijk.</span> ${/weinig/.test(e.error) ? 'Yahoo heeft te weinig koershistorie voor deze beursnotering (minimaal 60 handelsdagen nodig).' : 'Koersen konden niet worden opgehaald: ' + esc(e.error)}
     </div>
     <div class="p-actions"><span class="badge hold">geen data</span></div>`;
@@ -1115,7 +1217,7 @@ function render() {
       if (!inSec.length && !errSec.length) return;
       const h = document.createElement('div');
       h.className = 'section-header';
-      h.textContent = sec;
+      h.textContent = CAT_LABEL[sec] || sec;
       cards.appendChild(h);
       inSec.forEach(i => cards.appendChild(card(i)));
       errSec.forEach(e => cards.appendChild(errorCard(e)));
@@ -1143,19 +1245,25 @@ function render() {
   const s = data.stats;
   const summary = document.getElementById('summary');
   summary.innerHTML = `
-    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up"><div class="label">Verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omhoog</div></div>
-    <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">in de afgelopen handelsdag</div></div>
-    <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
+    <div class="stat clickable ${ui.status === 'up' ? 'active' : ''}" data-status="up" role="button" tabindex="0" aria-pressed="${ui.status === 'up'}"><div class="label">Verwachte stijging</div><div class="value" style="color:var(--up)">${nUp}</div><div class="sub">${NOUN(2)} ${MOVE_MIN}% of meer omhoog</div></div>
+    <div class="stat clickable ${ui.status === 'new' ? 'active' : ''}" data-status="new" role="button" tabindex="0" aria-pressed="${ui.status === 'new'}"><div class="label">Nieuw signaal</div><div class="value" style="color:var(--warn)">${nNew}</div><div class="sub">in de afgelopen handelsdag</div></div>
+    <div class="stat clickable ${ui.status === 'flat' ? 'active' : ''}" data-status="flat" role="button" tabindex="0" aria-pressed="${ui.status === 'flat'}"><div class="label">Geen signaal</div><div class="value">${nFlat}</div><div class="sub">${catErrors.length ? catErrors.length + ' zonder data' : 'onder de ' + MOVE_MIN + '%'}</div></div>
 `;
   summary.querySelectorAll('.stat.clickable').forEach(el => {
     el.onclick = () => { const st = el.dataset.status; ui.status = ui.status === st ? 'all' : st; saveUI(); render(); };
+    // toetsenbord: Enter/spatie werkt als klik; de tegel wordt opnieuw opgebouwd, dus de focus terugzetten
+    el.onkeydown = e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault(); el.onclick();
+      const n = summary.querySelector(`[data-status="${el.dataset.status}"]`); if (n) n.focus();
+    };
   });
 
   const d = new Date(data.generated);
   document.getElementById('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  renderPinned();      // vóór renderMarkets: die kleurt ook de beurs-stip op de opgevolgde kaarten
   renderMarkets();
   renderWorld();
-  renderPinned();
   window.scrollTo(0, scrollY);
 }
 
@@ -1476,7 +1584,7 @@ function renderMarkets() {
       role="button" tabindex="0" aria-pressed="${aan}"
       title="${aan ? 'Toon weer alle ' + CFG.noun[1] : 'Toon alleen ' + CFG.noun[1] + ' op ' + ex.name}">
       <div class="mkt-top"><span class="mkt-dot"></span><span class="mkt-name">${ex.name}</span></div>
-      <div class="mkt-hours">${ex.city} · ${tijden[key].label}</div>
+      <div class="mkt-hours">${ex.city} · <span class="mkt-time">${tijden[key].label}</span></div>
       <div class="mkt-state">${tekst}</div>
       <div class="mkt-foot">${counts[key]} ${NOUN(counts[key])}</div>
     </div>`;
@@ -1527,7 +1635,7 @@ document.getElementById('pageSub').textContent = CFG.sub;
 if (SET === 'top250') {
   const o = document.createElement('option'); o.value = 'rank'; o.textContent = 'Plaats in kansenlijst (hoog → laag)';
   document.getElementById('sortSel').insertBefore(o, document.querySelector('#sortSel option[value="name"]'));
-  document.querySelector('#sortSel option[value="section"]').textContent = 'Sector (standaard)';
+  document.querySelector('#sortSel option[value="section"]').textContent = 'Sector';
   document.querySelector('#catSel').previousElementSibling.textContent = 'Sector';
 }
 document.getElementById('sortSel').value = ui.sort;

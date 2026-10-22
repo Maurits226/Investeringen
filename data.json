@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-22T06:10:35.166559+00:00",
+  "updated": "2026-10-22T06:20:35.930926+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -297,14 +297,14 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 383.5,
+      "price": 370.5,
       "prevClose": 377.5,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 432.5,
       "vol": 40.0,
-      "sma50": 379.01,
-      "sma200": 344.3,
+      "sma50": 378.98,
+      "sma200": 344.7775,
       "low52": 236.0,
       "exchange": "DUS",
       "exchangeFull": "Dusseldorf"

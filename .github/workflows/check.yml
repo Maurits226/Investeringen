@@ -1,0 +1,51 @@
+name: Controle
+
+# Controleert elke wijziging aan de code voordat die live gaat (eerst op een werkbranch, daarna pas naar main):
+# Python-scripts, JavaScript, de databestanden, de techradar en de Top 250-pijplijn op testdata,
+# en alle pagina's in een echte browser op telefoon- en desktopformaat.
+# Alleen lezen: deze check kan niets in de repository veranderen. Data-commits van de andere workflows starten hem niet.
+
+on:
+  push:
+    paths:
+      - '**.html'
+      - '**.js'
+      - '**.css'
+      - 'scripts/**'
+      - 'update_prices.py'
+      - 'tests/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (vastgepind)
+        with:
+          persist-credentials: false
+
+      - name: Scripts, JavaScript, data en beveiliging van de pagina's
+        run: python3 -B tests/test_static.py
+
+      - name: Techradar op synthetische koersen
+        run: python3 -B tests/test_tech.py
+
+      - name: Top 250-pijplijn op de opgeslagen cijfers
+        run: python3 -B tests/test_screener.py
+
+      - name: Browser installeren
+        run: |
+          npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Alle pagina's in de browser (telefoon en desktop)
+        run: node tests/test_pages.js

@@ -3,11 +3,14 @@
 Top 250 — genereert screener.json voor screener.html.
 
 Zoekt kansen BUITEN je portefeuille in een breed universum:
-  * alle Amerikaanse bedrijven boven $2 mld marktwaarde op NYSE/Nasdaq (Yahoo-screener, max. 1.500, geen OTC) + de S&P 500
+  * alle Amerikaanse bedrijven boven $2 mld marktwaarde op NYSE/Nasdaq (Yahoo-screener, geen OTC) + de S&P 500
   * alle eurozone-bedrijven boven €1 mld op hun thuisbeurs (Xetra, Parijs, Amsterdam, Milaan,
-    Madrid, Brussel, Helsinki, Dublin, Wenen, Lissabon)
+    Madrid, Brussel, Helsinki, Dublin, Wenen, Lissabon, Athene)
   * plus screener_universe.txt voor eigen toevoegingen
 Alleen euro- en dollarbedrijven: bedrijven die in een andere valuta noteren of rapporteren vallen af.
+
+Uitvoer: screener.json (lichte lijst: eigen posities volledig, kansen kort), screener_det/00..15.json
+(details per kans, pas geladen bij openklappen), koopmoment.json en these.json (wekelijkse stand van je eigen aandelen).
 
 Per stock:
   * De 12 stappen en de 125-punten scorecard uit 'How to Find the Best Stocks' (Tom Nash):
@@ -40,14 +43,15 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 # ── Instellingen ─────────────────────────────────────────────────────────
-TOP_N = 650                 # in screener.json, op volgorde van de scorecard; de pagina toont scorecard 75+ (max. 500)
+TOP_N = 1000                # in screener.json, op volgorde van de scorecard; de pagina toont scorecard 75+ (max. 1000)
 CARD_SELECT = 75            # vanaf deze scorecard staat een bedrijf in de kansenlijst (75-100 watchlist, 100+ once-in-a-lifetime)
 # Breed universum via de Yahoo-screener: de grootste bedrijven van de markt, wekelijks ververst
 DYN_REFRESH_DAYS = 7
-DYN_V = 2                                                  # v2: alleen hoofdbeurzen in de VS (geen OTC); oudere lijst direct opnieuw ophalen
-DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven boven $2 mld op de hoofdbeurzen, grootste eerst
-DYN_EU = {"min_cap": 1e9, "limit": 200,                    # eurozone: per thuisbeurs boven €1 mld
-          "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS"]}
+DYN_V = 3                                                  # v3: VS zonder plafond, eurozone 600 per beurs + Athene; oudere lijst direct opnieuw ophalen
+DYN_US = {"min_cap": 2e9, "limit": 3000}                   # VS: alle bedrijven boven $2 mld op de hoofdbeurzen (de marktwaardegrens sluit de lijst af)
+DYN_EU = {"min_cap": 1e9, "limit": 600,                    # eurozone: per thuisbeurs boven €1 mld
+          "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS", "ATH"],
+          "mixed": {"GER", "VIE"}}                         # Xetra en Wenen noteren ook veel buitenlandse aandelen in euro (zie eu_keep)
 OK_FIN_CUR = {"USD", "EUR"}
 # Score 2.0 (marktrang): vijf pijlers. F = scorecard van de gids (absoluut), de andere vier zijn percentielen binnen de sector.
 PILLAR_W = {"F": 0.30, "Q": 0.20, "G": 0.20, "V": 0.15, "M": 0.15}
@@ -94,15 +98,20 @@ CACHE = os.path.join(ROOT, "screener_cache.json")
 UNIVERSE = os.path.join(ROOT, "screener_universe.txt")
 QUALITY = os.path.join(ROOT, "kwaliteit.json")
 KOOP_OUT = os.path.join(ROOT, "koopmoment.json")
+DET_DIR = os.path.join(ROOT, "screener_det")   # details per kans, verdeeld over DET_N bestanden (shard_of)
+DET_N = 16
+THESE_OUT = os.path.join(ROOT, "these.json")   # wekelijkse stand van je eigen aandelen (these-bewaking)
+THESE_MAX = 104                                # zoveel weken historie bewaren (2 jaar)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
-EU_SUFFIX = {"DE", "PA", "AS", "MI", "MC", "BR", "HE", "IR", "VI", "LS", "DU", "F"}
+EU_SUFFIX = {"DE", "PA", "AS", "MI", "MC", "BR", "HE", "IR", "VI", "LS", "AT", "DU", "F"}
 EXCH_NAME = {
     "GER": "Xetra", "FRA": "Frankfurt", "DUS": "Düsseldorf", "PAR": "Euronext Parijs",
     "AMS": "Euronext Amsterdam", "MIL": "Borsa Italiana", "MCE": "BME Madrid",
     "BRU": "Euronext Brussel", "HEL": "Nasdaq Helsinki", "ISE": "Euronext Dublin",
-    "VIE": "Wiener Börse", "LIS": "Euronext Lissabon", "STU": "Stuttgart", "MUN": "München",
+    "VIE": "Wiener Börse", "LIS": "Euronext Lissabon", "ATH": "Euronext Athene",
+    "STU": "Stuttgart", "MUN": "München",
 }
 # euro-notering voor VS-bedrijven, in deze volgorde: Nederland → Duitsland → Oostenrijk
 EU_LISTING_PREF = ["AMS", "GER", "FRA", "DUS", "VIE"]
@@ -390,7 +399,8 @@ def first_price(y, sym):
 
 
 def find_eu_listing(y, name, us_price, fx):
-    """Zoekt de euro-notering van een VS-bedrijf. Controle: euro-koers ≈ dollarkoers / EURUSD."""
+    """Zoekt de euro-notering van een VS-bedrijf. Controle: dezelfde bedrijfsnaam én euro-koers ≈ dollarkoers / EURUSD
+    (alleen de koers is niet genoeg: MRK, Merck & Co., kwam zo bij MRK.DE uit, Merck KGaA)."""
     if not us_price or not fx:
         return None
     q = re.sub(r"[,.]|\b(Inc|Corp|Corporation|Co|Company|plc|Ltd|Holdings?|Group|Class [A-C])\b", " ",
@@ -401,7 +411,8 @@ def find_eu_listing(y, name, us_price, fx):
     res = y.get("https://query2.finance.yahoo.com/v1/finance/search?"
                 f"q={quote(q)}&quotesCount=20&newsCount=0&listsCount=0")
     cands = [c for c in res.get("quotes", [])
-             if c.get("exchange") in EU_LISTING_PREF and c.get("quoteType") == "EQUITY"]
+             if c.get("exchange") in EU_LISTING_PREF and c.get("quoteType") == "EQUITY"
+             and same_company(name, c.get("longname") or c.get("shortname"))]
     cands.sort(key=lambda c: EU_LISTING_PREF.index(c["exchange"]))
     for c in cands[:5]:
         try:
@@ -572,20 +583,41 @@ def eu_row(q):
     return "." in q["sym"] and q["sym"].rsplit(".", 1)[1] in EU_SUFFIX and (q.get("cur") or "EUR") == "EUR"
 
 
-def dynamic_universe(y, dyn):
+def eu_keep(q, mixed, country_of):
+    """Telt deze regel mee voor de limiet van een eurozone-beurs? Op Xetra en Wenen (mixed) staan ook honderden
+    buitenlandse aandelen in euro (NVD.DE, GE.VI, ZFIN.DE): die vallen af, zodat de plekken naar bedrijven uit de
+    eurozone gaan. Tweede noteringen van eurozone-bedrijven (SEJ1.DE, CABK.VI) blijven: die gaan in dedupe_listings voor.
+    Land onbekend? Dan blijft hij staan; na het ophalen is het land bekend en valt hij bij de volgende lijst af.
+    country_of: land uit de cache, anders van de VS-notering met dezelfde naam."""
+    if not eu_row(q):
+        return False
+    if not mixed:
+        return True                                # thuisbeurs: zoals altijd (ook CCEP.AS, IAG.MC: noteren en rapporteren in euro)
+    c = country_of(q)
+    return not c or c in EUROZONE
+
+
+def dynamic_universe(y, dyn, cache=None):
     """Breed universum (VS + eurozone) uit de Yahoo-screener; wekelijks ververst, anders uit de cache."""
     if dyn and age_h(dyn.get("at")) < DYN_REFRESH_DAYS * 24 and dyn.get("us") and dyn.get("v") == DYN_V:
         return dyn
+    cache = cache or {}
     try:
         us = yahoo_screen(y, [{"operator": "EQ", "operands": ["region", "us"]},
                               {"operator": "GT", "operands": ["intradaymarketcap", DYN_US["min_cap"]]}],
                           DYN_US["limit"], us_main_row)
+        # land per naam via de VS-notering (NVD.DE heet 'NVIDIA Corporation', net als NVDA: Verenigde Staten)
+        us_country = {}
+        for q in us:
+            if name_key(q["name"]) and (cache.get(q["sym"]) or {}).get("country"):
+                us_country.setdefault(name_key(q["name"]), cache[q["sym"]]["country"])
+        country_of = lambda q: (cache.get(q["sym"]) or {}).get("country") or us_country.get(name_key(q.get("name")))  # noqa: E731
         eu = []
         for ex in DYN_EU["exchanges"]:
             try:
                 eu += yahoo_screen(y, [{"operator": "EQ", "operands": ["exchange", ex]},
                                        {"operator": "GT", "operands": ["intradaymarketcap", DYN_EU["min_cap"]]}],
-                                   DYN_EU["limit"], eu_row)
+                                   DYN_EU["limit"], lambda q, m=ex in DYN_EU["mixed"]: eu_keep(q, m, country_of))
             except Exception as e:  # noqa: BLE001
                 print(f"  screener {ex} mislukt: {e}")
         if len(us) < 100:
@@ -668,7 +700,7 @@ def load_universe(cache, y=None, dyn=None):
                 uni[s] = {"region": "VS", "src": "S&P 500", "name": c.get("name")}
     # Breed universum uit de Yahoo-screener (grootste bedrijven van de markt)
     if y is not None:
-        dyn = dynamic_universe(y, dyn)
+        dyn = dynamic_universe(y, dyn, cache)
         merge_dyn(uni, dyn, cache)
     if os.path.exists(UNIVERSE):
         with open(UNIVERSE, encoding="utf-8-sig") as f:
@@ -694,10 +726,10 @@ def load_universe(cache, y=None, dyn=None):
 # Uitzondering: een VS-bedrijf houdt zijn hoofdnotering in de VS (zie dedupe_listings).
 LISTING_TIER = {"AS": 0, "DE": 1, "F": 2, "DU": 3, "VI": 4}
 HOME_SUFFIX = {"France": "PA", "Italy": "MI", "Spain": "MC", "Belgium": "BR", "Finland": "HE",
-               "Ireland": "IR", "Portugal": "LS", "Netherlands": "AS", "Germany": "DE", "Austria": "VI"}
-EUROZONE = set(HOME_SUFFIX) | {"Luxembourg", "Greece", "Slovenia", "Slovakia", "Estonia", "Latvia", "Lithuania",
-                               "Malta", "Cyprus", "Croatia"}
-EZ_HOME = {"AS", "PA", "MI", "MC", "BR", "HE", "IR", "LS"}    # thuisbeurzen; Xetra en Wenen noteren ook veel buitenlandse aandelen
+               "Ireland": "IR", "Portugal": "LS", "Netherlands": "AS", "Germany": "DE", "Austria": "VI", "Greece": "AT"}
+EUROZONE = set(HOME_SUFFIX) | {"Luxembourg", "Slovenia", "Slovakia", "Estonia", "Latvia", "Lithuania",
+                               "Malta", "Cyprus", "Croatia", "Bulgaria"}     # Bulgarije sinds 1 januari 2026
+EZ_HOME = {"AS", "PA", "MI", "MC", "BR", "HE", "IR", "LS", "AT"}   # thuisbeurzen; Xetra en Wenen noteren ook veel buitenlandse aandelen
 US_MAIN = set(US_EXCH.values())
 LEGAL = {"inc", "incorporated", "corp", "corporation", "co", "company", "plc", "nv", "se", "sa", "ag", "spa",
          "sab", "cv", "de", "the", "and", "ltd", "limited", "oyj", "asa", "ab", "aktiengesellschaft",
@@ -717,6 +749,37 @@ def name_key(name):
     Preciezer dan norm_name: 'Bank of America' en 'Bank of Ireland' zijn verschillende bedrijven."""
     k = company_key(name, None)
     return k[0] if k else None
+
+
+NAME_NOISE = {"class", "dl", "eo", "on", "reg", "registered", "shares", "share", "ord", "common", "stock", "adr", "new"}
+
+
+def name_words(name):
+    """Woorden van de bedrijfsnaam zonder rechtsvorm en zonder de toevoegingen van korte beursnamen ('DL-,001')."""
+    return [w for w in (name_key(name) or "").split() if w not in NAME_NOISE and not w.isdigit()]
+
+
+def same_company(us_name, eu_name):
+    """Zelfde bedrijf? Elk woord van de ene naam moet (afgekort) in de andere staan, en omgekeerd:
+    'Micron Technology, Inc.' = 'MICRON TECHN. INC. DL-,10', maar 'Merck & Co., Inc.' ≠ 'Merck KGaA'."""
+    a, b = name_words(us_name), name_words(eu_name)
+    if not a or not b:
+        return False
+
+    def hit(w, other):                             # gelijk, of afgekort (minstens 3 letters): 'techn' ~ 'technology'
+        return any(w == o or (min(len(w), len(o)) >= 3 and (o.startswith(w) or w.startswith(o))) for o in other)
+    return all(hit(w, a) for w in b) and all(hit(w, b) for w in a)
+
+
+def wrong_eu_listing(c, cache):
+    """Hoort de bewaarde euro-notering van dit VS-bedrijf bij een ander bedrijf? Alleen als die notering zelf in de cache
+    staat met een ander land én een andere naam (MRK → MRK.DE: Merck KGaA, Duitsland). GE → GCP.DE ('General Electric
+    Company') blijft: zelfde land, de naam is alleen veranderd."""
+    e = (c.get("eu") or {}).get("sym")
+    o = cache.get(e) or {}
+    if not e or not o.get("country") or o["country"] == c.get("country"):
+        return False
+    return not same_company(c.get("name"), o.get("name"))
 
 
 def ez_home(sym, country):
@@ -1605,11 +1668,13 @@ def koopmoment(it):
             "stop": rnd(stop, 2), "risk": rnd((1 - stop / price) * 100, 1), "why": [txt for key, ok, txt in checks if ok and key != "scorecard"]}
 
 
-def s12_brief(s12):
-    """De 12 stappen in het kort (status per stap), genoeg voor de vakjes op Koopmoment."""
+def s12_brief(s12, fail_notes=False):
+    """De 12 stappen in het kort (status per stap), genoeg voor de vakjes op Koopmoment.
+    fail_notes: de toelichting alleen bij stappen waarop het bedrijf afvalt (lichte lijst in screener.json)."""
     if not s12:
         return None
-    return {"list": [{"n": x["n"], "s": x["s"], **({"note": x["note"]} if x.get("note") else {})} for x in s12["list"]],
+    return {"list": [{"n": x["n"], "s": x["s"], **({"note": x["note"]} if x.get("note") and (x["s"] == "fail" or not fail_notes) else {})}
+                     for x in s12["list"]],
             "fail": s12.get("fail"), "nfail": s12.get("nfail"), "survivor": s12.get("survivor"), "auto_ok": s12.get("auto_ok")}
 
 
@@ -1876,6 +1941,98 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
     }
 
 
+# ── Uitvoer: lichte lijst, details per shard, these-bewaking ─────────────
+# screener.json bevat per kans alleen wat de lijst toont; de rest (volledige scorecard en 12 stappen, kenmerken)
+# staat in screener_det/NN.json en wordt pas geladen als je een aandeel openklapt. Licht + detail = het volledige item.
+LIGHT_KEYS = ("sym", "eu", "exch", "us_exch", "name", "region", "country", "sector", "industry", "branch",
+              "price", "native", "approx", "cur", "day", "mcap", "score", "rank", "pillars", "val", "rs", "koop",
+              "watch", "own", "earn_days", "earnings", "alt", "chg12", "exp", "card", "s12")
+SHORT_KEYS = ("exp", "card", "s12")            # ingekort in de lijst, volledig in het detail
+
+
+def light_item(it):
+    """Kans voor de lichte lijst: vaste velden, exp {pct, src, n}, card {s, lvl, n}, s12 kort (toelichting alleen bij afvallen).
+    Maakt een nieuw object; het volledige item blijft heel (koopmoment.json gebruikt dat)."""
+    out = {k: it[k] for k in LIGHT_KEYS if k in it}
+    if isinstance(it.get("exp"), dict):
+        out["exp"] = {k: it["exp"][k] for k in ("pct", "src", "n") if k in it["exp"]}
+    if isinstance(it.get("card"), dict):
+        out["card"] = {k: it["card"][k] for k in ("s", "lvl", "n") if k in it["card"]}
+    if "s12" in it:
+        out["s12"] = s12_brief(it["s12"], fail_notes=True)
+    return out
+
+
+def detail_of(it):
+    """Alles wat in de lichte lijst ontbreekt of is ingekort. Object.assign({}, licht, detail) = het volledige item."""
+    return {k: v for k, v in it.items() if k not in LIGHT_KEYS or k in SHORT_KEYS}
+
+
+def shard_of(sym):
+    """Nummer van het detailbestand (0..DET_N-1). Zelfde som in JS: [...sym].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 16."""
+    return sum(ord(ch) for ch in sym) % DET_N
+
+
+def write_details(items, updated, folder=None):
+    """Alle DET_N detailbestanden schrijven (ook lege), zodat er geen oude details blijven staan."""
+    folder = folder or DET_DIR
+    os.makedirs(folder, exist_ok=True)
+    shards = [{} for _ in range(DET_N)]
+    for it in items:
+        shards[shard_of(it["sym"])][it["sym"]] = detail_of(it)
+    for n, part in enumerate(shards):
+        with open(os.path.join(folder, f"{n:02d}.json"), "w", encoding="utf-8") as f:
+            json.dump({"updated": updated, "items": part}, f, ensure_ascii=False, separators=(",", ":"))
+    for fn in os.listdir(folder):                  # bestanden van een oudere indeling (ander aantal) opruimen
+        if re.fullmatch(r"\d+\.json", fn) and not (len(fn) == 7 and int(fn[:2]) < DET_N):
+            os.remove(os.path.join(folder, fn))
+    return [len(p) for p in shards]
+
+
+def _day(s):
+    """'2026-10-22' -> date, anders None."""
+    try:
+        return datetime.fromisoformat(str(s)[:10]).date() if s else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def update_these(prev, refs, today):
+    """these.json: per eigen aandeel (refs) een wekelijkse momentopname van scorecard en afvalstappen, plus de
+    kwartaalcijfers. Eén regel per ISO-week (elke run overschrijft die van deze week), hooguit THESE_MAX weken.
+    Aandelen die niet meer in refs staan houden hun historie, maar krijgen niets nieuws.
+    Kwartaalcijfers: ligt een eerder bewaarde next_earn in het verleden, dan wordt dat last_earn."""
+    stocks = (prev or {}).get("stocks") if isinstance(prev, dict) else None
+    stocks = {k: v for k, v in (stocks or {}).items() if isinstance(v, dict)} if isinstance(stocks, dict) else {}
+    week = today.isocalendar()[:2]
+    for it in refs:
+        sym = it.get("sym")
+        if not sym:
+            continue
+        old = stocks.get(sym) or {}
+        card, s12 = it.get("card") or {}, it.get("s12")
+        entry = {"d": today.isoformat(), "s": card.get("s"), "lvl": card.get("lvl"),
+                 "f": sorted(x["n"] for x in s12["list"] if x.get("s") == "fail") if s12 and s12.get("list") else None}
+        # één regel per week: per ISO-week de laatste, die van deze week wordt vervangen
+        by_week = {}
+        for e in old.get("hist") if isinstance(old.get("hist"), list) else []:
+            d = _day(e.get("d")) if isinstance(e, dict) else None
+            if d and d <= today and d.isocalendar()[:2] != week:
+                k = d.isocalendar()[:2]
+                if k not in by_week or by_week[k]["d"] <= e["d"]:
+                    by_week[k] = e
+        hist = sorted(by_week.values(), key=lambda e: e["d"]) + [entry]
+        # kwartaalcijfers: een bewaarde datum die voorbij is, is nu de laatst gepubliceerde
+        last, nxt = _day(old.get("last_earn")), _day(old.get("next_earn"))
+        if nxt and nxt < today:
+            last, nxt = max(x for x in (last, nxt) if x), None
+        new = _day(it.get("earnings"))
+        nxt = new if new and new >= today else nxt
+        stocks[sym] = {"name": it.get("name") or old.get("name") or sym, "hist": hist[-THESE_MAX:],
+                       "next_earn": nxt.isoformat() if nxt else None, "last_earn": last.isoformat() if last else None}
+    return {"v": 1, "updated": iso(), "stocks": dict(sorted(stocks.items()))}
+
+
 def main():
     t0 = time.time()
     y = Yahoo()
@@ -1894,6 +2051,12 @@ def main():
             uni[s_] = {"region": "VS", "src": "eigen", "name": None}
     quality_map = load_quality()
     print(f"Universum: {len(uni)} stocks · eigen posities: {len(own['own'])} · kwaliteitsoordelen: {len(quality_map)}")
+    # euro-notering die bij een ander bedrijf hoort (oude koppeling alleen op koers): wissen, dan zoekt de volgende
+    # verversing opnieuw, nu met naamcontrole
+    for s_, c_ in cache.items():
+        if c_.get("region") == "VS" and wrong_eu_listing(c_, cache):
+            print(f"  {s_}: euro-notering {c_['eu']['sym']} hoort bij {cache[c_['eu']['sym']].get('name')}, opnieuw zoeken")
+            c_["eu"] = {}
 
     try:
         fx = fx_eurusd(y)
@@ -2055,8 +2218,11 @@ def main():
     tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
     pending = sum(1 for s in uni if not tried(s))
     failed = sum(1 for s in uni if not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
+    top = items[:TOP_N]
     out = {
         "updated": iso(),
+        "fmt": 2,                                    # kansen licht, details in screener_det/ (refs blijven volledig)
+        "det": {"n": DET_N, "path": "screener_det/"},
         "fx": rnd(fx, 4),
         "universe": len(uni),
         "scanned": sum(1 for s in uni if tried(s)),
@@ -2068,13 +2234,25 @@ def main():
         "sp5": {k: rnd(sp5[k] * 100, 1) for k in ("VS", "EU")} if sp5 else None,
         "branches": bench,
         "refs": refs,
-        "items": items[:TOP_N],
+        "items": [light_item(it) for it in top],
         # eigen posities die niet te scoren zijn (bv. rapporteert in een andere valuta), met de reden
         "own_skip": {s_: (cache.get(s_) or {}).get("skip") for s_ in uni
                      if s_ in own["own"] and (cache.get(s_) or {}).get("skip")},
     }
+    write_details(top, out["updated"])
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    try:                                             # these-bewaking eigen aandelen; mag de Top 250 nooit laten vastlopen
+        try:
+            these_prev = json.load(open(THESE_OUT, encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            these_prev = None
+        these = update_these(these_prev, refs, now().date())
+        with open(THESE_OUT, "w", encoding="utf-8") as f:
+            json.dump(these, f, ensure_ascii=False, separators=(",", ":"))
+        print(f"These: {len(refs)} eigen aandelen bijgewerkt, {len(these['stocks'])} in de historie")
+    except Exception as e:  # noqa: BLE001
+        print(f"  these.json niet bijgewerkt: {e}")
     try:                                             # koopmomenten + scorecard-groepen; mag de Top 250 nooit laten vastlopen
         try:
             koop_prev = json.load(open(KOOP_OUT, encoding="utf-8"))

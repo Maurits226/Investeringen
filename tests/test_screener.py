@@ -90,6 +90,37 @@ if hasattr(S, "light_item") and hasattr(S, "detail_of"):
         merged = dict(S.light_item(full), **S.detail_of(full))
         check(merged == full, f"{it['sym']}: lichte lijst + details is niet gelijk aan het volledige item")
 
+# Detailbestanden: elk bedrijf in de juiste shard (zelfde formule als shared.js), samen precies alle bedrijven
+if hasattr(S, "write_details") and hasattr(S, "shard_of"):
+    import tempfile
+    from datetime import date, timedelta
+    with tempfile.TemporaryDirectory() as tmp:
+        full = json.loads(json.dumps(items))
+        S.write_details(full, "2026-01-01T00:00:00+00:00", folder=tmp)
+        names = sorted(os.listdir(tmp))
+        check(names == [f"{n:02d}.json" for n in range(S.DET_N)], f"detailbestanden: verwacht {S.DET_N}, gevonden {names}")
+        seen = set()
+        for n in range(S.DET_N):
+            d = json.load(open(os.path.join(tmp, f"{n:02d}.json"), encoding="utf-8"), parse_constant=lambda c: check(False, c))
+            for sym in d.get("items", {}):
+                check(sum(ord(ch) for ch in sym) % S.DET_N == n == S.shard_of(sym), f"{sym}: in shard {n}, hoort elders")
+                seen.add(sym)
+        check(seen == {it["sym"] for it in full}, "detailbestanden bevatten niet precies alle bedrijven")
+    # These-bewaking: één foto per week, cijferdatum schuift door naar 'laatst gepubliceerd'
+    refs = [it for it in items if it.get("card", {}).get("s") is not None][:5]
+    if refs and hasattr(S, "update_these"):
+        d0 = date(2026, 10, 19)                                    # maandag
+        r0 = json.loads(json.dumps(refs))
+        r0[0]["earnings"] = (d0 + timedelta(days=3)).isoformat()
+        t1 = S.update_these({}, r0, d0)
+        t2 = S.update_these(t1, r0, d0 + timedelta(days=2))         # zelfde week: overschrijven
+        t3 = S.update_these(t2, r0, d0 + timedelta(days=7))         # volgende week: erbij, cijfers gepubliceerd
+        e = t3["stocks"][r0[0]["sym"]]
+        check(len(t2["stocks"][r0[0]["sym"]]["hist"]) == 1, "these: zelfde week moet de foto overschrijven")
+        check(len(e["hist"]) == 2, "these: nieuwe week moet een foto toevoegen")
+        check(e.get("last_earn") == r0[0]["earnings"], "these: gepasseerde cijferdatum moet naar last_earn")
+        json.dumps(t3, allow_nan=False)
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten · "
       + (f"{len(fails)} fout(en)" if fails else "alles in orde"))

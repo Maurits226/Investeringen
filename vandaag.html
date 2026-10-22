@@ -158,7 +158,7 @@ function ageTxt(iso) {
 }
 
 async function render() {
-  const [data, sig, scr, pos, sigTop, trades, tech] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), getJSON('signals_top250.json'), Shared.loadTrades(), getJSON('tech.json')]);
+  const [data, sig, scr, pos, sigTop, trades, tech, these] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), getJSON('signals_top250.json'), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese()]);
   const idx = Shared.stockIndex(scr, sig, data);
   const quotes = (data && data.quotes) || {};
   const q = t => quotes[(t || '').toUpperCase()];
@@ -240,15 +240,25 @@ async function render() {
       sub: `${s.isHeropend ? 'trede ' + s.nextStep + ' weer open (koers 25% onder je verkoop)' : 'trede ' + s.nextStep + ' (+' + s.nextTargetPct + '%) bereikt'} · resultaat ${pct(pl, 0)}`,
       val: `<span class="c-warn">${s.nextSellPct}% verkopen</span>`, go: 'investeringen', prio: 1 });
   });
-  // 3. Beoordeling (12 stappen): these herzien, en de kwartaalcheck uit de gids
+  // 3. Beoordeling (12 stappen): these herzien, these-alarm (these.json, zelfde regels als Beoordeling via shared.js)
+  //    en de kwartaalcheck: na nieuwe kwartaalcijfers per aandeel, zonder bekende cijferdatum elke 100 dagen (samen).
+  //    Volgorde: eerst wat nieuw is (alarm, net gepubliceerde cijfers), dan wat al langer speelt.
   const stocks = pos.filter(p => !p.watch && p.section === 'Stocks');
+  const due = [];
+  const today = new Date().toISOString().slice(0, 10);
   stocks.forEach(p => {
-    const it = idx.find(p.ticker), v = Steps.verdict(it);
-    if (v.cls !== 'v-bad') return;
-    todo.push({ g: 'Beoordelen', cls: 'rev', ic: '🧭', title: `These herzien: ${(it && it.name) || p.label || p.ticker}`,
-      sub: v.text.split('. ')[0] + '.', val: '<span class="c-down">herzien</span>', go: 'beoordeling', prio: 1 });
+    const it = idx.find(p.ticker), v = Steps.verdict(it), name = (it && it.name) || p.label || p.ticker;
+    if (v.cls === 'v-bad') todo.push({ g: 'Beoordelen', cls: 'rev', ic: '🧭', title: `These herzien: ${name}`,
+      sub: v.text.split('. ')[0] + '.', val: '<span class="c-down">herzien</span>', go: 'beoordeling', prio: 2 });
+    const al = Shared.theseAlerts(it, (these && it && these.stocks[it.sym]) || null, p.review, today);
+    const alarm = al.filter(a => a.kind === 'drop' || a.kind === 'newfail');
+    if (alarm.length) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '⚠️', title: `These-alarm: ${name}`,
+      sub: alarm.map(a => a.text).join(' · '), val: `<span class="${alarm[0].sev >= 3 ? 'c-down' : 'c-warn'}">alarm</span>`, go: 'beoordeling', prio: 0 });
+    const earn = al.find(a => a.kind === 'earn');
+    if (earn) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '📋', title: earn.title,
+      sub: 'Lees de cijfers: is er iets wezenlijks veranderd aan het bedrijf? Vink af op Beoordeling.', val: '', go: 'beoordeling', prio: 1 });
+    if (al.some(a => a.kind === 'due')) due.push(p);
   });
-  const due = stocks.filter(p => !(p.review && p.review.checked) || (Date.now() - new Date(p.review.checked).getTime()) / 86400000 > 100);
   if (due.length) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '📋', title: `Kwartaalcheck: ${due.length} ${due.length === 1 ? 'aandeel' : 'aandelen'}`,
     sub: 'Na de kwartaalcijfers: is er iets wezenlijks veranderd aan het bedrijf? Vink af op Beoordeling.', val: '', go: 'beoordeling', prio: 3 });
   // 4. Nieuwe radaradviezen (afgelopen handelsdag)

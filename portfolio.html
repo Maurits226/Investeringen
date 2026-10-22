@@ -1291,11 +1291,12 @@ const EXCHANGES = {
   DUS:    { name: 'Börse Düsseldorf',   city: 'Düsseldorf', tz: 'Europe/Berlin',    open: [8, 0],  close: [22, 0]  },
   AMS:    { name: 'Euronext Amsterdam', city: 'Amsterdam',  tz: 'Europe/Amsterdam', open: [9, 0],  close: [17, 30] },
   MIL:    { name: 'Borsa Italiana',     city: 'Milaan',     tz: 'Europe/Rome',      open: [9, 0],  close: [17, 30] },
+  ATH:    { name: 'Euronext Athene',    city: 'Athene',     tz: 'Europe/Athens',    open: [10, 0], close: [17, 20] },
   NYSE:   { name: 'NYSE',               city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
 };
-const EXCHANGE_ORDER = ['XETRA', 'DUS', 'AMS', 'MIL', 'NYSE', 'NASDAQ', 'US'];
+const EXCHANGE_ORDER = ['XETRA', 'DUS', 'AMS', 'MIL', 'ATH', 'NYSE', 'NASDAQ', 'US'];
 
 // Yahoo-beurscodes -> onze sleutels
 const YAHOO_EXCHANGE = {
@@ -1304,7 +1305,7 @@ const YAHOO_EXCHANGE = {
   NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ'
 };
 // Terugval op het achtervoegsel van de ticker (als de data nog geen beurscode heeft)
-const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL' };
+const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL', AT: 'ATH' };
 
 function exchangeKeyOf(ticker) {
   const q = dataCache && dataCache[ticker.toUpperCase()];

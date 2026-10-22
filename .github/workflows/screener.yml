@@ -1,8 +1,9 @@
 name: Top 250
 
-# Kansen portefeuille. Breed universum (~2.000+ bedrijven), fundamentele cijfers per stock
-# wekelijks ververst. Vier runs per dag: de eerste volledige scan duurt zo ongeveer 1 à 2 dagen,
+# Kansen portefeuille. Breed universum (~3.000 bedrijven: VS vanaf $2 mld, eurozone vanaf €1 mld), fundamentele
+# cijfers per stock wekelijks ververst. Vier runs per dag: nieuwe bedrijven zijn na 1 à 2 dagen gescand,
 # daarna is elke run vooral koersen bijwerken. Handmatig starten: Actions → Top 250 → Run workflow.
+# Schrijft screener.json (licht), screener_det/ (details per kans), these.json en koopmoment.json.
 
 on:
   schedule:
@@ -37,7 +38,10 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
-          git add screener.json screener_cache.json etf_holdings.json; [ -f koopmoment.json ] && git add koopmoment.json
+          git add screener.json screener_cache.json etf_holdings.json
+          [ -d screener_det ] && git add -A screener_det      # details per kans (16 bestanden)
+          [ -f koopmoment.json ] && git add koopmoment.json
+          [ -f these.json ] && git add these.json
           if git diff --cached --quiet; then
             echo "Geen wijzigingen"; exit 0
           fi

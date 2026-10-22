@@ -1533,6 +1533,7 @@ const EXCHANGES = {
   ISE:    { name: 'Euronext Dublin',    city: 'Dublin',     tz: 'Europe/Dublin',    open: [8, 0],  close: [16, 30] },
   VIE:    { name: 'Wiener Börse',       city: 'Wenen',      tz: 'Europe/Vienna',    open: [9, 0],  close: [17, 30] },
   LIS:    { name: 'Euronext Lissabon',  city: 'Lissabon',   tz: 'Europe/Lisbon',    open: [8, 0],  close: [16, 30] },
+  ATH:    { name: 'Euronext Athene',    city: 'Athene',     tz: 'Europe/Athens',    open: [10, 0], close: [17, 20] },
   NYSE:   { name: 'NYSE',               city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
@@ -1542,7 +1543,7 @@ const YAHOO_EXCHANGE = {
   NYQ: 'NYSE', ASE: 'NYSE', PCX: 'NYSE',
   NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ'
 };
-const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL', F: 'FRA', PA: 'PAR', BR: 'BRU', MC: 'MCE', HE: 'HEL', IR: 'ISE', VI: 'VIE', LS: 'LIS' };
+const SUFFIX_EXCHANGE = { DE: 'XETRA', DU: 'DUS', AS: 'AMS', MI: 'MIL', F: 'FRA', PA: 'PAR', BR: 'BRU', MC: 'MCE', HE: 'HEL', IR: 'ISE', VI: 'VIE', LS: 'LIS', AT: 'ATH' };
 
 function exchangeKeyOf(ticker) {
   const q = quotes[ticker.toUpperCase()];

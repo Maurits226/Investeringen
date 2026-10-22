@@ -181,6 +181,132 @@ const Shared = (() => {
     };
     return { find, usOf, quotes };
   }
+  // ── Top 250 in twee delen (screener.json met "fmt": 2): de lijst is licht, de details per aandeel (volledige scorecard,
+  // 12 stappen, cijfers) staan in 16 shards (screener_det/00..15.json) en komen pas binnen als je een aandeel openklapt.
+  // Eén download per shard; ?t=<updated> zorgt dat een nieuwe run nooit oude details geeft. Oude screener.json
+  // (zonder fmt): de items zijn al volledig. Eigen posities (refs) zijn altijd volledig.
+  let detVer = null, shards = {}, shardJobs = {};
+  function detShard(sym, data) {
+    const n = (data && data.det && +data.det.n) || 16;
+    return String([...String(sym)].reduce((a, ch) => a + ch.codePointAt(0), 0) % n).padStart(2, '0');
+  }
+  const detUrl = (sym, data) => {
+    const p = data.det && /^[\w-]+\/$/.test(data.det.path || '') ? data.det.path : 'screener_det/';
+    return p + detShard(sym, data) + '.json?t=' + encodeURIComponent(data.updated || '');
+  };
+  // volledig = oud formaat, of het item heeft al de scorecard-criteria of de cijfers (die ontbreken in de lichte lijst)
+  const isFull = (it, data) => !it || !data || data.fmt !== 2 || !!(it.card && it.card.crit) || it.mp !== undefined;
+  function shardCache(data) {
+    if (detVer !== data.updated) { detVer = data.updated; shards = {}; shardJobs = {}; }   // nieuwe run: oude shards weg
+    return shards;
+  }
+  function loadShard(sym, data) {
+    const url = detUrl(sym, data);
+    if (shardCache(data)[url]) return Promise.resolve(shards[url]);
+    if (!shardJobs[url]) {
+      const jobs = shardJobs;
+      jobs[url] = fetch(url).then(r => r.ok ? r.json() : null).catch(() => null).then(j => {
+        delete jobs[url];                                // mislukt: niet onthouden, opnieuw proberen haalt hem opnieuw
+        if (!j || !j.items || typeof j.items !== 'object') return null;
+        if (jobs === shardJobs) shards[url] = j;
+        return j;
+      });
+    }
+    return shardJobs[url];
+  }
+  const withDetail = (it, det) => det ? Object.assign({}, it, det) : it;
+  // De details van één aandeel (null: oud formaat, niet gevonden of niet te laden)
+  async function screenerDetail(sym, data) {
+    if (!sym || !data || data.fmt !== 2) return null;
+    const sh = await loadShard(sym, data);
+    return (sh && sh.items[sym]) || null;
+  }
+  // Het volledige item (lijst + details). null = de details konden niet geladen worden.
+  async function fullItem(it, data) {
+    if (isFull(it, data)) return it;
+    const sh = await loadShard(it.sym, data);
+    return sh ? withDetail(it, sh.items[it.sym]) : null;
+  }
+  // Zonder te wachten: het volledige item als het er al is (shard binnen), anders null
+  function fullItemNow(it, data) {
+    if (isFull(it, data)) return it;
+    const sh = shardCache(data)[detUrl(it.sym, data)];
+    return sh ? withDetail(it, sh.items[it.sym]) : null;
+  }
+
+  // ── These-bewaking (these.json, wekelijks per eigen aandeel: scorecard, afvallende stappen, kwartaalcijfers).
+  // Vandaag en Beoordeling gebruiken allebei theseAlerts(), zodat ze nooit iets anders zeggen. Geen these.json: geen meldingen.
+  async function loadThese() {
+    try {
+      const r = await fetch('these.json?t=' + Date.now(), { cache: 'no-store' });
+      const j = r.ok ? await r.json() : null;
+      return j && j.stocks && typeof j.stocks === 'object' ? j : null;
+    } catch (e) { return null; }
+  }
+  const ISO_D = /^\d{4}-\d\d-\d\d/;
+  const dayNum = d => Math.floor(Date.parse(String(d).slice(0, 10) + 'T00:00:00Z') / 86400000);   // dagen sinds 1970 (UTC)
+  const weekOf = d => { const n = dayNum(d); return n - (n + 3) % 7; };                           // maandag van de ISO-week
+  const dayTxt = (d, today) => new Date(String(d).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('nl-NL',
+    Object.assign({ day: 'numeric', month: 'short', timeZone: 'UTC' }, String(d).slice(0, 4) !== String(today).slice(0, 4) ? { year: 'numeric' } : {}));
+  const ptsTxt = v => Number.isInteger(+v) ? String(v) : (+v).toLocaleString('nl-NL', { maximumFractionDigits: 1 });
+  const stepName = n => (typeof Steps !== 'undefined' && Steps.NAMES[n]) || '';
+  // geldige momentopnames, oud → nieuw
+  const theseHist = e => ((e && Array.isArray(e.hist)) ? e.hist : []).filter(h => h && ISO_D.test(h.d || ''))
+    .slice().sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+  const todayOf = t => ISO_D.test(String(t || '')) ? String(t).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  // Scorecard-verloop over de laatste 13 weken (zonder de huidige week) plus de stand van nu.
+  // short = minder dan 2 weken historie: dan nog geen trend en geen trendmeldingen.
+  function theseTrend(ref, entry, today) {
+    const hist = theseHist(entry);
+    if (!hist.length) return null;
+    const t = todayOf(today), tn = dayNum(t), wk = weekOf(t);
+    const cur = ref ? (ref.card && ref.card.s != null ? ref.card.s : null) : hist[hist.length - 1].s ?? null;
+    const win = hist.filter(h => h.s != null && tn - dayNum(h.d) <= 91 && tn >= dayNum(h.d) && weekOf(h.d) !== wk);
+    const pts = win.map(h => ({ d: h.d.slice(0, 10), s: +h.s }));
+    if (cur != null) pts.push({ d: t, s: +cur });
+    const base = win[0] || null;
+    return { pts, cur, first: hist[0].d.slice(0, 10), short: tn - dayNum(hist[0].d) < 14,
+             delta: base && cur != null ? Math.round((cur - base.s) * 10) / 10 : null, since: base ? base.d.slice(0, 10) : null,
+             max: win.length ? Math.max(...win.map(h => +h.s)) : null };
+  }
+  // Meldingen voor één eigen aandeel. ref = item uit screener.json (refs), entry = these.stocks[ref.sym], review = je beoordeling.
+  // Geeft [{kind, sev, text, title, since, ...}]: kind 'drop' (scorecard 10+ lager dan het hoogste punt in 13 weken),
+  // 'newfail' (valt nu af bij een stap die 7+ dagen geleden nog niet faalde; stap 12 telt niet), 'earn' (nieuwe kwartaalcijfers
+  // na je laatste check) of 'due' (geen cijferdatum bekend: 100 dagen niet gecheckt). sev 3 rood, 2 oranje, 1 let op, 0 routine.
+  // text past in de kaart van het aandeel; title noemt de naam (voor lijsten zoals Vandaag).
+  function theseAlerts(ref, entry, review, today) {
+    const out = [], t = todayOf(today), tn = dayNum(t);
+    const name = (ref && ref.name) || (entry && entry.name) || '';
+    const hist = theseHist(entry), tr = theseTrend(ref, entry, t);
+    if (tr && !tr.short) {
+      const win = tr.pts.slice(0, -1);
+      if (tr.cur != null && tr.max != null && tr.max - tr.cur >= 10) {
+        const at = win.filter(p => p.s === tr.max).pop();
+        out.push({ kind: 'drop', sev: tr.max - tr.cur >= 20 ? 3 : 2, since: at.d, from: tr.max, to: tr.cur,
+          text: `Scorecard ${ptsTxt(tr.max)} → ${ptsTxt(tr.cur)} (sinds ${dayTxt(at.d, t)})`,
+          title: `Scorecard ${name} ${ptsTxt(tr.max)} → ${ptsTxt(tr.cur)} (sinds ${dayTxt(at.d, t)})` });
+      }
+      const base = hist.filter(h => tn - dayNum(h.d) >= 7).pop();
+      const fails = ref ? ((ref.s12 && ref.s12.list) || []).filter(x => x.s === 'fail').map(x => +x.n) : (hist[hist.length - 1].f || []);
+      if (base && Array.isArray(base.f)) fails.filter(n => n !== 12 && !base.f.includes(n)).sort((a, b) => a - b).forEach(n => {
+        const first = hist.find(h => h.d > base.d && Array.isArray(h.f) && h.f.includes(n));
+        const txt = `valt nu af bij stap ${n} (${stepName(n)})`;
+        out.push({ kind: 'newfail', sev: [8, 11].includes(n) ? 3 : 2, step: n, since: first ? first.d.slice(0, 10) : t,
+          text: txt, title: `${name} ${txt}` });
+      });
+    }
+    const checked = review && ISO_D.test(review.checked || '') ? review.checked.slice(0, 10) : null;
+    const le = entry && ISO_D.test(entry.last_earn || '') && entry.last_earn.slice(0, 10) <= t ? entry.last_earn.slice(0, 10) : null;
+    if (le) {
+      if (!checked || checked < le) out.push({ kind: 'earn', sev: 1, since: le,
+        text: `Kwartaalcijfers gepubliceerd op ${dayTxt(le, t)} — nog niet gecheckt`, title: `Kwartaalcijfers ${name} (${dayTxt(le, t)}): kwartaalcheck` });
+    } else if (!checked || tn - dayNum(checked) > 100) {
+      out.push({ kind: 'due', sev: 0, since: checked, text: checked ? `kwartaalcheck: ${tn - dayNum(checked)} d geleden` : 'kwartaalcheck: nog nooit gedaan',
+        title: `Kwartaalcheck ${name}` });
+    }
+    return out.sort((a, b) => b.sev - a.sev);
+  }
+
   // Tech-ETF's (voor de tech-blootstelling): volledig technologie
   const TECH_ETF = /^(QDVE|IUIT|XDWT|IITU|EQQQ|CNDX|SXLK|TNOW|SEMI|CHIP|SMH|SOXX|VVSM)\b/i;
   // Hoeveel van je portefeuille (koerswaarde) zit in tech en chips? held = [{p, value}], find = stockIndex(...).find
@@ -230,6 +356,6 @@ const Shared = (() => {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) later(); });
   }
 
-  return { normName, stockIndex, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
+  return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
            sellPctForStep, stepsReached, sellStatus, smartOn, thresholdFor, onRefresh };
 })();

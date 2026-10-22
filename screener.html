@@ -255,6 +255,12 @@
   .d-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .note { font-size: 11.5px; color: var(--muted); line-height: 1.55; }
   .s12-wrap { margin-bottom: 16px; }
+  /* details laden (of mislukt): over de hele breedte, met een knop om het opnieuw te proberen */
+  .d-msg { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 40px; font-size: 12.5px; color: var(--muted); }
+  .d-msg .toggle { min-height: 40px; padding: 0 12px; font-size: 12px; }
+  .d-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .d-spin { animation: none; } }
 
   .state, .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
   .state code, .empty code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
@@ -460,9 +466,10 @@
 </div>
 <button class="to-top" id="toTop" hidden title="Naar boven" aria-label="Naar boven">↑</button>
 
+<script src="shared.js"></script>
 <script src="steps.js"></script>
 <script>
-const LIMIT = 500;       // maximaal zoveel bedrijven in de lijst
+const LIMIT = 500;      // maximaal zoveel bedrijven in de lijst
 const CARD_SELECT = 75;  // bedrijven met een lagere scorecard (van 125) tonen we niet
 const SECTOR_NL = {
   'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
@@ -490,6 +497,8 @@ Steps.css();
 let DATA = null, lastLoad = 0;
 let quick = null;                    // actieve tegel-filter
 const openSet = new Set();
+let shown = [];                      // de kaarten die nu getoond worden (om er één opnieuw op te bouwen)
+const detFail = new Set();           // details die niet te laden waren: 'opnieuw proberen' tonen
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -660,8 +669,18 @@ function render() {
     box.innerHTML = `<div class="empty">Geen stocks met deze filters. <button class="tb-reset" onclick="resetAll()">Reset filters</button></div>`;
     return;
   }
+  shown = list;
   box.innerHTML = list.map(card).join('');
   box.querySelectorAll('.stock').forEach(el => bindOne(el, list));
+}
+
+// Eén kaart opnieuw opbouwen (openklappen, of als de details binnen zijn)
+function redraw(sym, ref) {
+  const el = document.querySelector(`.stock[data-sym="${CSS.escape(sym)}"][data-ref="${ref ? 1 : 0}"]`);
+  const it = shown.find(x => x.sym === sym && !!x.ref === !!ref);
+  if (!el || !it) return;
+  el.outerHTML = card(it);
+  bindOne(document.querySelector(`.stock[data-sym="${CSS.escape(sym)}"][data-ref="${ref ? 1 : 0}"]`), shown);
 }
 
 function bindOne(el, list) {
@@ -671,10 +690,29 @@ function bindOne(el, list) {
     const s = el.dataset.sym;
     const key = (el.dataset.ref === '1' ? 'ref:' : '') + s;
     openSet.has(key) ? openSet.delete(key) : openSet.add(key);
-    el.outerHTML = card(list.find(x => x.sym === s && !!x.ref === (el.dataset.ref === '1')));
-    bindOne(document.querySelector(`.stock[data-sym="${CSS.escape(s)}"][data-ref="${el.dataset.ref}"]`), list);
+    redraw(s, el.dataset.ref === '1');
+  });
+  el.querySelectorAll('[data-retry]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    detFail.delete((el.dataset.ref === '1' ? 'ref:' : '') + el.dataset.sym);
+    redraw(el.dataset.sym, el.dataset.ref === '1');
   });
   bindCopy(el);
+}
+
+// De lijst is licht (screener.json fmt 2): de volledige scorecard, 12 stappen en cijfers komen pas bij het openklappen
+// binnen (één shard per 16 aandelen, shared.js). Oud formaat of eigen positie: meteen volledig.
+function detailOrLoad(it) {
+  const full = Shared.fullItemNow(it, DATA);
+  if (full) return detail(full);
+  const key = (it.ref ? 'ref:' : '') + it.sym;
+  if (detFail.has(key)) return `<div class="detail"><div class="d-msg">Details konden niet geladen worden, probeer opnieuw.
+      <button class="toggle" data-retry="1">Opnieuw proberen</button></div></div>`;
+  Shared.fullItem(it, DATA).then(f => {
+    if (!f) detFail.add(key);
+    if (openSet.has(key)) redraw(it.sym, it.ref);
+  });
+  return '<div class="detail"><div class="d-msg" role="status"><span class="d-spin"></span>Details laden…</div></div>';
 }
 
 function bindCopy(root) {
@@ -729,7 +767,7 @@ function card(it) {
         <div class="steps">${it.s12 ? Steps.dots(it.s12) : '<span class="s">nog niet berekend</span>'}</div></div>
       <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>
     </div>
-    ${open ? detail(it) : ''}
+    ${open ? detailOrLoad(it) : ''}
   </div>`;
 }
 

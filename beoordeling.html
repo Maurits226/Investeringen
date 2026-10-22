@@ -98,6 +98,20 @@
   .etf div { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
   .etf small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
   .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
+  /* these-bewaking (these.json): scorecard-lijn onder het getal, trend en meldingen over de hele breedte van de kop */
+  .b-spark { display: block; margin: 5px auto 0; color: var(--muted); overflow: visible; }
+  .c-up { color: var(--up); } .c-down { color: var(--down); }
+  .b-these { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+  .th-badge { font-family: var(--mono); font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+  .th-hist { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+  .th-alert { flex: 1 1 100%; min-width: 0; font-size: 12.5px; line-height: 1.4; padding: 5px 9px; border-radius: 8px; border-left: 3px solid currentColor; overflow-wrap: anywhere; }
+  .th-alert.s3 { color: var(--down); background: rgba(240,89,95,.08); } .th-alert.s2 { color: var(--warn); background: rgba(245,181,68,.07); }
+  .th-alert.s1 { color: var(--accent); background: rgba(79,143,240,.07); }
+  /* details van een kansen-aandeel laden (of mislukt) */
+  .b-msg { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 40px; font-size: 12.5px; color: var(--muted); }
+  .b-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .b-spin { animation: none; } }
 
   @media (max-width: 900px) {
     /* tablet: naam | 12 stappen | score met de knop eronder. Score en knop delen een vaste kolom,
@@ -210,30 +224,86 @@ function sorted(list) {
   const s = list.slice();
   if (sortBy === 'score') s.sort((a, b) => ((b.it && b.it.card && b.it.card.s) ?? -1) - ((a.it && a.it.card && a.it.card.s) ?? -1));
   else if (sortBy === 'name') s.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
-  else s.sort((a, b) => VORDER[a.v.cls] - VORDER[b.v.cls] || ((a.it && a.it.card && a.it.card.s) ?? 0) - ((b.it && b.it.card && b.it.card.s) ?? 0));
+  else {
+    // binnen hetzelfde oordeel eerst de aandelen met een these-alarm (scorecard-daling of nieuwe afvaller)
+    const alarm = new Map(s.map(r => [r, alertsOf(r).filter(a => a.sev >= 2).length]));
+    s.sort((a, b) => VORDER[a.v.cls] - VORDER[b.v.cls] || alarm.get(b) - alarm.get(a) || ((a.it && a.it.card && a.it.card.s) ?? 0) - ((b.it && b.it.card && b.it.card.s) ?? 0));
+  }
   return s;
 }
 
-function quarterInfo(rv) {
-  if (!rv || !rv.checked) return { due: true, txt: 'nog nooit gecheckt' };
-  const days = Math.round((Date.now() - new Date(rv.checked).getTime()) / 86400000);
-  return { due: days > 100, txt: `gecheckt ${new Date(rv.checked).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })} (${days} d geleden)` };
+// These-bewaking (these.json via shared.js, dezelfde regels als Vandaag): scorecard-daling, nieuwe afvaller, nieuwe kwartaalcijfers
+const alertsOf = r => OWN ? Shared.theseAlerts(r.it, r.th, r.review, today()) : [];
+// Kwartaalcheck: na nieuwe kwartaalcijfers als de datum bekend is, anders elke 100 dagen
+function quarterInfo(r) {
+  const rv = r.review || {}, a = alertsOf(r).find(x => x.kind === 'earn' || x.kind === 'due');
+  let txt = 'nog nooit gecheckt';
+  if (rv.checked) {
+    const days = Math.max(0, Math.floor((Date.now() - new Date(rv.checked).getTime()) / 86400000));   // vandaag gecheckt = 0 d
+    txt = `gecheckt ${new Date(rv.checked).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })} (${days} d geleden)`;
+  }
+  return { due: !!a, txt: a && a.kind === 'earn' ? a.text : txt };
+}
+// Scorecard van de laatste 13 weken als mini-lijn (x op datum, y van laag naar hoog)
+function spark(pts, cls) {
+  const W = 56, H = 16, d = pts.map(p => Date.parse(p.d)), s = pts.map(p => p.s);
+  const d0 = Math.min(...d), dw = (Math.max(...d) - d0) || 1, lo = Math.min(...s), sw = Math.max(...s) - lo;
+  const xy = pts.map((p, i) => [(d[i] - d0) / dw * (W - 4) + 2, sw ? H - 2 - (p.s - lo) / sw * (H - 4) : H / 2].map(v => v.toFixed(1)));
+  const end = xy[xy.length - 1];
+  return `<svg class="b-spark ${cls}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Scorecard 13 weken: ${esc(s.join(', '))}">
+    <polyline points="${xy.map(p => p.join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${end[0]}" cy="${end[1]}" r="2" fill="currentColor"/></svg>`;
+}
+const dShort = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+// Trend en meldingen in de kop van de kaart (ingeklapt zichtbaar)
+function theseHTML(r, tr, al) {
+  const parts = [];
+  const drop = al.find(a => a.kind === 'drop');
+  if (tr && tr.short) parts.push(`<span class="th-hist">historie sinds ${esc(dShort(tr.first))}</span>`);
+  else if (tr && !drop && tr.delta) parts.push(`<span class="th-badge ${tr.delta > 0 ? 'c-up' : 'c-down'}" title="Scorecard nu t.o.v. ${esc(dShort(tr.since))}">${tr.delta > 0 ? '+' : '−'}${esc(String(Math.abs(tr.delta)).replace('.', ','))} sinds ${esc(dShort(tr.since))}</span>`);
+  al.filter(a => a.kind !== 'due').forEach(a => parts.push(`<div class="th-alert ${a.kind} s${a.sev}">${a.sev >= 2 ? '⚠ ' : ''}${esc(a.text)}</div>`));
+  return parts.length ? `<div class="b-these">${parts.join('')}</div>` : '';
+}
+// Details van een kansen-aandeel komen pas bij het openklappen binnen (screener.json fmt 2, shared.js)
+const detFail = new Set();
+function redraw(r) {
+  const el = document.getElementById('c-' + r.key);
+  if (!el) return;
+  el.outerHTML = rowHTML(r);
+  bind(document.getElementById('c-' + r.key), r);
+}
+function bodyWait(r) {
+  if (detFail.has(r.key)) return `<div class="b-body"><div class="b-msg">Details konden niet geladen worden, probeer opnieuw.
+      <button class="toggle" data-retry="1">Opnieuw proberen</button></div></div>`;
+  Shared.fullItem(r.it, DATA).then(f => { if (!f) detFail.add(r.key); if (openSet.has(r.key)) redraw(r); });
+  return '<div class="b-body"><div class="b-msg" role="status"><span class="b-spin"></span>Details laden…</div></div>';
 }
 
 function rowHTML(r) {
   const it = r.it, c = it && it.card, open = openSet.has(r.key);
   const lvl = c && c.s != null ? (Steps.LEVEL[c.lvl] || Steps.LEVEL.low) : null;
-  const q = OWN ? quarterInfo(r.review) : null;
+  const q = OWN ? quarterInfo(r) : null;
+  const al = alertsOf(r), tr = OWN && r.th ? Shared.theseTrend(it, r.th, today()) : null;
+  const sp = tr && !tr.short && tr.pts.length >= 2 ? spark(tr.pts, tr.delta > 0 ? 'c-up' : tr.delta < 0 ? 'c-down' : '') : '';
   const tick = (it && it.region === 'VS') ? it.sym : r.ticker;
   const head = `<div class="b-head" data-key="${esc(r.key)}">
       <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
-        <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due ? '&nbsp;· <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
+        <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due && !al.some(a => a.kind === 'earn') ? '&nbsp;· <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
         <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span></div>
-      <div class="b-score">${c && c.s != null ? `<b class="${lvl[1]}">${c.s}</b><small>/125</small>` : '<b class="v-na">—</b><small>geen data</small>'}</div>
+      <div class="b-score">${c && c.s != null ? `<b class="${lvl[1]}">${c.s}</b><small>/125</small>` : '<b class="v-na">—</b><small>geen data</small>'}${sp}</div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
       <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>
+      ${OWN ? theseHTML(r, tr, al) : ''}
     </div>`;
   if (!open) return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}</div>`;
+  const full = it ? Shared.fullItemNow(it, DATA) : null;
+  if (it && !full) return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}${bodyWait(r)}</div>`;
+  return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}${bodyHTML(r, full, q)}</div>`;
+}
+
+// Opengeklapte kaart: oordeel, scorecard, notities en de 12 stappen (it = het volledige item)
+function bodyHTML(r, it, q) {
+  const c = it && it.card;
   const rv = r.review || {};
   const body = `<div class="b-body">
       <div>
@@ -250,7 +320,7 @@ function rowHTML(r) {
       <div><div class="d-k">De 12 stappen <span>${it && it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : 'zelf beoordelen'}</span></div>
         ${Steps.panel(it ? it.s12 : BLANK, { ticks: rv.ticks || {}, tickable: OWN })}</div>
     </div>`;
-  return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}${body}</div>`;
+  return body;
 }
 
 async function save(r, change) {
@@ -270,9 +340,10 @@ async function save(r, change) {
 function bind(el, r) {
   el.querySelector('.b-head').onclick = e => {
     openSet.has(r.key) ? openSet.delete(r.key) : openSet.add(r.key);
-    el.outerHTML = rowHTML(r);
-    bind(document.getElementById('c-' + r.key), r);
+    redraw(r);
   };
+  const rb = el.querySelector('[data-retry]');
+  if (rb) rb.onclick = () => { detFail.delete(r.key); redraw(r); };
   el.querySelectorAll('input[type=checkbox][data-step]').forEach(cb => cb.onchange = () => save(r, rv => {
     const t = Object.assign({}, rv.ticks || {}), n = cb.dataset.step, i = +cb.dataset.i;
     const set = new Set(t[n] || []);
@@ -282,15 +353,15 @@ function bind(el, r) {
   }));
   el.querySelectorAll('textarea[data-field]').forEach(ta => ta.onchange = () => save(r, rv => { rv[ta.dataset.field] = ta.value.slice(0, 2000); }));
   const qb = el.querySelector('[data-qcheck]');
-  if (qb) qb.onclick = async () => { await save(r, rv => { rv.checked = today(); }); el.outerHTML = rowHTML(r); bind(document.getElementById('c-' + r.key), r); render(true); };
+  if (qb) qb.onclick = async () => { await save(r, rv => { rv.checked = today(); }); redraw(r); render(true); };
 }
 
 function render(summaryOnly) {
   const cnt = k => rows.filter(r => r.v.cls === k).length;
-  const due = OWN ? rows.filter(r => quarterInfo(r.review).due).length : 0;
+  const due = OWN ? rows.filter(r => quarterInfo(r).due).length : 0;
   const tiles = OWN
     ? [['v-good', 'Behouden', cnt('v-good'), 'scorecard 75+, geen afvaller'], ['v-mid', 'Kritisch bekijken', cnt('v-mid'), 'zou als aankoop afvallen'],
-       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlag'], ['due', 'Kwartaalcheck', due, 'niet gecheckt in 100 d']]
+       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlag'], ['due', 'Kwartaalcheck', due, 'na nieuwe cijfers of 100 d']]
     : [['survivor', 'Survivors', rows.length, 'overleven alle stappen'], ['v-good', 'Ook goedkoop', rows.filter(r => r.it.s12.list[11].s === 'pass').length, 'bear-case DCF boven de koers'],
        ['near', 'Bijna', extraRows.length, 'alleen te duur (stap 12)'], ['top', '100+', rows.filter(r => r.it.card.s >= 100).length, 'uitzonderlijke scorecard']];
   $('summary').innerHTML = tiles.map(([k, l, v, s]) => `<button class="stat ${filter === k ? 'active' : ''}" data-f="${k}"><div class="label">${l}</div>
@@ -299,7 +370,7 @@ function render(summaryOnly) {
   if (summaryOnly) return;
   let list = rows;
   if (filter && filter.startsWith('v-')) list = OWN ? rows.filter(r => r.v.cls === filter) : rows.filter(r => r.it.s12.list[11].s === 'pass');
-  else if (filter === 'due') list = rows.filter(r => quarterInfo(r.review).due);
+  else if (filter === 'due') list = rows.filter(r => quarterInfo(r).due);
   else if (filter === 'near') list = extraRows;
   else if (filter === 'top') list = rows.filter(r => r.it.card.s >= 100);
   const box = $('list');
@@ -309,7 +380,7 @@ function render(summaryOnly) {
 }
 
 async function load() {
-  const [scr, sig, data] = await Promise.all([getJSON('screener.json'), getJSON('signals.json'), getJSON('data.json')]);
+  const [scr, sig, data, these] = await Promise.all([getJSON('screener.json'), getJSON('signals.json'), getJSON('data.json'), OWN ? Shared.loadThese() : null]);
   DATA = scr;
   if (!scr) { $('list').innerHTML = '<div class="empty">Nog geen screener.json. Draai eerst de workflow Top 250.</div>'; return; }
   $('updated').textContent = 'data van ' + new Date(scr.updated).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -340,6 +411,7 @@ async function load() {
     const it = find(t);
     const skip = (scr.own_skip || {})[t] || (us && (scr.own_skip || {})[us]);
     return { key: p.id.replace(/[^A-Za-z0-9]/g, '_'), id: p.id, name: (it && it.name) || qn || p.label || p.ticker, ticker: p.ticker, it, review: p.review,
+             th: (these && it && these.stocks[it.sym]) || null,   // weekhistorie uit these.json (scorecard, afvallers, cijfers)
              v: Steps.verdict(it), missing: it ? null : skip ? `niet te scoren (${skip}): beoordeel dit aandeel zelf met de 12 stappen`
                : 'nog niet gescand: komt mee in de volgende runs van de Top 250' };
   });

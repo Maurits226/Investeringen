@@ -143,9 +143,6 @@
   .sc-bar i { position: absolute; top: -3px; width: 3px; height: 14px; border-radius: 2px; background: var(--text); transform: translateX(-1px); }
   .sc-adj { font-size: 11.5px; color: var(--muted); font-family: var(--mono); margin: 6px 0 16px; line-height: 1.5; }
 
-  .ring { position: relative; width: 58px; height: 58px; }
-  .ring svg { width: 58px; height: 58px; transform: rotate(-90deg); }
-  .ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 600; font-size: 16px; }
   /* Jouw branches: kaarten met referentie-ETF */
   .branches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
   .br {
@@ -522,7 +519,6 @@ const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
 // Kleuren van de scorecard (zoals in de video): groen 100+, geel 75-100, rood onder 75
 const tier = s => s >= 100 ? 't1' : s >= 75 ? 't3' : '';
-const ringColor = s => s >= 100 ? 'var(--up)' : s >= 75 ? 'var(--warn)' : 'var(--down)';
 // 12 stappen: survivors eerst, dan wie het verst komt (afvallen bij een latere stap), dan het aantal gehaalde stappen
 const s12rank = it => !it.s12 ? -1 : it.s12.survivor ? 1000 : (it.s12.fail || 0) * 20 + (it.s12.auto_ok || 0);
 
@@ -727,14 +723,6 @@ function copyTicker(b) {
     () => prompt('Ticker:', t));
 }
 
-function ring(score) {
-  const r = 24, c = 2 * Math.PI * r, f = Math.max(0, Math.min(125, score)) / 125;
-  return `<div class="ring"><svg viewBox="0 0 58 58">
-      <circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--panel-2)" stroke-width="5"/>
-      <circle cx="29" cy="29" r="${r}" fill="none" stroke="${ringColor(score)}" stroke-width="5" stroke-linecap="round"
-              stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}"/>
-    </svg><div class="num">${Math.round(score)}</div></div>`;
-}
 
 function card(it) {
   const open = openSet.has((it.ref ? 'ref:' : '') + it.sym);
@@ -760,7 +748,7 @@ function card(it) {
       <div class="s-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[it.sector] || it.sector || '—')}</div>
       ${tags ? `<div class="tags">${tags}</div>` : ''}
     </div>
-    <div title="Scorecard ${it.card && it.card.s != null ? Math.round(it.card.s) + ' van 125' : 'onbekend'} · marktrang P${Math.round(it.score)}: beter dan ${Math.round(it.score)}% van de markt">${it.card && it.card.s != null ? ring(it.card.s) : '<div class="ring"><div class="num">—</div></div>'}<div class="ring-sub">/125 · P${Math.round(it.score)}</div></div>
+    <div title="Scorecard ${it.card && it.card.s != null ? Math.round(it.card.s) + ' van 125' : 'onbekend'} · marktrang P${Math.round(it.score)}: beter dan ${Math.round(it.score)}% van de markt">${Steps.ring(it.card && it.card.s, 58)}<div class="ring-sub">/125 · P${Math.round(it.score)}</div></div>
     <div class="row2">
       <div class="blk"><div class="k">Koers</div><div class="v">${money(it, it.price)}</div>
         <div class="s ${cls(it.day)}">${it.day == null ? '&nbsp;' : pct(it.day, 2) + ' vandaag'}</div></div>

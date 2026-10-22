@@ -75,8 +75,7 @@
   .b-sub span { white-space: nowrap; }
   .b-verdict { font-size: 11px; font-weight: 600; margin-top: 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
   .b-score { text-align: center; }
-  .b-score b { display: block; font-family: var(--mono); font-size: 24px; font-weight: 600; line-height: 1; }
-  .b-score small { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .b-score small { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
   .b-steps { min-width: 0; }
   .b-steps .why { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
   .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11.5px; padding: 7px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; min-height: 36px; }
@@ -290,7 +289,7 @@ function rowHTML(r) {
       <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
         <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due && !al.some(a => a.kind === 'earn') ? '&nbsp;· <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
         <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span></div>
-      <div class="b-score">${c && c.s != null ? `<b class="${lvl[1]}">${c.s}</b><small>/125</small>` : '<b class="v-na">—</b><small>geen data</small>'}${sp}</div>
+      <div class="b-score" title="${c && c.s != null ? `Scorecard ${c.s} van 125 · ${esc(lvl[0])}` : 'Nog geen scorecard'}">${Steps.ring(c && c.s, 52)}<small>${c && c.s != null ? 'van 125' : 'geen data'}</small>${sp}</div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
       <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>
       ${OWN ? theseHTML(r, tr, al) : ''}

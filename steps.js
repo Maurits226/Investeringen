@@ -66,6 +66,19 @@ const Steps = (() => {
     }
   }
 
+  // Scorecard-ring zoals in Kansen portefeuille: boog naar verhouding van 125, groen 100+, oranje 75-100, rood eronder.
+  // size in px (58 = groot zoals de Top 250, 48-52 = kaart, 34 = in een lijst); het getal staat in het midden.
+  // Op een lichtere ondergrond (--panel-2) zet de pagina --ring-track: var(--line), anders valt de lege boog weg.
+  const ringColor = s => s >= 100 ? 'var(--up, #3ecf8e)' : s >= 75 ? 'var(--warn, #f5b544)' : 'var(--down, #f0595f)';
+  function ring(score, size = 58) {
+    if (score == null || !isFinite(score)) return `<span class="s12-ring na" style="--rs:${+size}px"><b>—</b></span>`;
+    const r = 24, c = 2 * Math.PI * r, f = Math.max(0, Math.min(125, +score)) / 125;
+    return `<span class="s12-ring" style="--rs:${+size}px" role="img" aria-label="Scorecard ${Math.round(score)} van 125"><svg viewBox="0 0 58 58" aria-hidden="true">
+        <circle class="trk" cx="29" cy="29" r="${r}" fill="none" stroke-width="5"/>
+        <circle cx="29" cy="29" r="${r}" fill="none" stroke="${ringColor(+score)}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}"/>
+      </svg><b>${Math.round(score)}</b></span>`;
+  }
+
   function cardTable(card) {
     if (!card || card.s == null) return `<div class="s12-note">Te weinig cijfers voor de scorecard (${card ? card.n : 0}/13).</div>`;
     const L = LEVEL[card.lvl] || LEVEL.low;
@@ -75,7 +88,7 @@ const Steps = (() => {
         <div class="s12-cv">${cardValue(c)}</div>
         <div class="s12-pts p${c.p}">${c.p}</div>
         <small class="s12-cs">${esc((CARD[c.k] || ['', ''])[1])}</small></div>`).join('');
-    return `<div class="s12-chead"><span class="s12-cnum">${sc(card.s)}<small>/125</small></span><span class="s12-lvl ${L[1]}">${L[0]}</span></div>
+    return `<div class="s12-chead">${ring(card.s, 48)}<span class="s12-cnum"><small>van 125</small></span><span class="s12-lvl ${L[1]}">${L[0]}</span></div>
       <div class="s12-bar"><i style="left:${Math.min(100, card.s / 1.25).toFixed(1)}%"></i></div>
       ${rows}
       <div class="s12-note">* Subjectief: oordeel uit kwaliteit.json of een strenge schatting uit de cijfers. 100-125 uitzonderlijk · 75-100 watchlist · onder 75 absoluut niet.
@@ -161,7 +174,14 @@ const Steps = (() => {
       .s12-dots i { width: 11px; height: 11px; border-radius: 3px; background: #3a3e43; display: inline-block; }
       .s12-dots i.ok { background: var(--up, #3ecf8e); } .s12-dots i.no { background: var(--down, #f0595f); }
       .s12-dots i.chk { background: var(--warn, #f5b544); } .s12-dots i.man { background: transparent; box-shadow: inset 0 0 0 1px #5a5f64; }
-      .s12-chead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+      .s12-chead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+      .s12-ring { position: relative; display: inline-block; width: var(--rs, 58px); height: var(--rs, 58px); flex-shrink: 0; vertical-align: middle; }
+      .s12-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+      .s12-ring .trk { stroke: var(--ring-track, var(--panel-2, #202224)); }
+      .s12-ring b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace);
+        font-weight: 600; font-size: max(11.5px, calc(var(--rs, 58px) * .28)); line-height: 1; color: var(--text, #eceef0); }
+      .s12-ring.na { border-radius: 50%; box-shadow: inset 0 0 0 calc(var(--rs, 58px) * .086) var(--ring-track, var(--panel-2, #202224)); }
+      .s12-ring.na b { color: var(--muted, #83888d); }
       .s12-cnum { font-family: var(--mono, monospace); font-size: 24px; font-weight: 600; }
       .s12-cnum small { font-size: 12px; color: var(--muted, #83888d); font-weight: 400; }
       .s12-lvl { font-size: 12px; font-weight: 600; } .lvl-top { color: var(--up, #3ecf8e); } .lvl-watch { color: var(--warn, #f5b544); } .lvl-low { color: var(--down, #f0595f); }
@@ -216,5 +236,5 @@ const Steps = (() => {
     document.head.appendChild(st);
   }
 
-  return { NAMES, SUB, CARD, LEVEL, MANUAL, esc, dots, failText, verdict, cardTable, panel, css };
+  return { NAMES, SUB, CARD, LEVEL, MANUAL, ring, esc, dots, failText, verdict, cardTable, panel, css };
 })();

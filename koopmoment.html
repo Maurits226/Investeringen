@@ -77,7 +77,9 @@
   .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .chip.zone { color: var(--up); border-color: rgba(62,207,142,.5); background: rgba(62,207,142,.08); }
   .chip.bijna { color: var(--warn); border-color: rgba(245,181,68,.45); background: rgba(245,181,68,.06); }
-  .chip.card { color: var(--text); }
+  /* scorecard-ring uit steps.js (zoals in Kansen portefeuille) rechts naast de naam */
+  .k-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .k-tt { min-width: 0; }
   .chip.own { color: #a78bfa; border-color: rgba(167,139,250,.45); }
   .why { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
 
@@ -283,7 +285,6 @@ function card(r, own) {
   const mine = isOwn(r, own);
   const chips = [
     `<span class="chip ${r.status === 'zone' ? 'zone' : 'bijna'}">${r.status === 'zone' ? 'in de zone' : 'bijna'}</span>`,
-    `<span class="chip card">scorecard ${Math.round(r.card)}/125</span>`,
     mine ? '<span class="chip own">bijkopen</span>' : '',
     r.watch ? '<span class="chip">op watchlist</span>' : '',
     Number.isInteger(r.earn_days) ? `<span class="chip" title="Volgende kwartaalcijfers">cijfers over ${r.earn_days} d</span>` : ''
@@ -293,8 +294,9 @@ function card(r, own) {
     : esc(Steps.failText(r.s12))}</span></div>` : '';
   return `<div class="k-card ${st}">
     <div class="k-name">
-      <div class="k-title">${esc(r.name)}</div>
-      <div class="k-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[r.sector] || r.sector || '—')}</div>
+      <div class="k-top"><div class="k-tt"><div class="k-title">${esc(r.name)}</div>
+        <div class="k-sub">${esc(tick)}${beurs ? ' · ' + esc(beurs) : ''} · ${esc(SECTOR_NL[r.sector] || r.sector || '—')}</div></div>
+        ${r.card != null ? `<span title="Scorecard ${Math.round(r.card)} van 125">${Steps.ring(r.card, 46)}</span>` : ''}</div>
       <div class="chips">${chips}</div>
       <div class="why">${(r.why || []).map(esc).join(' · ')}</div>
       ${s12}

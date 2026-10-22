@@ -897,6 +897,15 @@ def sp500_5y(y):
         return None
 
 
+# Geeft Yahoo geen rapportagevaluta (bv. TSFA.DU, een tweede notering van TSMC), dan alleen vertrouwen bij
+# bedrijven uit de eurozone of de VS; anders zijn de cijfers vaak in een andere valuta (TWD) en kloppen DCF en schuld niet.
+def unknown_fin_cur(c):
+    country = c.get("country")
+    if c.get("fcur") or not country or country in EUROZONE or country == "United States":
+        return None
+    return f"cijfers in onbekende valuta ({country})"
+
+
 def fetch_stock(y, sym, meta, old, fx):
     c = {"src": meta["src"], "region": meta["region"]}
     s = summary(y, sym)
@@ -908,6 +917,9 @@ def fetch_stock(y, sym, meta, old, fx):
         return c
     if s.get("fcur") and s["fcur"] not in OK_FIN_CUR:
         c.update({"f": iso(), "skip": f"rapporteert in {s['fcur']}", "name": s.get("name"), "country": s.get("country")})
+        return c
+    if unknown_fin_cur(s):
+        c.update({"f": iso(), "skip": unknown_fin_cur(s), "name": s.get("name"), "country": s.get("country")})
         return c
     c.update(s)
     c["ts"] = timeseries(y, sym)
@@ -1925,6 +1937,18 @@ def main():
                 break
 
     # 2. Actuele koersen (dollar- en euro-noteringen)
+    # Valuta van de cijfers onbekend: een andere notering van hetzelfde bedrijf rapporteert wel zijn valuta
+    # (TSFA.DU heeft geen, TSM en TSFA.VI wel: 'rapporteert in TWD'), anders het land
+    fin_of = {}
+    for c_ in cache.values():
+        if str(c_.get("skip") or "").startswith("rapporteert in") and name_key(c_.get("name")):
+            fin_of[name_key(c_.get("name"))] = c_["skip"]
+    for s_ in uni:
+        c_ = cache.get(s_) or {}
+        if c_.get("ts") and not c_.get("skip") and not c_.get("fcur"):
+            why = fin_of.get(name_key(c_.get("name"))) or unknown_fin_cur(c_)
+            if why:
+                c_["skip"] = why
     ready = [s for s in uni if (cache.get(s) or {}).get("ts") and not cache[s].get("skip")]
     syms = set(ready) | {(cache[s].get("eu") or {}).get("sym") for s in ready if (cache[s].get("eu") or {}).get("sym")}
     prices = batch_quotes(y, syms)

@@ -42,6 +42,7 @@ jobs:
           [ -d screener_det ] && git add -A screener_det      # details per kans (16 bestanden)
           [ -f koopmoment.json ] && git add koopmoment.json
           [ -f these.json ] && git add these.json
+          [ -f zoek.json ] && git add zoek.json                # zoekindex voor 'positie toevoegen'
           if git diff --cached --quiet; then
             echo "Geen wijzigingen"; exit 0
           fi

@@ -100,7 +100,8 @@ QUALITY = os.path.join(ROOT, "kwaliteit.json")
 KOOP_OUT = os.path.join(ROOT, "koopmoment.json")
 DET_DIR = os.path.join(ROOT, "screener_det")   # details per kans, verdeeld over DET_N bestanden (shard_of)
 DET_N = 16
-THESE_OUT = os.path.join(ROOT, "these.json")   # wekelijkse stand van je eigen aandelen (these-bewaking)
+THESE_OUT = os.path.join(ROOT, "these.json")
+ZOEK_OUT = os.path.join(ROOT, "zoek.json")       # zoekindex voor 'positie toevoegen' (naam -> tickers)   # wekelijkse stand van je eigen aandelen (these-bewaking)
 THESE_MAX = 104                                # zoveel weken historie bewaren (2 jaar)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
@@ -857,6 +858,41 @@ def norm_name(n):
 ETC_US = {"GLD", "SLV"}     # Amerikaanse tegenhanger van je goud/zilver-ETC's (US_LISTING_OVERRIDES in signals.py): geen aandeel
 
 
+def write_search_index(cache, dyn, path=None):
+    """Zoekindex voor het dashboard ('positie toevoegen'): elk bedrijf dat de scan kent, met euro- en dollarnotering.
+    rows = [naam, ticker, euro-notering of null, beurscode (VS) of null, sector, marktwaarde in mld (koersvaluta)].
+    Alleen noteringen in euro of dollar; daarnaast je eigen tickers uit data.json (ook ETF's en edelmetalen)."""
+    rows, seen = [], set()
+
+    def add(name, sym, eu=None, exch=None, sector=None, mcap=None):
+        sym = (sym or "").upper()
+        if not name or not sym or sym in seen:
+            return
+        seen.add(sym)
+        rows.append([str(name)[:80], sym, eu, exch, sector, round(mcap / 1e9, 1) if mcap else None])
+
+    for sym, c in sorted(cache.items(), key=lambda kv: -((kv[1] or {}).get("mcap") or 0)):
+        if not c or str(c.get("skip") or "").startswith("valuta"):
+            continue                                   # koers in een andere valuta dan euro of dollar
+        eu = (c.get("eu") or {}).get("sym") if c.get("region") == "VS" and not wrong_eu_listing(c, cache) else None
+        add(c.get("name"), sym, eu, c.get("exch") if c.get("region") == "VS" else None, c.get("sector"), c.get("mcap"))
+        if eu:
+            seen.add(eu.upper())                       # de euro-notering hoort bij dit bedrijf, niet als losse regel
+    for side in ("us", "eu"):                          # nog niet gescand, wel bekend uit de brede lijsten
+        for sym, name in (dyn or {}).get(side) or []:
+            add(name, sym)
+    try:
+        q = json.load(open(os.path.join(ROOT, "data.json"), encoding="utf-8")).get("quotes", {})
+        for sym, v in q.items():
+            add((v or {}).get("name"), sym)
+    except Exception:  # noqa: BLE001
+        pass
+    out = {"v": 1, "updated": iso(), "rows": rows}
+    with open(path or ZOEK_OUT, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    return len(rows)
+
+
 def owned_positions():
     """Eigen posities (uitsluiten) en watchlist (markeren) uit portfolio.html, tickers.txt,
     signals.json (Amerikaanse tegenhanger van euro-noteringen) en data.json (namen).
@@ -878,10 +914,15 @@ def owned_positions():
     txt = os.path.join(ROOT, "tickers.txt")
     if os.path.exists(txt):
         for line in open(txt, encoding="utf-8-sig"):
-            s = line.split("#")[0].strip().upper()
+            parts = [x.strip() for x in re.split(r"[,;|\t]", line.split("#")[0])]
+            s = (parts[0].split() or [""])[0].upper()
+            cat = parts[2].lower() if len(parts) > 2 else ""   # 'TICKER, Naam, Categorie' (zo zet het dashboard ze erin)
+            if s and cat == "watchlist":
+                watch.add(s)
+                continue
             if s and s not in watch:
                 own.add(s)
-                if s not in in_html and "." not in s:
+                if s not in in_html and (cat == "stocks" or (not cat and "." not in s)):
                     stocks.add(s)                  # geen sectie bekend: een dollarticker telt als aandeel (ETC's vallen hieronder af)
     # Amerikaanse notering van je euro-posities (door de Patroonradar gevonden)
     us_of = {}
@@ -2290,6 +2331,10 @@ def main():
     with open(CACHE, "w", encoding="utf-8") as f:
         json.dump({"updated": iso(), "dyn": dyn, "stocks": compact(dict(sorted(cache.items())))}, f,
                   ensure_ascii=False, separators=(",", ":"))
+    try:                                             # zoekindex; mag de Top 250 nooit laten vastlopen
+        print(f"Zoekindex: {write_search_index(cache, dyn)} namen")
+    except Exception as e:  # noqa: BLE001
+        print(f"  zoekindex niet bijgewerkt: {e}")
     print(f"Klaar: {len(items)} gescoord, top {min(TOP_N, len(items))} weggeschreven · "
           f"{done} ververst · nog {pending} nooit gescand · {time.time() - t0:.0f}s")
 

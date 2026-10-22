@@ -327,6 +327,24 @@
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 
+  /* zoeken bij 'positie toevoegen': per bedrijf de noteringen als knoppen, de handigste eerst */
+  .z-res { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .z-res:empty { display: none; }
+  .z-co { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--ink); }
+  .z-name { font-size: 13px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .z-name small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 1px; }
+  .z-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .z-l { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 7px; padding: 4px 8px; min-height: 32px; cursor: pointer;
+         font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; }
+  .z-l small { font-weight: 400; color: var(--muted); font-size: 11px; margin-left: 4px; }
+  .z-l:hover, .z-l.on { border-color: var(--accent); }
+  .z-l.on { background: rgba(79,143,240,.14); }
+  .z-more { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .z-more a { color: var(--accent); }
+  .z-picked { font-size: 12px; color: var(--up); margin-top: 6px; line-height: 1.45; }
+  .z-picked.dup { color: var(--warn); }
+  .add-note { font-size: 12px; color: var(--muted); margin: -4px 0 10px; line-height: 1.5; }
+  .add-note:empty { display: none; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 18px; line-height: 1.6; }
   .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
@@ -344,6 +362,7 @@
     .ctl-btns button, .dialog-actions button { min-height: 40px; }
     .toolbar select, .tb-reset { height: 40px; }
     .toolbar select, .field input, .field select { font-size: 16px; }
+    .z-l { min-height: 40px; padding: 6px 10px; }
     .switch { min-height: 40px; }
     .edit-cost { min-height: 40px; padding: 8px 10px; }
     .remove { min-height: 40px; padding: 8px 10px; margin-right: -10px; }
@@ -444,6 +463,7 @@
     </div>
   </div>
 
+  <div class="add-note" id="addNote" aria-live="polite"></div>
   <div class="cards" id="cards"></div>
 
 </div>
@@ -451,8 +471,14 @@
 <dialog id="dlg">
   <h3>Positie toevoegen</h3>
   <div class="field">
-    <label>Ticker (Yahoo-symbool — beurs bepaalt de valuta)</label>
-    <input id="f-ticker" placeholder="1YD.DE" autocomplete="off">
+    <label for="f-search">Zoek op bedrijfsnaam of ticker</label>
+    <input id="f-search" type="search" placeholder="bv. Novo Nordisk, ASML of NVDA" autocomplete="off" spellcheck="false" enterkeyhint="search">
+    <div id="f-results" class="z-res" aria-live="polite"></div>
+  </div>
+  <div class="field">
+    <label for="f-ticker">Ticker (Yahoo-symbool — beurs bepaalt de valuta)</label>
+    <input id="f-ticker" placeholder="1YD.DE" autocomplete="off" spellcheck="false">
+    <div id="f-picked" class="z-picked" hidden></div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">
       Xetra = <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px">.DE</code> (EUR) ·
       Amsterdam = <code style="background:var(--panel-2);padding:1px 4px;border-radius:3px">.AS</code> ·
@@ -925,16 +951,18 @@ function positionCard(p, q, err) {
   const el = document.createElement('div');
   el.className = 'position';
   if (err || !q) {
+    const fresh = p.added && Date.now() - p.added < 30 * 60e3;   // net toegevoegd: de workflow heeft hem nog niet opgehaald
     el.innerHTML = `
       <div class="p-name"><span class="p-ticker">${esc(p.ticker)}</span>
-        <span class="p-company err">Koers niet geladen — bronnen geblokkeerd</span></div>
-      <div class="p-msg">
+        <span class="p-company ${fresh ? '' : 'err'}">${fresh ? esc(p.label || 'Net toegevoegd') : 'Koers niet geladen — bronnen geblokkeerd'}</span></div>
+      <div class="p-msg">${fresh ? `
+        Net toegevoegd. De eerste koers komt met de volgende koersupdate (elke 10 minuten), daarna verschijnt hier alles.` : `
         Nog geen data voor deze ticker. Staat hij in <code>tickers.txt</code>? Draai anders
         de GitHub Action één keer handmatig (tab <strong>Actions</strong> → <strong>Run workflow</strong>)
-        en ververs daarna.
+        en ververs daarna.`}
       </div>
       <div class="p-actions"><button class="remove" data-t="${esc(p.ticker)}">verwijder</button></div>`;
-    el.querySelector('.remove').onclick = () => removePosition(p.ticker);
+    el.querySelector('.remove').onclick = () => removePosition(posId(p));
     return el;
   }
 
@@ -1260,20 +1288,67 @@ function removePosition(id) {
   positions = positions.filter(p => posId(p) !== id);
   savePositions();
   render();
+  // via het dashboard in tickers.txt gezet en nergens meer in je lijst: daar ook weer uit (handmatige regels blijven staan)
+  if (pos && !positions.some(p => p.ticker === pos.ticker)) Shared.removeTicker(pos.ticker).catch(() => {});
 }
 
-// Dialog
+// Dialog: zoeken op naam (zoek.json) of zelf een Yahoo-ticker invullen
 const dlg = document.getElementById('dlg');
-document.getElementById('add').onclick = () => dlg.showModal();
+const fSearch = document.getElementById('f-search'), fRes = document.getElementById('f-results');
+const fTicker = document.getElementById('f-ticker'), fPicked = document.getElementById('f-picked');
+const SECTOR_NL = { Technology: 'Technologie', Healthcare: 'Gezondheidszorg', 'Financial Services': 'Financieel',
+  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', Industrials: 'Industrie',
+  'Communication Services': 'Communicatie', Energy: 'Energie', Utilities: 'Nutsbedrijven', 'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen' };
+let picked = null, searchT = null;
+function showPicked() {
+  const t = fTicker.value.trim().toUpperCase();
+  if (picked && picked.sym !== t) picked = null;
+  const dup = t && positions.find(p => p.ticker.toUpperCase() === t);
+  fPicked.hidden = !(picked || dup);
+  fPicked.className = 'z-picked' + (dup ? ' dup' : '');
+  fPicked.textContent = dup ? `Staat al in je lijst (${dup.section === 'Watchlist' ? 'watchlist' : dup.section}).`
+    : picked ? `✓ ${picked.name} · ${picked.cur === '$' ? 'dollar' : 'euro'}, ${picked.market}` : '';
+  fRes.querySelectorAll('.z-l').forEach(b => b.classList.toggle('on', b.dataset.sym === t));
+}
+async function runSearch() {
+  const q = fSearch.value.trim();
+  if (q.length < 2) { fRes.innerHTML = ''; return; }
+  const groups = await Shared.searchIndex();
+  if (fSearch.value.trim() !== q) return;          // intussen verder getypt
+  const hits = Shared.searchStocks(groups, q, 6);
+  const yahoo = `<div class="z-more">${hits.length ? 'Er niet bij?' : groups.length ? 'Niets gevonden in de lijst van ' + groups.length.toLocaleString('nl-NL') + ' bedrijven.' : 'De zoeklijst is (nog) niet beschikbaar.'}
+    <a href="https://finance.yahoo.com/lookup?s=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">Zoek op Yahoo Finance ↗</a> en neem het symbool over (in euro of dollar).</div>`;
+  fRes.innerHTML = hits.map(g => `<div class="z-co"><div class="z-name">${esc(g.name)}<small>${[SECTOR_NL[g.sector] || g.sector, g.mcap ? 'marktwaarde ±' + Math.round(g.mcap).toLocaleString('nl-NL') + ' mld' : ''].filter(Boolean).map(esc).join(' · ')}</small></div>
+      <div class="z-list">${g.list.filter((l, i, a) => l.rank < 5 || a.length < 3).slice(0, 3).map(l => `<button type="button" class="z-l" data-sym="${esc(l.sym)}" data-name="${esc(g.name)}" data-cur="${esc(l.cur)}" data-market="${esc(l.market)}"
+        title="${l.cur === '$' ? 'Dollarnotering' : 'Euronotering'} op ${esc(l.market)}">${esc(l.sym)}<small>${esc(l.cur)} ${esc(l.market)}</small></button>`).join('')}</div></div>`).join('') + yahoo;
+  showPicked();
+}
+fSearch.addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(runSearch, 120); });
+fSearch.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const b = fRes.querySelector('.z-l'); if (b) b.click(); } });
+fRes.addEventListener('click', e => {
+  const b = e.target.closest('.z-l');
+  if (!b) return;
+  picked = { sym: b.dataset.sym, name: b.dataset.name, cur: b.dataset.cur, market: b.dataset.market };
+  fTicker.value = picked.sym;
+  showPicked();
+});
+fTicker.addEventListener('input', showPicked);
+document.getElementById('add').onclick = () => { dlg.showModal(); fSearch.focus(); };
 document.getElementById('f-cancel').onclick = () => dlg.close();
+dlg.addEventListener('close', () => { fSearch.value = ''; fRes.innerHTML = ''; picked = null; fPicked.hidden = true; });
+Shared.onRefresh(() => { if (dlg.open) showPicked(); });
+const addNote = document.getElementById('addNote');
 document.getElementById('f-save').onclick = () => {
-  const t = document.getElementById('f-ticker').value.trim().toUpperCase();
-  if (!t) return;
+  const t = fTicker.value.trim().toUpperCase();
+  if (!t) { fSearch.focus(); return; }
   if (!/^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/.test(t)) { alert('Ongeldige ticker. Gebruik de Yahoo-ticker, bv. ASML.AS, NVD.DE of NVDA.'); return; }
   const section = document.getElementById('f-section').value;
+  if (positions.some(p => posId(p) === posId({ section, ticker: t }))) { alert(`${t} staat al in ${section}.`); return; }
   const isWatch = section === 'Watchlist';
   const costVal = parseFloat(document.getElementById('f-cost').value);
-  positions.push({
+  const name = picked && picked.sym === t ? picked.name : '';
+  const willAdd = !getQuote(t) && !positions.some(p => p.ticker.toUpperCase() === t);   // nog niet in tickers.txt (geen koers)
+  positions.push(Object.assign({
     ticker: t,
     section: section,
     watch: isWatch,
@@ -1281,11 +1356,22 @@ document.getElementById('f-save').onclick = () => {
     qty: parseFloat(document.getElementById('f-qty').value) || 1,
     thresh: parseInt(document.getElementById('f-thresh').value),
     cur: document.getElementById('f-cur').value
-  });
+  }, name ? { label: name } : {}, willAdd && getToken() ? { added: Date.now() } : {}));
   ['f-ticker','f-cost','f-qty'].forEach(id => document.getElementById(id).value = '');
   dlg.close();
   savePositions();
   render();
+  // Koersen komen van GitHub (tickers.txt -> data.json): met je token zetten we de ticker er zelf in
+  if (!willAdd) return;
+  if (!getToken()) {
+    addNote.textContent = `${t} staat in je lijst. Koersen komen pas als hij ook in tickers.txt staat: zet Sync aan (token) om dat automatisch te laten gebeuren, of voeg hem daar zelf toe.`;
+    return;
+  }
+  addNote.textContent = `${t} wordt aan tickers.txt toegevoegd…`;
+  Shared.addTicker(t, name, section).then(res => {
+    addNote.textContent = res === 'ok' || res === 'same' ? `✓ ${t} staat in tickers.txt. De eerste koers komt binnen ±10 minuten (volgende koersupdate).`
+      : `${t} kon niet aan tickers.txt worden toegevoegd (GitHub gaf een fout). Probeer later opnieuw of voeg hem zelf toe.`;
+  });
 };
 
 // Automatisch verversen: de pagina haalt elke 5 minuten data.json opnieuw op.

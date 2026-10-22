@@ -121,6 +121,19 @@ if hasattr(S, "write_details") and hasattr(S, "shard_of"):
         check(e.get("last_earn") == r0[0]["earnings"], "these: gepasseerde cijferdatum moet naar last_earn")
         json.dumps(t3, allow_nan=False)
 
+# Zoekindex (zoek.json) voor 'positie toevoegen': elke regel [naam, ticker, euro-notering, beurs, sector, marktwaarde]
+if hasattr(S, "write_search_index"):
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        raw = json.load(open(os.path.join(ROOT, "screener_cache.json"), encoding="utf-8"))
+        n = S.write_search_index(cache, raw.get("dyn"), path=os.path.join(tmp, "zoek.json"))
+        z = json.load(open(os.path.join(tmp, "zoek.json"), encoding="utf-8"), parse_constant=lambda c: check(False, c))
+        rows = z.get("rows") or []
+        check(n == len(rows) and n >= 500, f"zoekindex: te weinig namen ({n})")
+        check(all(isinstance(r, list) and len(r) == 6 and r[0] and r[1] for r in rows), "zoekindex: regel zonder naam of ticker")
+        check(len({r[1] for r in rows}) == len(rows), "zoekindex: dubbele ticker")
+        check(any(r[1] == "NVDA" and r[2] for r in rows), "zoekindex: NVIDIA met euro-notering ontbreekt")
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten · "
       + (f"{len(fails)} fout(en)" if fails else "alles in orde"))

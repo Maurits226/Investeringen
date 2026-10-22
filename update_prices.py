@@ -5,6 +5,7 @@ en schrijft het resultaat naar data.json.
 Draait op GitHub Actions (server-side, dus geen CORS-probleem).
 """
 import json
+import re
 import math
 import time
 import urllib.request
@@ -15,14 +16,15 @@ TICKERS_FILE = "tickers.txt"
 OUTPUT_FILE = "data.json"
 
 def read_tickers():
-    """Lees tickers uit tickers.txt, één per regel, negeer lege regels en # commentaar."""
+    """Lees tickers uit tickers.txt, één per regel, negeer lege regels en # commentaar.
+    Alleen het eerste woord telt: 'NVDA, NVIDIA, Watchlist  # via dashboard' wordt NVDA."""
     tickers = []
     try:
-        with open(TICKERS_FILE, "r", encoding="utf-8") as f:
+        with open(TICKERS_FILE, "r", encoding="utf-8-sig") as f:
             for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    tickers.append(line.upper())
+                t = re.split(r"[\s,;|#]", line.strip())[0].upper()
+                if t and t not in tickers:
+                    tickers.append(t)
     except FileNotFoundError:
         print(f"{TICKERS_FILE} niet gevonden, gebruik standaard AVGO.DE")
         tickers = ["AVGO.DE"]

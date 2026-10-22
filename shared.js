@@ -352,6 +352,100 @@ const Shared = (() => {
   const smartOn = () => { try { return localStorage.getItem('buy_mode') !== 'vast'; } catch (e) { return true; } };
   const thresholdFor = (p, q) => smartOn() && q && q.vol ? Math.round(Math.max(8, Math.min(35, q.vol * 0.5))) : (p.thresh || 20);
 
+  // ── Aandeel zoeken (positie toevoegen). zoek.json komt uit de Top 250-run: elk bedrijf dat de scan kent, met zijn
+  // noteringen in euro en dollar. Per bedrijf gegroepeerd, de handigste notering voorop: de thuisbeurs van een
+  // Europees bedrijf, dan Xetra (.DE), dan de Amerikaanse hoofdbeurs, dan Frankfurt/Düsseldorf en Wenen.
+  // OTC-noteringen (PNK) en Milanese dubbelnoteringen van buitenlandse aandelen (1ASML.MI) laten we weg.
+  const MARKET = { DE: 'Xetra', F: 'Frankfurt', DU: 'Düsseldorf', SG: 'Stuttgart', MU: 'München', BE: 'Berlijn', HM: 'Hamburg',
+    AS: 'Amsterdam', PA: 'Parijs', BR: 'Brussel', MI: 'Milaan', MC: 'Madrid', LS: 'Lissabon', HE: 'Helsinki', IR: 'Dublin', VI: 'Wenen', AT: 'Athene' };
+  const US_EXCH = { NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NYQ: 'NYSE', ASE: 'NYSE American', PCX: 'NYSE Arca', BTS: 'Cboe' };
+  function listing(sym, exch) {
+    const m = /\.([A-Z]{1,3})$/.exec(sym);
+    if (!m) return exch === 'PNK' || exch === 'OTC' ? null : { sym, cur: '$', market: US_EXCH[exch] || 'VS', rank: 3 };
+    if (!MARKET[m[1]] || (m[1] === 'MI' && /^\d/.test(sym))) return null;
+    const rank = m[1] === 'DE' ? 2 : m[1] === 'VI' ? 5 : ['F', 'DU', 'SG', 'MU', 'BE', 'HM'].includes(m[1]) ? 4 : 1;
+    return { sym, cur: '€', market: MARKET[m[1]], rank };
+  }
+  // Hele naam zonder rechtsvorm: 'Bank of America' en 'Bank of Hawaii' blijven twee bedrijven
+  const LEGAL = new Set(['inc', 'incorporated', 'corp', 'corporation', 'co', 'company', 'plc', 'n', 'v', 'nv', 'se', 'sa', 'ag', 'spa', 'ab', 'asa', 'oyj',
+    'as', 'a', 'b', 's', 'kgaa', 'holding', 'holdings', 'group', 'class', 'the', 'ltd', 'limited', 'com', 'adr']);
+  const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const coKey = n => fold(n).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w && !LEGAL.has(w)).join(' ');
+  let zoekP = null;
+  function searchIndex() {
+    if (!zoekP) zoekP = fetch('zoek.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null).then(d => {
+      if (!d || !Array.isArray(d.rows)) { zoekP = null; return []; }
+      const groups = new Map();
+      d.rows.forEach(([name, sym, eu, exch, sector, mcap]) => {
+        const key = coKey(name) || sym;
+        let g = groups.get(key);
+        if (!g) groups.set(key, g = { name, sector: null, mcap: 0, hay: fold(name), list: [] });
+        g.sector = g.sector || sector;
+        g.mcap = Math.max(g.mcap, mcap || 0);
+        [listing(sym, exch), eu && listing(eu)].forEach(l => { if (l && !g.list.some(x => x.sym === l.sym)) g.list.push(l); });
+      });
+      const out = [...groups.values()].filter(g => g.list.length);
+      out.forEach(g => g.list.sort((a, b) => a.rank - b.rank));
+      return out;
+    });
+    return zoekP;
+  }
+  // Best passende bedrijven voor wat je typt: ticker exact > naam begint ermee > elk woord begint ermee > ergens in de naam > ticker begint ermee
+  function searchStocks(groups, q, limit = 8) {
+    const f = fold(q).trim(), up = String(q || '').trim().toUpperCase();
+    if (f.length < 2) return [];
+    const words = f.split(/\s+/);
+    const hit = g => {
+      const base = s => s.sym.split('.')[0];
+      if (g.list.some(s => s.sym === up || base(s) === up)) return 100;
+      const nw = g.hay.split(/[^a-z0-9]+/);
+      if (g.hay.startsWith(f)) return /[^a-z0-9]/.test(g.hay.charAt(f.length) || ' ') ? 85 : 80;   // 'novo' = heel woord: Novo Nordisk voor Novozymes
+      if (words.every(w => nw.includes(w))) return 70;
+      if (words.every(w => nw.some(x => x.startsWith(w)))) return 60;
+      if (f.length >= 3 && g.hay.includes(f)) return 30;
+      if (up.length >= 2 && g.list.some(s => s.sym.startsWith(up))) return 20;
+      return 0;
+    };
+    return groups.map(g => ({ g, s: hit(g) })).filter(x => x.s).sort((a, b) => b.s - a.s || b.g.mcap - a.g.mcap).slice(0, limit).map(x => x.g);
+  }
+
+  // tickers.txt is openbaar (geen bedragen) en bepaalt van welke tickers de workflows koersen ophalen. Met je token zet het
+  // dashboard er een nieuwe positie in als 'TICKER, Naam, Categorie  # via dashboard'; verwijderen doet het alleen bij zulke regels.
+  const TICKER_OK = /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/;
+  const txtSym = line => (line.trim().split(/[\s,;|#]/)[0] || '').toUpperCase();
+  const plain = s => String(s || '').replace(/[,;|#\t\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+  async function editTickers(change, message) {
+    if (!token()) return 'no-token';
+    for (let i = 0; i < 2; i++) {                   // tussendoor gewijzigd (409/422): opnieuw lezen en nog één keer
+      try {
+        const r = await fetch(`${api('tickers.txt')}?ref=${GH.branch}&t=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
+        if (!r.ok) return 'error';
+        const j = await r.json(), old = Vault.b64ToText(j.content), next = change(old);
+        if (next == null || next === old) return 'same';
+        const w = await fetch(api('tickers.txt'), { method: 'PUT', headers: Object.assign(ghHeaders(), { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ message, content: Vault.textToB64(next), sha: j.sha, branch: GH.branch }) });
+        if (w.ok) return 'ok';
+        if (w.status !== 409 && w.status !== 422) return 'error';
+      } catch (e) { return 'error'; }
+    }
+    return 'error';
+  }
+  function addTicker(sym, name, section) {
+    sym = String(sym || '').toUpperCase();
+    if (!TICKER_OK.test(sym)) return Promise.resolve('error');
+    return editTickers(txt => txt.split('\n').some(l => !l.trim().startsWith('#') && txtSym(l) === sym) ? null
+      : txt.replace(/\s*$/, '\n') + `${sym}, ${plain(name) || sym}, ${plain(section) || 'Stocks'}  # via dashboard\n`,
+      `Ticker toegevoegd via het dashboard: ${sym}`);
+  }
+  function removeTicker(sym) {
+    sym = String(sym || '').toUpperCase();
+    if (!TICKER_OK.test(sym)) return Promise.resolve('error');
+    return editTickers(txt => {
+      const lines = txt.split('\n'), keep = lines.filter(l => !(txtSym(l) === sym && /#\s*via dashboard\s*$/.test(l)));
+      return keep.length === lines.length ? null : keep.join('\n');
+    }, `Ticker verwijderd via het dashboard: ${sym}`);
+  }
+
   // ── Opnieuw tonen als een andere pagina iets wijzigt, of als dit tabblad weer zichtbaar wordt
   const WATCH = ['portfolio_state', 'portfolio_positions', 'radar_trades', 'buy_mode', 'gh_token'];
   function onRefresh(fn) {
@@ -363,5 +457,5 @@ const Shared = (() => {
   }
 
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
-           sellPctForStep, stepsReached, sellStatus, smartOn, thresholdFor, onRefresh };
+           sellPctForStep, stepsReached, sellStatus, smartOn, thresholdFor, onRefresh, searchIndex, searchStocks, addTicker, removeTicker };
 })();

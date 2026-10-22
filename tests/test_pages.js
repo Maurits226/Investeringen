@@ -71,6 +71,14 @@ const WIDTHS = [390, 1280];
           await page.click('.b-card .b-head');
           await page.waitForSelector('.b-body', { timeout: 8000 });
         }
+        if (pg === 'portfolio.html') {                     // positie toevoegen: zoeken op naam vult de ticker in
+          await page.click('#add');
+          await page.fill('#f-search', 'nvidia');
+          await page.waitForSelector('#f-results .z-l', { timeout: 8000 });
+          await page.click('#f-results .z-l');
+          if (!(await page.inputValue('#f-ticker'))) errs.push('zoeken: tikken op een notering vult de ticker niet in');
+          await page.click('#f-cancel');
+        }
         if (pg === 'index.html') {
           for (const v of ['overzicht', 'score', 'radar', 'archief', 'koop']) await page.click(`.seg.view button[data-view="${v}"]`);
         }

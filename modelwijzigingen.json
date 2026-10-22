@@ -13,5 +13,8 @@
   { "datum": "2026-10-12", "wijziging": "Crashradar: derde beursklimaat-tegel; 7 waarschuwingssignalen nagerekend op de S&P 500 sinds 1950, met berenmarkten, kooplad en dip-rendementen" },
   { "datum": "2026-10-21", "wijziging": "Top 250: de 12 stappen en de 125-punten scorecard uit 'How to Find the Best Stocks' vervangen het formuleblad; marktrang-pijler F = scorecard; koopmomenten alleen als de harde stappen (1, 2, 3, 8, 11) gehaald zijn" },
   { "datum": "2026-10-21", "wijziging": "Nieuwe pagina Beoordeling: je eigen aandelen door de 12 stappen (behouden / kritisch bekijken / these herzien) en Survivors in de Top 250" },
-  { "datum": "2026-10-21", "wijziging": "Techradar: waarschuwing als een terugval in tech en chips dreigt (Nasdaq-100, halfgeleiders, Nasdaq-angstindex), nagerekend op de geschiedenis" }
+  { "datum": "2026-10-21", "wijziging": "Techradar: waarschuwing als een terugval in tech en chips dreigt (Nasdaq-100, halfgeleiders, Nasdaq-angstindex), nagerekend op de geschiedenis" },
+  { "datum": "2026-10-22", "wijziging": "Top 250 breder (alleen euro en dollar): alle VS-bedrijven boven $2 mld op de hoofdbeurzen, 3x zoveel plekken per eurozone-beurs plus Athene, max. 1000 kansen; Merck & Co niet meer op de koers van Merck KGaA" },
+  { "datum": "2026-10-22", "wijziging": "These-bewaking: elke week een foto van de scorecard en 12 stappen van je eigen aandelen; melding bij 10+ punten daling, een nieuwe afvallende stap of nieuwe kwartaalcijfers" },
+  { "datum": "2026-10-22", "wijziging": "12 stappen: jaarcijfers op dezelfde jaren vergeleken, voorraadvlag alleen als voorraad >= 5% van de omzet, insiderverkoop pas 'flink' boven 0,2% van alle aandelen, Loan Officer Test n.v.t. bij banken/verzekeraars; één rode vlag = kritisch bekijken, meerdere = these herzien" }
 ]

@@ -278,6 +278,7 @@ const Shared = (() => {
     const out = [], t = todayOf(today), tn = dayNum(t);
     const name = (ref && ref.name) || (entry && entry.name) || '';
     const hist = theseHist(entry), tr = theseTrend(ref, entry, t);
+    const checked = review && ISO_D.test(review.checked || '') ? review.checked.slice(0, 10) : null;
     if (tr && !tr.short) {
       const win = tr.pts.slice(0, -1);
       if (tr.cur != null && tr.max != null && tr.max - tr.cur >= 10) {
@@ -286,16 +287,21 @@ const Shared = (() => {
           text: `Scorecard ${ptsTxt(tr.max)} → ${ptsTxt(tr.cur)} (sinds ${dayTxt(at.d, t)})`,
           title: `Scorecard ${name} ${ptsTxt(tr.max)} → ${ptsTxt(tr.cur)} (sinds ${dayTxt(at.d, t)})` });
       }
-      const base = hist.filter(h => tn - dayNum(h.d) >= 7).pop();
-      const fails = ref ? ((ref.s12 && ref.s12.list) || []).filter(x => x.s === 'fail').map(x => +x.n) : (hist[hist.length - 1].f || []);
-      if (base && Array.isArray(base.f)) fails.filter(n => n !== 12 && !base.f.includes(n)).sort((a, b) => a - b).forEach(n => {
-        const first = hist.find(h => h.d > base.d && Array.isArray(h.f) && h.f.includes(n));
-        const txt = `valt nu af bij stap ${n} (${stepName(n)})`;
-        out.push({ kind: 'newfail', sev: [8, 11].includes(n) ? 3 : 2, step: n, since: first ? first.d.slice(0, 10) : t,
-          text: txt, title: `${name} ${txt}` });
-      });
     }
-    const checked = review && ISO_D.test(review.checked || '') ? review.checked.slice(0, 10) : null;
+    // Nieuwe afvaller: een stap (niet 12, waardering) die eerder gehaald werd en nu faalt. De melding blijft staan tot je
+    // na het begin ervan een kwartaalcheck afvinkt: een these die breekt, mag niet na een week vanzelf verdwijnen.
+    // Faalde de stap al vanaf de eerste weekfoto, dan is hij niet 'nieuw' (dat staat al in het oordeel).
+    const withF = hist.filter(h => Array.isArray(h.f));            // f kan null zijn (geen cijfers die week)
+    const fails = ref ? ((ref.s12 && ref.s12.list) || []).filter(x => x.s === 'fail').map(x => +x.n) : ((withF[withF.length - 1] || {}).f || []);
+    fails.filter(n => n !== 12).sort((a, b) => a - b).forEach(n => {
+      let i = withF.length - 1;
+      while (i >= 0 && withF[i].f.includes(n)) i--;                 // terug tot de laatste week waarin de stap nog gehaald werd
+      if (i < 0) return;
+      const since = withF[i + 1] ? withF[i + 1].d.slice(0, 10) : t;
+      if (checked && checked >= since) return;
+      const txt = `valt nu af bij stap ${n} (${stepName(n)})`;
+      out.push({ kind: 'newfail', sev: [8, 11].includes(n) ? 3 : 2, step: n, since, text: `${txt} · sinds ${dayTxt(since, t)}`, title: `${name} ${txt}` });
+    });
     const le = entry && ISO_D.test(entry.last_earn || '') && entry.last_earn.slice(0, 10) <= t ? entry.last_earn.slice(0, 10) : null;
     if (le) {
       if (!checked || checked < le) out.push({ kind: 'earn', sev: 1, since: le,

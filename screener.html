@@ -109,7 +109,7 @@
     gap: 16px; align-items: center; position: relative; overflow: hidden; cursor: pointer;
     transition: border-color .15s;
   }
-  /* ~500 kaarten: wat buiten beeld staat wordt pas opgebouwd als je erheen scrolt */
+  /* ~1000 kaarten: wat buiten beeld staat wordt pas opgebouwd als je erheen scrolt */
   .stock { content-visibility: auto; contain-intrinsic-size: auto 74px; }
   .stock:hover { border-color: #3a3d41; }
   .stock::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
@@ -211,7 +211,7 @@
   .stock .row2 { display: contents; }
   .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11px; padding: 5px 9px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
   .toggle:hover { border-color: var(--accent); color: var(--text); }
-  /* naar boven (filters) zonder 500 kaarten terug te scrollen; verschijnt pas na een eind scrollen */
+  /* naar boven (filters) zonder 1000 kaarten terug te scrollen; verschijnt pas na een eind scrollen */
   .to-top { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5; width: 44px; height: 44px; border-radius: 50%;
             display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
             font: inherit; font-size: 18px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.45); }
@@ -367,7 +367,7 @@
         <h4>Welke bedrijven</h4>
         Het hele aanbod: <b>alle Amerikaanse bedrijven boven $2 mld</b> beurswaarde en <b>alle eurozone-bedrijven
         boven €1 mld</b> op hun thuisbeurs, ruim 2.000 in totaal, wekelijks ververst. Alleen euro en dollar.
-        Je ziet wie op de <b>scorecard 75 of hoger</b> scoort (max. 500), zonder je eigen posities; die kun je als referentie aanzetten.
+        Je ziet wie op de <b>scorecard 75 of hoger</b> scoort (max. 1000), zonder je eigen posities; die kun je als referentie aanzetten.
       </div>
       <div>
         <h4>Marktrang · vijf pijlers</h4>
@@ -450,7 +450,7 @@
     </div>
     <div class="tb-row2">
       <label class="tb-search"><input id="searchInp" type="search" placeholder="Zoek op naam of ticker" autocomplete="off"></label>
-      <label class="switch" title="Laat je eigen posities zien als referentie (tellen niet mee in de 500)"><input type="checkbox" id="refChk"><i></i>Mijn posities als referentie</label>
+      <label class="switch" title="Laat je eigen posities zien als referentie (tellen niet mee in de 1000)"><input type="checkbox" id="refChk"><i></i>Mijn posities als referentie</label>
       <button id="resetBtn" class="tb-reset">Reset filters</button>
       <span class="tb-count" id="tbCount"></span>
     </div>
@@ -469,7 +469,7 @@
 <script src="shared.js"></script>
 <script src="steps.js"></script>
 <script>
-const LIMIT = 500;      // maximaal zoveel bedrijven in de lijst
+const LIMIT = 1000;     // maximaal zoveel bedrijven in de lijst
 const CARD_SELECT = 75;  // bedrijven met een lagere scorecard (van 125) tonen we niet
 const SECTOR_NL = {
   'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
@@ -497,12 +497,15 @@ Steps.css();
 let DATA = null, lastLoad = 0;
 let quick = null;                    // actieve tegel-filter
 const openSet = new Set();
-let shown = [];                      // de kaarten die nu getoond worden (om er één opnieuw op te bouwen)
+let shown = [], renderGen = 0;       // de kaarten die nu getoond worden (om er één opnieuw op te bouwen) en welke tekenronde
 const detFail = new Set();           // details die niet te laden waren: 'opnieuw proberen' tonen
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const nf = (v, d = 2) => v == null || v === '' || !isFinite(+v) ? '—' : (+v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+// één getalnotatie per aantal decimalen: toLocaleString maakt er elke keer een nieuwe (traag bij 1000 kaarten)
+const NF = {};
+const nf = (v, d = 2) => v == null || v === '' || !isFinite(+v) ? '—'
+  : (NF[d] || (NF[d] = new Intl.NumberFormat('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d }))).format(+v);
 const eur = v => v == null ? '—' : '€ ' + nf(v, v >= 1000 ? 0 : 2);
 // Geen euro-notering? Dan tonen we de dollarnotering zoals hij is, zonder omrekenen.
 const usd = v => v == null ? '—' : '$ ' + nf(v, v >= 1000 ? 0 : 2);
@@ -665,40 +668,42 @@ function render() {
   $('tbCount').textContent = (nList === all.length ? `${all.length} stocks` : `${nList} van ${all.length} getoond`) + (nRef ? ` + ${nRef} eigen` : '');
 
   const box = $('cards');
+  const gen = ++renderGen;
+  shown = list;
   if (!list.length) {
     box.innerHTML = `<div class="empty">Geen stocks met deze filters. <button class="tb-reset" onclick="resetAll()">Reset filters</button></div>`;
     return;
   }
-  shown = list;
-  box.innerHTML = list.map(card).join('');
-  box.querySelectorAll('.stock').forEach(el => bindOne(el, list));
+  // Tot 1000 kaarten: de eerste meteen, de rest in porties erachteraan, zodat de lijst (en het scherm) direct reageert
+  const FIRST = 40, STEP = 150;
+  box.innerHTML = list.slice(0, FIRST).map(card).join('');
+  const more = i => {
+    if (gen !== renderGen || i >= list.length) return;      // intussen opnieuw gefilterd: deze ronde stopt
+    box.insertAdjacentHTML('beforeend', list.slice(i, i + STEP).map(card).join(''));
+    setTimeout(() => more(i + STEP), 0);
+  };
+  setTimeout(() => more(FIRST), 0);
 }
 
 // Eén kaart opnieuw opbouwen (openklappen, of als de details binnen zijn)
 function redraw(sym, ref) {
   const el = document.querySelector(`.stock[data-sym="${CSS.escape(sym)}"][data-ref="${ref ? 1 : 0}"]`);
   const it = shown.find(x => x.sym === sym && !!x.ref === !!ref);
-  if (!el || !it) return;
-  el.outerHTML = card(it);
-  bindOne(document.querySelector(`.stock[data-sym="${CSS.escape(sym)}"][data-ref="${ref ? 1 : 0}"]`), shown);
+  if (el && it) el.outerHTML = card(it);
 }
 
-function bindOne(el, list) {
+// Eén klikafhandeling voor alle kaarten (in plaats van 1000 losse)
+$('cards').addEventListener('click', e => {
+  const el = e.target.closest('.stock');
   if (!el) return;
-  el.addEventListener('click', e => {
-    if (e.target.closest('.detail') && !e.target.closest('.toggle')) return;
-    const s = el.dataset.sym;
-    const key = (el.dataset.ref === '1' ? 'ref:' : '') + s;
-    openSet.has(key) ? openSet.delete(key) : openSet.add(key);
-    redraw(s, el.dataset.ref === '1');
-  });
-  el.querySelectorAll('[data-retry]').forEach(b => b.onclick = e => {
-    e.stopPropagation();
-    detFail.delete((el.dataset.ref === '1' ? 'ref:' : '') + el.dataset.sym);
-    redraw(el.dataset.sym, el.dataset.ref === '1');
-  });
-  bindCopy(el);
-}
+  const s = el.dataset.sym, ref = el.dataset.ref === '1', key = (ref ? 'ref:' : '') + s;
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { copyTicker(cp); return; }
+  if (e.target.closest('[data-retry]')) { detFail.delete(key); redraw(s, ref); return; }
+  if (e.target.closest('.detail') && !e.target.closest('.toggle')) return;
+  openSet.has(key) ? openSet.delete(key) : openSet.add(key);
+  redraw(s, ref);
+});
 
 // De lijst is licht (screener.json fmt 2): de volledige scorecard, 12 stappen en cijfers komen pas bij het openklappen
 // binnen (één shard per 16 aandelen, shared.js). Oud formaat of eigen positie: meteen volledig.
@@ -715,14 +720,11 @@ function detailOrLoad(it) {
   return '<div class="detail"><div class="d-msg" role="status"><span class="d-spin"></span>Details laden…</div></div>';
 }
 
-function bindCopy(root) {
-  root.querySelectorAll('[data-copy]').forEach(b => b.onclick = e => {
-    e.stopPropagation();
-    const t = b.dataset.copy;
-    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
-      () => { b.textContent = '✓ gekopieerd'; setTimeout(() => b.textContent = 'Kopieer ' + t, 1500); },
-      () => prompt('Ticker:', t));
-  });
+function copyTicker(b) {
+  const t = b.dataset.copy;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
+    () => { b.textContent = '✓ gekopieerd'; setTimeout(() => b.textContent = 'Kopieer ' + t, 1500); },
+    () => prompt('Ticker:', t));
 }
 
 function ring(score) {

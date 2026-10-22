@@ -96,16 +96,19 @@ const Steps = (() => {
   }
 
   // Oordeel voor een positie die je al hebt ('Once a stock survives'): de 12 stappen zijn gemaakt om te KOPEN.
-  // Voor wat je al hebt telt of de these breekt: een zwakke balans (stap 8), rode vlaggen (stap 11) of een scorecard
-  // onder 75. Afvallen bij de strenge koopfilters (stap 2, 3, 7, 9, 10) = kritisch bekijken. Prijs is nooit een reden.
-  const HOLD_HARD = [8, 11];
+  // Voor wat je al hebt telt of de these breekt: een zwakke balans (stap 8), meerdere rode vlaggen tegelijk of de
+  // hype-val (stap 11), of een scorecard onder 75. Eén rode vlag of afvallen bij de strenge koopfilters (stap 2, 3, 7,
+  // 9, 10) = kritisch bekijken: de automatische vlaggen zijn grove signalen, geen bewijs. Prijs is nooit een reden.
+  const HOLD_HARD = [8];
+  const nFlags = x => x && x.note ? x.note.replace(/^[^:]+:\s*/, '').split(', ').length : 0;
+  const hardFail = x => HOLD_HARD.includes(x.n) || (x.n === 11 && (nFlags(x) >= 2 || /hype-val/.test(x.note || '')));
   const failNames = ns => ns.map(n => `${n} (${(NAMES[n] || '').toLowerCase()})`).join(', ');
   function verdict(it) {
     const s = it && it.s12, c = it && it.card;
     if (!s || !c || c.s == null) return { cls: 'v-na', label: 'Nog niet beoordeeld', text: 'Er zijn nog geen cijfers voor dit aandeel.' };
     const fails = s.list.filter(x => x.s === 'fail' && x.n !== 12);
-    const hard = fails.filter(x => HOLD_HARD.includes(x.n)).map(x => x.n);
-    const soft = fails.filter(x => !HOLD_HARD.includes(x.n)).map(x => x.n);
+    const hard = fails.filter(hardFail).map(x => x.n);
+    const soft = fails.filter(x => !hardFail(x)).map(x => x.n);
     const note = n => { const x = s.list.find(y => y.n === n); return x && x.note ? ` (${x.note.replace(/^[^:]+:\s*/, '')})` : ''; };
     if (c.s < 75 || hard.length) return { cls: 'v-bad', label: 'These herzien',
       text: `${c.s < 75 ? `Scorecard ${sc(c.s)}: onder 75, volgens de gids 'absoluut niet'. ` : ''}${hard.length ? `Valt af bij stap ${failNames(hard)}${note(hard[0])}. ` : ''}Breekt de these langzaam, bouw dan geleidelijk af (de gids: over ±18 maanden). Bij fraude: direct eruit. Een koersdaling alleen is nooit een reden.` };

@@ -1350,6 +1350,17 @@ def _series(ts, key):
     return [v for _, v in (ts.get(key) or [])]
 
 
+def _aligned(ts, k1, k2):
+    """Twee jaarreeksen op dezelfde datums: [(a, b), ...] oplopend. Yahoo levert soms reeksen uit andere jaren
+    (bv. voorraad tot 2022, omzet tot 2025); zonder uitlijnen vergelijk je dan appels met peren."""
+    b = dict(map(tuple, ts.get(k2) or []))
+    return [(v, b[d_]) for d_, v in (ts.get(k1) or []) if d_ in b and v is not None and b[d_] is not None]
+
+
+# Banken, brokers en verzekeraars: schuld is hun grondstof, dus de Loan Officer Test (stap 8) zegt daar niets
+FIN_BALANCE = re.compile(r"^(Banks|Capital Markets|Insurance|Mortgage Finance|Credit Services|Financial Conglomerates)")
+
+
 def _yoy(vals):
     return [(b / a - 1) * 100 for a, b in zip(vals, vals[1:]) if a and a > 0]
 
@@ -1403,7 +1414,8 @@ def twelve_steps(it, med):
     fcf = _series(ts, "annualFreeCashFlow")
     ni = _series(ts, "annualNetIncome")
     rev_g = _yoy(rev)
-    om_hist = [o / r * 100 for o, r in zip(oi[-len(rev):], rev[-len(oi):]) if r] if oi and rev else []
+    rev_key = "annualTotalRevenue" if ts.get("annualTotalRevenue") else "annualOperatingRevenue"
+    om_hist = [o / r * 100 for o, r in _aligned(ts, "annualOperatingIncome", rev_key) if r]
     g12, om12 = d["g12"], d["om12"]
     cash, debt = d["cash"], d["debt"]
     mcap_usd = d["mcap_usd"]
@@ -1511,8 +1523,12 @@ def twelve_steps(it, med):
           chk("Current ratio 1,0+", None if cr is None else cr >= 1.0, f"{cr:.2f}" if cr is not None else None),
           chk("Schuld / eigen vermogen onder 4", None if de is None else de < 4, "negatief eigen vermogen" if de == 99 else f"{de:.1f}" if de is not None else None)]
     f8 = sum(1 for x in c8 if x[1] is False)
-    step(8, "fail" if f8 >= 2 or (de is not None and de >= 4) else "check" if f8 == 1 else "pass", c8,
-         note="Vergelijk met de sector: een retailer lijkt altijd minder liquide door zijn voorraad." if cr is not None and cr < 1 else None)
+    if FIN_BALANCE.search(it.get("industry") or ""):
+        step(8, "manual", [[t, None, v] for t, _, v in c8],
+             note="N.v.t. bij banken, brokers en verzekeraars: schuld is hun grondstof. Beoordeel zelf de kapitaalbuffer (CET1 / solvabiliteit).")
+    else:
+        step(8, "fail" if f8 >= 2 or (de is not None and de >= 4) else "check" if f8 == 1 else "pass", c8,
+             note="Vergelijk met de sector: een retailer lijkt altijd minder liquide door zijn voorraad." if cr is not None and cr < 1 else None)
 
     # 9. Concurrentievoordeel (moat)
     mt = pts.get("moat")
@@ -1539,12 +1555,17 @@ def twelve_steps(it, med):
     step(10, "fail" if red10 else "pass" if ceo == 10 and (misses is None or misses <= 1) else "check", c10)
 
     # 11. Vernietig iets moois: rode vlaggen en de hype-val
-    inv = _series(ts, "annualInventory")
-    inv_pile = len(inv) >= 2 and len(rev) >= 2 and inv[-2] > 0 and rev[-2] > 0 and \
-        (inv[-1] / inv[-2] - 1) * 100 > (rev[-1] / rev[-2] - 1) * 100 + 20
+    # voorraad en omzet over dezelfde jaren, en alleen als de voorraad ertoe doet (minstens 5% van de omzet)
+    iv = _aligned(ts, "annualInventory", rev_key)
+    inv = [a for a, _ in iv]
+    inv_pile = len(iv) >= 2 and iv[-2][0] > 0 and iv[-2][1] > 0 and iv[-1][0] >= 0.05 * iv[-1][1] and \
+        (iv[-1][0] / iv[-2][0] - 1) * 100 > (iv[-1][1] / iv[-2][1] - 1) * 100 + 20
     margin_down = len(om_hist) >= 3 and om_hist[-1] < om_hist[-2] < om_hist[-3]
     chg = d["chg12"]
-    ins_dump = (d["ins_sell"] or 0) > 2 * max(1, d["ins_buy"] or 0) and chg is not None and chg > 30
+    # 'flink' = netto meer dan 0,2% van alle aandelen in een half jaar; bestuurders van grote bedrijven verkopen
+    # vrijwel altijd volgens plan (beloning in aandelen), dat is geen dumpen
+    net_sold = -(d.get("ins_net") or 0) / d["shares"] if d.get("shares") else 0
+    ins_dump = (d["ins_sell"] or 0) > 2 * max(1, d["ins_buy"] or 0) and net_sold >= 0.002 and chg is not None and chg > 30
     dil = d["dilution"]
     hype = [rev and rev[-1] <= 0, (card.get("s") or 0) < 60, dil is not None and dil > 3]
     flags = [k for k, hit in [("dalende marges (2 jaar)", margin_down), ("voorraad stijgt veel harder dan omzet", inv_pile),
@@ -1905,7 +1926,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
         "shares": (mcap_n / price_native) if mcap_n and price_native else (sh or None),
         "age": ((now().date() - datetime.fromisoformat((c.get("first") or {})["d"]).date()).days / 365.25)
                if (c.get("first") or {}).get("d") else None,
-        "eps_hist": c.get("eps_hist"), "ins_buy": c.get("ins_buy"), "ins_sell": c.get("ins_sell"),
+        "eps_hist": c.get("eps_hist"), "ins_buy": c.get("ins_buy"), "ins_sell": c.get("ins_sell"), "ins_net": c.get("ins_net"),
         "co_ceo": c.get("co_ceo"), "chg12": chg12, "dilution": m.get("dilution"),
         "fpe": fpe if fpe and fpe > 0 else None, "peg": m.get("peg"),
     }

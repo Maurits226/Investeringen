@@ -178,7 +178,7 @@
       <div><h4>Je oordeel per aandeel</h4>
         De 12 stappen zijn gemaakt om te <b>kopen</b>; voor wat je al hebt telt of je these breekt.
         <b class="v-good">Behouden</b>: scorecard 75+ en geen afvaller. <b class="v-mid">Kritisch bekijken</b>: zou als nieuwe aankoop afvallen (bijv. stap 3, de pre-screen).
-        <b class="v-bad">These herzien</b>: scorecard onder 75, een zwakke balans (stap 8) of rode vlaggen (stap 11). Alleen duur (stap 12) is nooit een reden om te verkopen.</div>
+        <b class="v-bad">These herzien</b>: scorecard onder 75, een zwakke balans (stap 8) of meerdere rode vlaggen tegelijk (stap 11). Alleen duur (stap 12) is nooit een reden om te verkopen.</div>
       <div><h4>Na de 12 stappen</h4>
         <b>Koop langzaam</b> (vast bedrag, vaste datum). <b>Schrijf je exit op vóór je koopt</b>: waarom je het bezit en wat je zou doen verkopen.
         Breekt de these langzaam, verkoop dan geleidelijk over ±18 maanden; fraude betekent direct eruit. <b>Check elk kwartaal</b> en herhaal de scorecard jaarlijks.</div>
@@ -361,7 +361,7 @@ function render(summaryOnly) {
   const due = OWN ? rows.filter(r => quarterInfo(r).due).length : 0;
   const tiles = OWN
     ? [['v-good', 'Behouden', cnt('v-good'), 'scorecard 75+, geen afvaller'], ['v-mid', 'Kritisch bekijken', cnt('v-mid'), 'zou als aankoop afvallen'],
-       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlag'], ['due', 'Kwartaalcheck', due, 'na nieuwe cijfers of 100 d']]
+       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlaggen'], ['due', 'Kwartaalcheck', due, 'na nieuwe cijfers of 100 d']]
     : [['survivor', 'Survivors', rows.length, 'overleven alle stappen'], ['v-good', 'Ook goedkoop', rows.filter(r => r.it.s12.list[11].s === 'pass').length, 'bear-case DCF boven de koers'],
        ['near', 'Bijna', extraRows.length, 'alleen te duur (stap 12)'], ['top', '100+', rows.filter(r => r.it.card.s >= 100).length, 'uitzonderlijke scorecard']];
   $('summary').innerHTML = tiles.map(([k, l, v, s]) => `<button class="stat ${filter === k ? 'active' : ''}" data-f="${k}"><div class="label">${l}</div>

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-22T18:20:33.449430+00:00",
+  "updated": "2026-10-22T18:30:32.783337+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 33.22,
+      "price": 33.13,
       "prevClose": 34.11000061035156,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 35.75,
       "vol": 64.8,
-      "sma50": 30.9576,
-      "sma200": 22.2117,
+      "sma50": 30.9558,
+      "sma200": 22.2112,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 171.24,
+      "price": 170.76,
       "prevClose": 184.3300018310547,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
       "vol": 54.4,
-      "sma50": 197.0472,
-      "sma200": 163.563,
+      "sma50": 197.0376,
+      "sma200": 163.5606,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"

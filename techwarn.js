@@ -75,13 +75,15 @@ const TechWarn = (() => {
     const cell = (a, b) => `${pc(a)}<small>${b}</small>`;
     // ×kans per dag, klein per episode; grijs onder ×1,10 of bij te weinig episodes
     const liftCell = (a, b, few) => `<span class="${few || (num(a) != null && a < 1.1) ? 'weak' : num(a) != null && a >= 1.5 ? 'hi' : ''}">${esc(lift(a))}</span><small>ep ${esc(lift(b))}</small>`;
-    const topCell = t => { t = t || {}; return liftCell(t.lift, t.lift_ep, !(num(t.n_ep) >= minEp)); };
+    // per episode alleen tonen bij genoeg episodes ('rustig' is bv. één lange episode: 100% zegt dan niets)
+    const epOk = x => num(x && x.n_ep) >= minEp;
+    const topCell = t => { t = t || {}; return liftCell(t.lift, epOk(t) ? t.lift_ep : null, !epOk(t)); };
     const topEp = t => num(t && t.n_ep) == null ? '' : ` (bij top ${esc(nf(t.n_ep, 0))})`;
     const sRows = sigs.map(s => `<tr class="${s.on ? 'cur' : ''}"><td class="l">${esc(s.name)}<small>${esc(nf(s.n_days, 0))} d · ${esc(nf(s.n_ep, 0))} ep${topEp(s.top)} · sinds ${esc(String(s.from || '').slice(0, 4))}${s.opt ? (s.in_mix ? ' · optioneel, telt mee' : ' · optioneel, telt niet mee') : ''}</small></td>
-      <td>${cell(s.hit, 'norm. ' + pc(s.base))}</td><td>${liftCell(s.lift, s.lift_ep)}</td><td>${topCell(s.top)}</td></tr>`).join('');
+      <td>${cell(s.hit, 'norm. ' + pc(s.base))}</td><td>${liftCell(s.lift, epOk(s) ? s.lift_ep : null)}</td><td>${topCell(s.top)}</td></tr>`).join('');
     const curK = d.level && d.level.k;
     const lRows = (d.levels || []).map(l => `<tr class="${l.k === curK ? 'cur' : ''}"><td class="l">${esc(l.label)}<small>${esc(l.rule)} · ${pc(l.share)} van de tijd · ${esc(nf(l.n_ep, 0))} ep${topEp(l.top)} · ≥15%: ${pc(l.hit15)}</small></td>
-      <td>${cell(l.hit10, 'ep ' + pc(l.hit10_ep))}</td><td>${liftCell(l.lift, l.lift_ep)}</td><td>${topCell(l.top)}</td></tr>`).join('');
+      <td>${cell(l.hit10, 'ep ' + (epOk(l) ? pc(l.hit10_ep) : '—'))}</td><td>${liftCell(l.lift, epOk(l) ? l.lift_ep : null)}</td><td>${topCell(l.top)}</td></tr>`).join('');
     const warnTxt = c => {
       if (c.nvt) return '<small>n.v.t.</small>';
       if (num(c.lead) == null) return '<span class="weak">geen</span>';

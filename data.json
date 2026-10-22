@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-22T20:00:38.576401+00:00",
+  "updated": "2026-10-22T20:10:37.285987+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -157,14 +157,14 @@
     },
     "ZETA": {
       "ticker": "ZETA",
-      "price": 33.515,
+      "price": 33.54,
       "prevClose": 34.11000061035156,
       "currency": "USD",
       "name": "Zeta Global Holdings Corp.",
       "high52": 35.75,
       "vol": 64.9,
-      "sma50": 30.9635,
-      "sma200": 22.2132,
+      "sma50": 30.964,
+      "sma200": 22.2133,
       "low52": 14.365,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -199,14 +199,14 @@
     },
     "ANET": {
       "ticker": "ANET",
-      "price": 170.52,
+      "price": 171.025,
       "prevClose": 184.3300018310547,
       "currency": "USD",
       "name": "Arista Networks, Inc.",
       "high52": 217.41,
-      "vol": 54.4,
-      "sma50": 197.0328,
-      "sma200": 163.5594,
+      "vol": 54.3,
+      "sma50": 197.0429,
+      "sma200": 163.5619,
       "low52": 114.52,
       "exchange": "NYQ",
       "exchangeFull": "NYSE"
@@ -297,14 +297,14 @@
     },
     "TSFA.DU": {
       "ticker": "TSFA.DU",
-      "price": 374.5,
+      "price": 366.0,
       "prevClose": 383.5,
       "currency": "EUR",
       "name": "Taiwan Semiconductor Manufacturing Co Ltd",
       "high52": 432.5,
-      "vol": 40.0,
-      "sma50": 379.28,
-      "sma200": 345.34,
+      "vol": 40.2,
+      "sma50": 379.11,
+      "sma200": 345.2975,
       "low52": 236.0,
       "exchange": "DUS",
       "exchangeFull": "Dusseldorf"

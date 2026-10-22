@@ -60,6 +60,8 @@ const Shared = (() => {
     return null;
   }
 
+  // Beoordeling (notities, afgevinkte punten, kwartaalcheck): de laatst gewijzigde versie wint, waar die ook vandaan komt
+  const newerReview = (a, b) => !a ? b : !b ? a : ((b.updated || '') > (a.updated || '') ? b : a);
   // Portefeuille-state: GitHub is leidend, lokaal bekende aankoopprijzen/verkopen vullen ontbrekende aan
   function mergeState(remote, local) {
     const out = {};
@@ -71,6 +73,20 @@ const Shared = (() => {
       if (r.cost == null && l.cost != null) out[id].cost = l.cost;
       if (r.qty == null && l.qty != null) out[id].qty = l.qty;
       if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
+      const rv = newerReview(r.review, l.review);
+      if (rv) out[id].review = rv;
+    });
+    return out;
+  }
+  // Voor een pagina die zijn eigen state uploadt (Investeringen): eigen wijzigingen houden, maar nieuwere
+  // beoordelingen en posities die alleen op GitHub staan (van een ander apparaat of tabblad) overnemen
+  function keepRemoteExtras(local, remote) {
+    const out = { ...(local || {}) };
+    Object.entries(remote || {}).forEach(([id, r]) => {
+      if (!r || typeof r !== 'object') return;
+      if (!out[id]) { out[id] = r; return; }
+      const rv = newerReview(out[id].review, r.review);
+      if (rv && rv !== out[id].review) out[id] = { ...out[id], review: rv };
     });
     return out;
   }
@@ -91,7 +107,9 @@ const Shared = (() => {
   // Portefeuille-state wijzigen vanaf elke pagina: eerst de nieuwste versie (lokaal + GitHub), dan de wijziging,
   // dan lokaal én versleuteld naar GitHub. Schrijft NIET naar GitHub als de versie daar niet te openen is
   // (andere token): anders zou je gegevens van een ander apparaat wissen. Geeft 'synced' | 'local' | 'error'.
-  async function saveState(change) {
+  // Opslaan gaat één voor één (een notitie en meteen daarna een vinkje mogen elkaar niet overschrijven);
+  // is de versie op GitHub intussen veranderd, dan nog één keer opnieuw lezen, samenvoegen en schrijven.
+  async function saveOnce(change) {
     const local = lsGet('portfolio_state', {});
     const remote = token() ? await ghReadFull('state.json') : { status: 'error' };
     const st = remote.status === 'ok' && remote.data && typeof remote.data === 'object' ? mergeState(remote.data, local) : local;
@@ -101,6 +119,18 @@ const Shared = (() => {
     if (remote.status !== 'ok' && remote.status !== 'missing') return 'error';
     return (await ghWrite('state.json', st, remote.sha, 'Update portfolio state (versleuteld) ' + new Date().toISOString())) ? 'synced' : 'error';
   }
+  let saveQueue = Promise.resolve(), saving = 0;
+  function saveState(change) {
+    saving++;
+    const run = saveQueue.then(async () => {
+      const res = await saveOnce(change);
+      return res === 'error' && token() ? saveOnce(change) : res;
+    });
+    saveQueue = run.catch(() => {}).finally(() => { saving--; });
+    return run;
+  }
+  const whenSaved = () => saveQueue;              // klaar met alle lopende opslagen (dan pas opnieuw inlezen)
+  const isSaving = () => saving > 0;
   async function loadTrades() {
     const local = lsGet('radar_trades', []);
     const remote = await ghRead('radar.json');
@@ -120,7 +150,9 @@ const Shared = (() => {
         const html = await (await fetch('portfolio.html?t=' + Date.now(), { cache: 'no-store' })).text();
         pos = [...html.matchAll(/\{[^{}]*?ticker:\s*'([^']+)'[^{}]*?\}/g)].map(m => {
           const o = m[0], g = re => (o.match(re) || [])[1];
-          return { ticker: m[1], section: g(/section:\s*(?:'|")(.*?)(?:'|")/), label: g(/label:\s*(?:'|")(.*?)(?:'|")/),
+          // 'ETF\'s' bevat een apostrof: tussen dubbele aanhalingstekens lezen we tot de dubbele, en andersom
+          const q = key => { const x = o.match(new RegExp(key + `:\\s*(?:'((?:[^'\\\\]|\\\\.)*)'|"([^"]*)")`)); return x ? (x[1] != null ? x[1].replace(/\\(.)/g, '$1') : x[2]) : undefined; };
+          return { ticker: m[1], section: q('section'), label: q('label'),
                    watch: /watch:\s*true/.test(o), thresh: +(g(/thresh:\s*([0-9.]+)/) || 20) };
         });
       } catch (e) { pos = []; }
@@ -198,6 +230,6 @@ const Shared = (() => {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) later(); });
   }
 
-  return { normName, stockIndex, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, mergeTrades, loadState, saveState, loadTrades, positions, posId,
+  return { normName, stockIndex, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
            sellPctForStep, stepsReached, sellStatus, smartOn, thresholdFor, onRefresh };
 })();

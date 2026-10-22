@@ -23,8 +23,8 @@
   }
   .wrap { max-width: 1100px; margin: 0 auto; }
   header.top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
-  .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px; }
-  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: flex-start; gap: 12px; }
+  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: .45em; }
   .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
   .updated { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   button, select {
@@ -297,7 +297,7 @@
     .h-row .h-px { white-space: normal; }
     .h-row .h-res .mini { margin-top: 6px; }
     /* Kop met keuzelijst: de lijst op een eigen regel over de volle breedte */
-    .section-header { flex-wrap: wrap; row-gap: 10px; }
+    .section-header:has(.right) { flex-wrap: wrap; row-gap: 10px; }
     .section-header .right { flex-basis: 100%; margin-left: 0; }
     .section-header .right select { width: 100%; }
     .an > summary { flex-wrap: wrap; row-gap: 4px; }

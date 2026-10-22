@@ -647,6 +647,16 @@ async function saveStateToGitHub(force = false) {
     syncStatus = 'syncing'; updateSyncBadge();
     // Eerst de laatste sha ophalen (kan gewijzigd zijn op een ander apparaat)
     await refreshStateSha();
+    // Wat intussen elders is opgeslagen (een beoordeling op een ander apparaat of tabblad) niet overschrijven:
+    // je eigen wijzigingen blijven, nieuwere beoordelingen en onbekende posities van GitHub komen erbij
+    if (!force) {
+      const remote = await Shared.ghReadFull(GH_STATE_FILE);
+      if (remote.status === 'ok' && remote.data && typeof remote.data === 'object') {
+        userState = Shared.keepRemoteExtras(userState, remote.data);
+        if (remote.sha) stateSha = remote.sha;
+        saveStateLocal();
+      }
+    }
     const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}`;
     // Niet overschrijven als we de versie op GitHub niet konden openen (dan zou je gegevens van een ander apparaat wissen)
     if (stateLocked === 'verkeerde-token' && !force) throw new Error('state.json is versleuteld met een andere token');

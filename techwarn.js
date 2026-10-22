@@ -69,7 +69,7 @@ const TechWarn = (() => {
       <em>${esc(st)}${na ? '' : ` · <b class="${weak ? 'weak' : ''}" title="historisch ${esc(lift(s.lift))} de normale kans op 10%+ daling">${esc(lift(s.lift))}</b>`}</em></li>`;
   }
 
-  function details(d) {
+  function details(d, open) {
     const sigs = (d.signals || []).filter(s => !s.na);
     const cs = d.corr_sum || {}, b = d.base || {}, h = d.horizon || {}, minEp = num(h.min_ep) || 10, topPct = num(h.top) || 5;
     const cell = (a, b) => `${pc(a)}<small>${b}</small>`;
@@ -95,7 +95,7 @@ const TechWarn = (() => {
       <td class="dn">${under(c.depth)}</td><td class="l r">${warnTxt(c)}</td></tr>`).join('');
     const nShown = (d.corrections || []).length, nAll = (num(cs.n) || 0) + (num(cs.n_golf) || 0);
     const errs = (d.source_errors || []).map(e => `<li>${esc(e)}</li>`).join('');
-    return `<details class="tw-det"><summary>Onderbouwing en historie<span class="tw-btn"></span></summary><div class="tw-dbody">
+    return `<details class="tw-det"${open ? ' open' : ''}><summary>Techradar · onderbouwing en historie<span class="tw-btn"></span></summary><div class="tw-dbody">
       <div class="tw-dk">Signalen <span>kans op ≥10% daling binnen ${esc(h.h10 || 40)} handelsdagen</span></div>
       <div class="tw-tw"><table class="tw-t"><tr><th>signaal</th><th>≥10%</th><th>×kans</th><th>bij top</th></tr>${sRows}</table></div>
       <div class="tw-dk">Niveaus <span>sinds ${esc(String(b.from || '').slice(0, 4) || '—')} · normaal ${pc(b.hit10)}, bij de top ${pc(b.hit10_top)} · ≥15% in ${esc(h.h15 || 60)} d: ${pc(b.hit15)}</span></div>
@@ -113,7 +113,8 @@ const TechWarn = (() => {
     </div></details>`;
   }
 
-  function tile(d) {
+  // opts.details === false: zonder de uitklapbare onderbouwing (de pagina toont die dan zelf over de volle breedte, via details())
+  function tile(d, opts = {}) {
     if (!d || !d.level || !d.state) return '';
     css();
     const L = lvOf(d), nd = d.ndx || {}, sx = d.sox, vx = d.vxn;
@@ -132,7 +133,7 @@ const TechWarn = (() => {
       <ul class="tw-sigs">${sigs.map(sigRow).join('')}</ul>
       ${vx ? `<div class="tw-vx">Angstindex Nasdaq (VXN) <b>${esc(nf(vx.level, 1))}</b> · 5d ${signed(vx.chg5, 0)} · gem. 50d ${esc(nf(vx.sma50, 1))}${vx.oud ? ` · <b class="old">verouderd (t/m ${esc(dag(vx.date))})</b>` : ''}</div>` : ''}
       ${histLine(d) ? `<div class="tw-hist">${histLine(d)}</div>` : ''}
-      ${details(d)}
+      ${opts.details === false ? '' : details(d)}
       <div class="tw-basis">${esc(d.state.text)} Data t/m ${esc(dag(d.asof))}${stale(d) ? ' <b class="old">(verouderd)</b>' : ''}.</div>
     </div>`;
   }
@@ -249,12 +250,12 @@ const TechWarn = (() => {
       .tw-dk span { text-transform: none; letter-spacing: 0; font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); }
       .tw-tw { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .tw-t { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-      .tw-t th { text-align: right; font-weight: 500; color: var(--muted, #83888d); font-size: 11px; padding: 3px 0 3px 8px; white-space: nowrap; }
+      .tw-t th { text-align: right; font-weight: 500; color: var(--muted, #83888d); font-size: 11px; padding: 3px 0 3px 14px; white-space: nowrap; }
       .tw-t th:first-child { text-align: left; padding-left: 0; }
-      .tw-t td { padding: 4px 0 4px 8px; border-top: 1px dashed #26282b; vertical-align: top; text-align: right; white-space: nowrap;
+      .tw-t td { padding: 4px 0 4px 14px; border-top: 1px dashed #26282b; vertical-align: top; text-align: right; white-space: nowrap;
         font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); }
       .tw-t td.l { text-align: left; white-space: normal; font-family: inherit; padding-left: 0; overflow-wrap: anywhere; }
-      .tw-t td.l.r { text-align: right; padding-left: 8px; }
+      .tw-t td.l.r { text-align: right; padding-left: 14px; }
       .tw-t td small { display: block; font-size: 11px; color: var(--muted, #83888d); font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); }
       .tw-t tr.cur td { color: var(--warn, #f5b544); } .tw-t td.dn { color: var(--down, #f0595f); }
       .tw-t .hi { color: var(--warn, #f5b544); font-weight: 600; } .tw-t .weak { color: var(--muted, #83888d); }
@@ -281,10 +282,10 @@ const TechWarn = (() => {
         .tw-cc { padding: 14px 13px 12px; } .tw-verdict, .tw-num { font-size: 20px; }
         .tw-ms2 { gap: 8px; } .tw-m { padding: 7px 8px; }
         .tw-sigs li { flex-wrap: wrap; } .tw-sigs li em { margin-left: auto; }
-        .tw-dbody { padding: 0 8px 8px; } .tw-t { font-size: 11px; } .tw-t td, .tw-t th { padding-left: 6px; }
+        .tw-dbody { padding: 0 8px 8px; } .tw-t { font-size: 11px; } .tw-t td, .tw-t th, .tw-t td.l.r { padding-left: 10px; }
       }`;
     document.head.appendChild(st);
   }
 
-  return { tile, banner, css, esc };
+  return { tile, details, banner, css, esc };
 })();

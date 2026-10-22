@@ -174,8 +174,6 @@
     .clim.c4 > .cc { grid-column: 1; }
     .clim.c4 > .tw-cc { grid-column: 2; grid-row: 1 / -1; }
     .clim.c4:not(:has(> .cc.wk)), .clim.c4:not(:has(> .cc.cr)) { grid-template-rows: auto 1fr; }
-    /* onderbouwing van de techradar open: de tegels links niet meerekken tot die lengte */
-    .clim.c4:has(.tw-det[open]) { align-items: start; }
   }
   /* drie tegels zonder techradar: past de derde niet meer naast de andere twee, dan over de volle breedte */
   @media (min-width: 761px) and (max-width: 960px) {
@@ -200,6 +198,10 @@
   .cc-basis a { color: #f5b544; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   .cc-basis a:focus-visible { outline: 2px solid #f5b544; outline-offset: 2px; border-radius: 3px; }
   details.crashx { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin: -2px 0 14px; }
+  /* techradar-onderbouwing: los blok over de volle breedte, zelfde stijl als de crashhistorie */
+  .tw-full { margin: -2px 0 14px; --mark: #2dd4bf; --tone: var(--muted); } .tw-full details.tw-det { background: var(--panel); border-radius: 12px; }
+  .tw-full details.tw-det[open] { border-color: rgba(45,212,191,.45); }
+  .tw-full details.tw-det > summary { padding: 11px 14px; font-size: 13px; } .tw-full .tw-dbody { padding: 0 14px 14px; }
   details.crashx[open] { border-color: rgba(245,181,68,.45); }
   details.crashx > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-size: 13px; }
   details.crashx > summary::-webkit-details-marker { display: none; }
@@ -376,7 +378,8 @@
   }
 
   .p-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; overflow-wrap: anywhere; }   /* lange Duitse namen niet buiten de kolom */
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; overflow-wrap: anywhere; display: flex; align-items: baseline; }   /* lange Duitse namen niet buiten de kolom */
+  .p-ticker .exch-dot, .p-ticker .rank-tag { flex-shrink: 0; }   /* tweede regel van een lange naam loopt onder de tekst, niet onder de stip */
   .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
   .rank-tag { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); margin-right: 7px; }
   .src { font-size: 11px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
@@ -535,7 +538,7 @@
       gap: 8px; margin: -4px -12px 14px; padding: 4px 12px 6px; scrollbar-width: none;
     }
     .markets::-webkit-scrollbar { display: none; }
-    .mkt { flex: 0 0 172px; scroll-snap-align: start; }        /* derde kaart steekt net in beeld: er is meer */
+    .mkt { flex: 0 0 190px; scroll-snap-align: start; }        /* derde kaart steekt net in beeld: er is meer */
     .mkt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
@@ -662,6 +665,8 @@ const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') +
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 // Externe links (nieuws): alleen http(s), anders gewoon tekst. Nieuw tabblad zonder verwijzing terug naar het dashboard.
 const safeUrl = u => { try { const x = new URL(String(u || ''), location.href); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch (e) { return ''; } };
+// Google News zet de bron achter de kop ("… - Yahoo Finance"); die staat al in de regel eronder
+const stripSrc = (t, src) => { t = String(t || ''); const tail = ' - ' + String(src || ''); return src && t.endsWith(tail) ? t.slice(0, -tail.length) : t; };
 const extLink = (u, text) => { const s = safeUrl(u); return s ? `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text); };
 
 let data = null;
@@ -902,7 +907,7 @@ function renderWorld() {
   }).join('');
   const hl = w.headlines || [];
   const heads = hl.map(h =>
-    `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span>${extLink(h.link, h.title)}<span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
+    `<li><span class="h-dot ${h.sent > 0 ? 'pos' : h.sent < 0 ? 'neg' : ''}" title="${h.sent > 0 ? 'positieve toon' : h.sent < 0 ? 'negatieve toon' : 'neutrale toon'}"></span>${extLink(h.link, stripSrc(h.title, h.publisher))}<span class="meta">${esc(h.publisher || '')} · ${geleden(h.time)} · ${esc(TOPIC[h.topic] || h.topic)}</span></li>`).join('');
   // Waarop het beursklimaat is gebaseerd (zelfde regel als in scripts/signals.py)
   const vix = byKey.vix, nd = byKey.nasdaq;
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
@@ -913,13 +918,12 @@ function renderWorld() {
   box.innerHTML = `
     ${clim}
     ${crashDetails(cxOpen)}
+    ${techDetails(twOpen)}
     <div class="factors">${facs}</div>
     ${heads ? `<details class="heads"${open ? ' open' : ''}><summary>📰 Wereldnieuws
         <span class="h-sub">${hl.length} ${hl.length === 1 ? 'kop' : 'koppen'} · laatste 3 dagen · nieuwste eerst</span>
         <span class="h-btn"><span class="h-show-more">tonen</span><span class="h-show-less">verbergen</span></span></summary>
         <ul>${heads}</ul></details>` : ''}`;
-  // de techradar (techwarn.js) kent geen open-stand: hier terugzetten
-  if (twOpen && box.querySelector('details.tw-det')) box.querySelector('details.tw-det').open = true;
 }
 // Twee kaarten: beursklimaat vandaag (blauw) en deze week (paars)
 function climateCards(reg, byKey, wk) {
@@ -962,7 +966,12 @@ function climateCards(reg, byKey, wk) {
 function techCard() {
   if (!tech || typeof TechWarn === 'undefined') return '';
   TechWarn.css();
-  return TechWarn.tile(tech);
+  return TechWarn.tile(tech, { details: false });
+}
+// Onderbouwing van de techradar: over de volle breedte onder de tegels, net als de crashhistorie
+function techDetails(isOpen) {
+  if (!tech || !tech.level || typeof TechWarn === 'undefined') return '';
+  return `<div class="tw-full">${TechWarn.details(tech, isOpen)}</div>`;
 }
 
 // ── Crashradar: wanneer cash klaarzetten om een dip te kopen (S&P 500 sinds 1950) ──
@@ -1025,7 +1034,7 @@ function crashDetails(isOpen) {
       <td>${x.p10 == null ? '—' : Math.round(x.p10) + '%'} <small style="color:var(--muted)">(${Math.round(x.b10)}%)</small></td>
       <td>${x.p20 == null ? '—' : Math.round(x.p20) + '%'} <small style="color:var(--muted)">(${Math.round(x.b20)}%)</small></td>
       <td>${x.lift20 == null ? '—' : '×' + nf(x.lift20, 1)}</td></tr>`).join('');
-  const kRows = (c.by_k || []).map(r => `<tr class="${Math.min(n.k, 4) === r.k ? 'cur' : ''}"><td class="l">${r.k}${r.plus ? '+' : ''} tegelijk</td><td>${r.share}%</td>
+  const kRows = (c.by_k || []).map(r => `<tr class="${Math.min(n.k, 4) === r.k ? 'cur' : ''}"><td class="l">${r.k}${r.plus ? '+' : ''} tegelijk</td><td>${nl1(r.share)}%</td>
       <td>${Math.round(r.p10)}%</td><td>${Math.round(r.p20)}%</td><td>${r.med12 > 0 ? '+' : ''}${nl1(r.med12)}%</td></tr>`).join('');
   const bearRows = (c.bears || []).slice().reverse().map(x => {
     const dt = d => d ? new Date(d).toLocaleDateString('nl-NL', { month: 'short', year: 'numeric' }) : '—';

@@ -30,9 +30,11 @@
   .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.5; }
   .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
 
-  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  /* label, getal en toelichting delen de rijen (subgrid): de getallen staan gelijk, ook als een label afbreekt */
   .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
-          text-align: left; font: inherit; color: inherit; cursor: pointer; min-height: 44px; }
+          text-align: left; font: inherit; color: inherit; cursor: pointer; min-height: 44px;
+          display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; min-width: 0; }
   .stat.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .stat .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 6px; }
@@ -54,8 +56,9 @@
   .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
   .seg button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 12.5px; padding: 7px 11px; border-radius: 7px; cursor: pointer; min-height: 36px; }
   .seg button.on { background: rgba(201,164,92,.16); color: var(--gold); box-shadow: inset 0 0 0 1px rgba(201,164,92,.55); }
-  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .sync { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .sync:empty { display: none; }
 
   .list { display: flex; flex-direction: column; gap: 10px; }
   .b-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; position: relative; overflow: hidden; }
@@ -64,17 +67,20 @@
   .b-head { display: grid; grid-template-columns: minmax(0, 1.6fr) 92px minmax(0, 1.4fr) auto; gap: 16px; align-items: center; padding: 14px 16px 14px 20px; cursor: pointer; }
   .b-name { min-width: 0; }
   .b-title { font-size: 16.5px; font-weight: 700; letter-spacing: -.2px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .b-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* mag afbreken: 'cijfers over 7 d' en 'kwartaalcheck' staan achteraan en mogen niet wegvallen achter een …
+     (de · hangt met een harde spatie aan het vorige stuk, dus een regel begint nooit met een ·) */
+  .b-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; line-height: 1.45; }
+  .b-sub span { white-space: nowrap; }
   .b-verdict { font-size: 11px; font-weight: 600; margin-top: 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
   .b-score { text-align: center; }
   .b-score b { display: block; font-family: var(--mono); font-size: 24px; font-weight: 600; line-height: 1; }
-  .b-score small { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+  .b-score small { font-size: 11px; color: var(--muted); font-family: var(--mono); }
   .b-steps { min-width: 0; }
   .b-steps .why { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
   .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11.5px; padding: 7px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; min-height: 36px; }
   .toggle:hover { border-color: var(--gold); color: var(--text); }
   .b-body { border-top: 1px solid var(--line); padding: 16px 16px 16px 20px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 22px; }
-  .d-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; }
+  .d-k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .d-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
   .advice { font-size: 13px; line-height: 1.55; margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid var(--line); }
   .notes { display: grid; gap: 10px; margin: 14px 0; }
@@ -92,18 +98,43 @@
   .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
 
   @media (max-width: 900px) {
-    .b-head { grid-template-columns: minmax(0, 1fr) 72px; }
-    .b-steps { grid-column: 1 / -1; }
-    .b-head .toggle { grid-column: 1 / -1; justify-self: start; }
+    /* tablet: naam | 12 stappen | score met de knop eronder. Score en knop delen een vaste kolom,
+       zodat ze in elke kaart even breed zijn en recht onder elkaar staan. */
+    .b-head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; gap: 8px 16px; }
+    .b-name { grid-area: 1 / 1 / 3 / 2; }
+    .b-steps { grid-area: 1 / 2 / 3 / 3; }
+    .b-score { grid-area: 1 / 3; align-self: end; }
+    .b-head .toggle { grid-area: 2 / 3; align-self: start; justify-self: stretch; }
     .b-body { grid-template-columns: 1fr; }
     .howto-body { grid-template-columns: 1fr; }
-    .summary { grid-template-columns: repeat(2, 1fr); }
+    .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    .howto .h-sub { display: none; }   /* past niet meer naast de titel en de knop */
+  }
+  /* aanraakschermen: knoppen ruim genoeg om te tikken, invoer op 16px (anders zoomt iOS in) */
+  @media (pointer: coarse), (max-width: 900px) {
+    .seg button { min-height: 40px; padding: 8px 14px; white-space: nowrap; }
+    .toggle { min-height: 40px; }
+    .notes textarea { font-size: 16px; }
   }
   @media (max-width: 560px) {
     body { padding: 18px 12px calc(40px + env(safe-area-inset-bottom)); }
     .title-block h1 { font-size: 22px; }
-    .howto .h-sub { display: none; }
     .b-head, .b-body { padding-left: 16px; padding-right: 12px; }
+    /* telefoon: naam | score, vakjes | pijl-knop (40×40), toelichting over de hele breedte.
+       De smalle kolom rechts laat de 12 vakjes ook op 320px op één regel passen. */
+    .b-head { grid-template-columns: minmax(0, 1fr) 60px; gap: 10px 12px; }
+    .b-name { grid-area: 1 / 1; } .b-score { grid-area: 1 / 2; align-self: start; }
+    .b-steps { display: contents; }
+    .b-steps .s12-dots { grid-area: 2 / 1; align-self: center; }
+    .b-steps .why { grid-area: 3 / 1 / 4 / 3; margin-top: 0; }
+    .b-steps .why:first-child { grid-area: 2 / 1; align-self: center; }   /* nog niet gescand: geen vakjes */
+    .b-head .toggle { grid-area: 2 / 2; align-self: center; justify-self: center; width: 40px; height: 40px; padding: 0; font-size: 14px; }
+    .b-head .toggle .tg-l { display: none; }
+    /* naam mag over twee regels */
+    .b-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .seg { display: flex; width: 100%; } .seg button { flex: 1 1 auto; padding: 8px 10px; }
     .sync { margin-left: 0; width: 100%; }
   }
 </style>
@@ -194,11 +225,11 @@ function rowHTML(r) {
   const tick = (it && it.region === 'VS') ? it.sym : r.ticker;
   const head = `<div class="b-head" data-key="${esc(r.key)}">
       <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
-        <div class="b-sub">${esc(tick)}${it && it.sector ? ' · ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? ` · <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due ? ' · <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
+        <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due ? '&nbsp;· <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
         <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span></div>
       <div class="b-score">${c && c.s != null ? `<b class="${lvl[1]}">${c.s}</b><small>/125</small>` : '<b class="v-na">—</b><small>geen data</small>'}</div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
-      <button class="toggle">${open ? 'sluiten ▴' : 'details ▾'}</button>
+      <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>
     </div>`;
   if (!open) return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}</div>`;
   const rv = r.review || {};
@@ -257,7 +288,7 @@ function render(summaryOnly) {
   const due = OWN ? rows.filter(r => quarterInfo(r.review).due).length : 0;
   const tiles = OWN
     ? [['v-good', 'Behouden', cnt('v-good'), 'scorecard 75+, geen afvaller'], ['v-mid', 'Kritisch bekijken', cnt('v-mid'), 'zou als aankoop afvallen'],
-       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlag'], ['due', 'Kwartaalcheck', due, 'niet gecheckt in 100 d']]
+       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlag'], ['due', 'Kwartaalcheck', due, 'niet gecheckt in 100 d']]
     : [['survivor', 'Survivors', rows.length, 'overleven alle stappen'], ['v-good', 'Ook goedkoop', rows.filter(r => r.it.s12.list[11].s === 'pass').length, 'bear-case DCF boven de koers'],
        ['near', 'Bijna', extraRows.length, 'alleen te duur (stap 12)'], ['top', '100+', rows.filter(r => r.it.card.s >= 100).length, 'uitzonderlijke scorecard']];
   $('summary').innerHTML = tiles.map(([k, l, v, s]) => `<button class="stat ${filter === k ? 'active' : ''}" data-f="${k}"><div class="label">${l}</div>
@@ -285,7 +316,14 @@ async function load() {
     $('pageTitle').textContent = 'Survivors';
     $('pageSub').innerHTML = 'Bedrijven uit de Top 250 die alle 12 stappen van <i>How to Find the Best Stocks</i> overleven';
     const pool = (scr.items || []).filter(it => it.s12 && it.card && it.card.s != null);
-    const mk = it => ({ key: it.sym.replace(/[^A-Za-z0-9]/g, '_'), name: it.name, ticker: it.eu || it.sym, it, v: Steps.verdict(it) });
+    // Survivors zijn (nog) niet van jou: geen 'behouden', maar hoe dicht ze bij een aankoop volgens de gids zitten
+    const topVerdict = it => {
+      const val = it.s12.list.find(x => x.n === 12) || {};
+      if (!it.s12.survivor) return { cls: 'v-mid', label: 'Bijna · te duur', text: 'Overleeft stap 1-11, maar de koers ligt boven de basis-DCF. Wacht op een betere prijs (zie Koopmoment); de kwaliteit is er al.' };
+      if (val.s === 'pass') return { cls: 'v-good', label: 'Survivor · koopwaardig', text: 'Overleeft alle 12 stappen en zelfs de bear-case DCF ligt boven de koers. Volgens de gids: koop langzaam (vast bedrag, vaste data) en schrijf je exit op vóór je koopt.' };
+      return { cls: 'v-good', label: 'Survivor', text: 'Overleeft alle 12 stappen; de waardering is redelijk maar niet ruim (bear-case DCF onder de koers). Koop langzaam en schrijf je exit vooraf op.' };
+    };
+    const mk = it => ({ key: it.sym.replace(/[^A-Za-z0-9]/g, '_'), name: it.name, ticker: it.eu || it.sym, it, v: topVerdict(it) });
     rows = pool.filter(it => it.s12.survivor).map(mk);
     extraRows = pool.filter(it => !it.s12.survivor && it.s12.nfail === 1 && it.s12.fail === 12).map(mk);
     render();

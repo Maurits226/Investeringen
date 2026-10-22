@@ -3,7 +3,7 @@
 Top 250 — genereert screener.json voor screener.html.
 
 Zoekt kansen BUITEN je portefeuille in een breed universum:
-  * alle Amerikaanse bedrijven boven $2 mld marktwaarde (Yahoo-screener, ~1.500) + de S&P 500
+  * alle Amerikaanse bedrijven boven $2 mld marktwaarde op NYSE/Nasdaq (Yahoo-screener, max. 1.500, geen OTC) + de S&P 500
   * alle eurozone-bedrijven boven €1 mld op hun thuisbeurs (Xetra, Parijs, Amsterdam, Milaan,
     Madrid, Brussel, Helsinki, Dublin, Wenen, Lissabon)
   * plus screener_universe.txt voor eigen toevoegingen
@@ -44,7 +44,8 @@ TOP_N = 650                 # in screener.json, op volgorde van de scorecard; de
 CARD_SELECT = 75            # vanaf deze scorecard staat een bedrijf in de kansenlijst (75-100 watchlist, 100+ once-in-a-lifetime)
 # Breed universum via de Yahoo-screener: de grootste bedrijven van de markt, wekelijks ververst
 DYN_REFRESH_DAYS = 7
-DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven boven $2 mld, grootste eerst
+DYN_V = 2                                                  # v2: alleen hoofdbeurzen in de VS (geen OTC); oudere lijst direct opnieuw ophalen
+DYN_US = {"min_cap": 2e9, "limit": 1500}                   # VS: alle bedrijven boven $2 mld op de hoofdbeurzen, grootste eerst
 DYN_EU = {"min_cap": 1e9, "limit": 200,                    # eurozone: per thuisbeurs boven €1 mld
           "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS"]}
 OK_FIN_CUR = {"USD", "EUR"}
@@ -105,8 +106,9 @@ EXCH_NAME = {
 }
 # euro-notering voor VS-bedrijven, in deze volgorde: Nederland → Duitsland → Oostenrijk
 EU_LISTING_PREF = ["AMS", "GER", "FRA", "DUS", "VIE"]
+# hoofdbeurzen in de VS (Yahoo-codes); al het andere (PNK, OQX, OQB e.d.) is OTC en valt af
 US_EXCH = {"NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NYQ": "NYSE", "ASE": "NYSE American",
-           "PCX": "NYSE Arca", "BTS": "Cboe"}
+           "PCX": "NYSE Arca", "BTS": "Cboe", "TEX": "NYSE Texas"}
 CACHE_V = 4                                 # v4: extra cijfers voor de 12 stappen (balans, kwartalen, insiders, winstverrassingen)
 # S&P 500-lijst (GICS) -> Yahoo-sectornamen, als Yahoo zelf geen sector geeft
 GICS_TO_YAHOO = {
@@ -534,8 +536,9 @@ def pct_ranks(items, key, higher, group_of):
 
 
 # ── Universum en eigen posities ──────────────────────────────────────────
-def yahoo_screen(y, operands, limit):
-    """Yahoo-screener: aandelen die aan de voorwaarden voldoen, grootste marktwaarde eerst."""
+def yahoo_screen(y, operands, limit, keep=None):
+    """Yahoo-screener: aandelen die aan de voorwaarden voldoen, grootste marktwaarde eerst.
+    keep: alleen wat hieraan voldoet telt mee voor de limiet, zodat die niet opgaat aan regels die toch afvallen."""
     out, offset = [], 0
     while len(out) < limit:
         payload = {"offset": offset, "size": 250, "sortField": "intradaymarketcap", "sortType": "DESC",
@@ -546,8 +549,10 @@ def yahoo_screen(y, operands, limit):
         quotes = res.get("quotes") or []
         for q in quotes:
             if q.get("symbol"):
-                out.append({"sym": q["symbol"].upper(), "name": q.get("longName") or q.get("shortName"),
-                            "cur": q.get("currency"), "exch": q.get("exchange")})
+                row = {"sym": q["symbol"].upper(), "name": q.get("longName") or q.get("shortName"),
+                       "cur": q.get("currency"), "exch": q.get("exchange")}
+                if keep is None or keep(row):
+                    out.append(row)
         offset += len(quotes)
         if not quotes or offset >= (res.get("total") or 0):
             break
@@ -555,30 +560,89 @@ def yahoo_screen(y, operands, limit):
     return out[:limit]
 
 
+def us_main_row(q):
+    """Gewoon aandeel op een hoofdbeurs in de VS. OTC (o.a. de F/Y-ADR's van buitenlandse bedrijven, zoals ERNXY)
+    en preferente aandelen (JPM-PC) vallen af: anders gaan honderden plekken van de limiet daaraan op."""
+    return (q.get("exch") in US_EXCH and "." not in q["sym"] and not re.search(r"-P[A-Z]?$", q["sym"])
+            and (q.get("cur") or "USD") == "USD")
+
+
+def eu_row(q):
+    """Euro-notering op een beurs in de eurozone."""
+    return "." in q["sym"] and q["sym"].rsplit(".", 1)[1] in EU_SUFFIX and (q.get("cur") or "EUR") == "EUR"
+
+
 def dynamic_universe(y, dyn):
     """Breed universum (VS + eurozone) uit de Yahoo-screener; wekelijks ververst, anders uit de cache."""
-    if dyn and age_h(dyn.get("at")) < DYN_REFRESH_DAYS * 24 and dyn.get("us"):
+    if dyn and age_h(dyn.get("at")) < DYN_REFRESH_DAYS * 24 and dyn.get("us") and dyn.get("v") == DYN_V:
         return dyn
     try:
         us = yahoo_screen(y, [{"operator": "EQ", "operands": ["region", "us"]},
-                              {"operator": "GT", "operands": ["intradaymarketcap", DYN_US["min_cap"]]}], DYN_US["limit"])
-        us = [q for q in us if "." not in q["sym"] and (q["cur"] or "USD") == "USD"]
+                              {"operator": "GT", "operands": ["intradaymarketcap", DYN_US["min_cap"]]}],
+                          DYN_US["limit"], us_main_row)
         eu = []
         for ex in DYN_EU["exchanges"]:
             try:
-                got = yahoo_screen(y, [{"operator": "EQ", "operands": ["exchange", ex]},
-                                       {"operator": "GT", "operands": ["intradaymarketcap", DYN_EU["min_cap"]]}], DYN_EU["limit"])
-                eu += [q for q in got if "." in q["sym"] and q["sym"].rsplit(".", 1)[1] in EU_SUFFIX
-                       and (q["cur"] or "EUR") == "EUR"]
+                eu += yahoo_screen(y, [{"operator": "EQ", "operands": ["exchange", ex]},
+                                       {"operator": "GT", "operands": ["intradaymarketcap", DYN_EU["min_cap"]]}],
+                                   DYN_EU["limit"], eu_row)
             except Exception as e:  # noqa: BLE001
                 print(f"  screener {ex} mislukt: {e}")
         if len(us) < 100:
             raise RuntimeError(f"te weinig VS-resultaten ({len(us)})")
-        dyn = {"at": iso(), "us": [[q["sym"], q["name"]] for q in us], "eu": [[q["sym"], q["name"]] for q in eu]}
-        print(f"Yahoo-screener: {len(us)} VS, {len(eu)} eurozone")
+        dyn = {"at": iso(), "v": DYN_V, "us": [[q["sym"], q["name"]] for q in us], "eu": [[q["sym"], q["name"]] for q in eu]}
+        print(f"Yahoo-screener: {len(us)} VS (hoofdbeurzen), {len(eu)} eurozone")
     except Exception as e:  # noqa: BLE001
         print(f"Yahoo-screener niet gelukt ({e}); vorige lijst gebruikt")
     return dyn or {}
+
+
+def merge_dyn(uni, dyn, cache):
+    """Screenerlijsten toevoegen aan het universum, per bedrijf via één kant (gekoppeld op de volledige naam):
+      * eurozone-bedrijf met zijn thuisnotering in de lijst (ASML.AS, SAP.DE): de VS-notering (ADR) valt af;
+      * elk ander bedrijf (VS, Taiwan, VK, Zwitserland...): de VS-hoofdnotering blijft en de euro-noteringen
+        op Xetra, Wenen, Milaan e.d. vallen af (TSM blijft, TSFA.VI niet).
+    Het land komt uit de cache (eerder opgehaald). Niet bekend en een notering op Xetra of Wenen? Dan blijven beide
+    staan: na het ophalen is het land bekend en ruimt dedupe_listings de dubbele op (en de volgende run deze regel).
+    Een euro-notering die je zelf in screener_universe.txt zet (SHELL.AS) komt daarna toch weer binnen en gaat dan voor."""
+    country = lambda s: (cache.get(s) or {}).get("country")  # noqa: E731
+    syms_of = {}                                   # volledige naam -> alle noteringen met die naam
+    for s, n in dyn.get("us", []) + dyn.get("eu", []):
+        if name_key(n):
+            syms_of.setdefault(name_key(n), set()).add(s)
+
+    def country_of(k, s):
+        """Land van deze notering, anders van een andere notering van hetzelfde bedrijf."""
+        return country(s) or next((country(x) for x in sorted(syms_of.get(k) or ()) if country(x)), None)
+    n_us, n_eu = 0, 0
+    for sym, name in dyn.get("us", []):
+        if sym in uni:
+            continue
+        k = name_key(name)
+        if any(ez_home(e, country_of(k, e)) for e in syms_of.get(k) or () if "." in e):
+            n_us += 1
+            continue                               # ADR van een eurozone-bedrijf: we nemen de thuisnotering
+        uni[sym] = {"region": "VS", "src": "screener", "name": name}
+    # namen van de VS-bedrijven in het universum: uit de screener, de cache en de S&P 500-lijst ('Amazon' naast 'Amazon.com, Inc.')
+    # plus de euro-notering die al bij een VS-bedrijf hoort (GCP.DE bij GE, ook al heet die nu 'GE Aerospace')
+    dyn_name = dict(dyn.get("us", []))
+    full, short, eu_line = set(), set(), set()
+    for s, v in uni.items():
+        if v["region"] == "VS":
+            for n in (v.get("name"), dyn_name.get(s), (cache.get(s) or {}).get("name")):
+                if n:
+                    full.add(name_key(n))
+                    short.add(norm_name(n))
+            eu_line.add(((cache.get(s) or {}).get("eu") or {}).get("sym"))
+    for sym, name in dyn.get("eu", []):
+        if sym in uni:
+            continue
+        k = name_key(name)
+        if (k in full or norm_name(name) in short or sym in eu_line) and ez_home(sym, country_of(k, sym)) is False:
+            n_eu += 1
+            continue                               # euro-notering van een VS- of ander niet-eurozonebedrijf
+        uni[sym] = {"region": "EU", "src": "screener", "name": name}
+    print(f"Screener: {n_us} ADR's van eurozone-bedrijven en {n_eu} tweede noteringen van VS-bedrijven e.d. weggelaten")
 
 
 def load_universe(cache, y=None, dyn=None):
@@ -605,18 +669,7 @@ def load_universe(cache, y=None, dyn=None):
     # Breed universum uit de Yahoo-screener (grootste bedrijven van de markt)
     if y is not None:
         dyn = dynamic_universe(y, dyn)
-        eu_names = {norm_name(n) for _, n in dyn.get("eu", []) if n}
-        for sym, name in dyn.get("us", []):
-            if sym in uni:
-                continue
-            if norm_name(name) in eu_names:
-                continue                           # ADR van een eurozone-bedrijf: we nemen de thuisnotering
-            uni[sym] = {"region": "VS", "src": "screener", "name": name}
-        us_names = {norm_name(v.get("name")) for v in uni.values() if v.get("name")}
-        for sym, name in dyn.get("eu", []):
-            if sym in uni or norm_name(name) in us_names:
-                continue                           # dubbele notering van een VS-bedrijf
-            uni[sym] = {"region": "EU", "src": "screener", "name": name}
+        merge_dyn(uni, dyn, cache)
     if os.path.exists(UNIVERSE):
         with open(UNIVERSE, encoding="utf-8-sig") as f:
             for line in f:
@@ -638,10 +691,14 @@ def load_universe(cache, y=None, dyn=None):
 # Hetzelfde bedrijf staat vaak op meerdere beurzen (Xetra, Milaan, Wenen, VS, OTC).
 # Per bedrijf blijft één notering over: Nederland → Duitsland → Oostenrijk → daarna:
 # thuisbeurs in de eurozone, dan de hoofdnotering in de VS, dan overige, OTC als laatste.
+# Uitzondering: een VS-bedrijf houdt zijn hoofdnotering in de VS (zie dedupe_listings).
 LISTING_TIER = {"AS": 0, "DE": 1, "F": 2, "DU": 3, "VI": 4}
 HOME_SUFFIX = {"France": "PA", "Italy": "MI", "Spain": "MC", "Belgium": "BR", "Finland": "HE",
                "Ireland": "IR", "Portugal": "LS", "Netherlands": "AS", "Germany": "DE", "Austria": "VI"}
-US_MAIN = {"NASDAQ", "NYSE", "NYSE American", "NYSE Arca", "Cboe"}
+EUROZONE = set(HOME_SUFFIX) | {"Luxembourg", "Greece", "Slovenia", "Slovakia", "Estonia", "Latvia", "Lithuania",
+                               "Malta", "Cyprus", "Croatia"}
+EZ_HOME = {"AS", "PA", "MI", "MC", "BR", "HE", "IR", "LS"}    # thuisbeurzen; Xetra en Wenen noteren ook veel buitenlandse aandelen
+US_MAIN = set(US_EXCH.values())
 LEGAL = {"inc", "incorporated", "corp", "corporation", "co", "company", "plc", "nv", "se", "sa", "ag", "spa",
          "sab", "cv", "de", "the", "and", "ltd", "limited", "oyj", "asa", "ab", "aktiengesellschaft",
          "societe", "anonyme", "group", "holding", "holdings"}
@@ -653,6 +710,26 @@ def company_key(name, country):
     n = re.sub(r"[^a-z0-9 ]", " ", n)
     words = [w for w in n.split() if w not in LEGAL and len(w) > 1]
     return (" ".join(words), country or "") if words else None
+
+
+def name_key(name):
+    """Volledige bedrijfsnaam zonder rechtsvorm (als company_key), om noteringen te koppelen.
+    Preciezer dan norm_name: 'Bank of America' en 'Bank of Ireland' zijn verschillende bedrijven."""
+    k = company_key(name, None)
+    return k[0] if k else None
+
+
+def ez_home(sym, country):
+    """Thuisnotering van een eurozone-bedrijf? True/False, of None als dat zonder land niet te zeggen is
+    (Xetra en Wenen noteren ook veel buitenlandse aandelen in euro, zoals NVD.DE en TSFA.VI)."""
+    if "." not in sym:
+        return False
+    suf = sym.rsplit(".", 1)[1]
+    if (suf == "MI" and sym[:1].isdigit()) or (suf == "MC" and sym[:1] == "X"):
+        return False                               # buitenlandse aandelen in Milaan (1AMZN.MI) en Madrid/Latibex (XPBR.MC)
+    if country:
+        return country in EUROZONE and (suf in EZ_HOME or suf == HOME_SUFFIX.get(country))
+    return True if suf in EZ_HOME else None
 
 
 def listing_rank(it):
@@ -668,7 +745,8 @@ def listing_rank(it):
 
 
 def dedupe_listings(items):
-    """Eén regel per bedrijf. Groepeert op (genormaliseerde naam, land) en op gedeelde euro-notering."""
+    """Eén regel per bedrijf. Groepeert op (genormaliseerde naam, land) en op gedeelde euro-notering in hetzelfde land
+    (de koerscontrole koppelde MRK, Merck & Co., aan MRK.DE, Merck KGaA: dat blijven twee bedrijven)."""
     parent = list(range(len(items)))
 
     def find(i):
@@ -679,7 +757,7 @@ def dedupe_listings(items):
     seen = {}
     for i, it in enumerate(items):
         keys = [("n",) + k for k in [company_key(it.get("name"), it.get("country"))] if k]
-        keys += [("s", s) for s in {it["sym"], it.get("eu")} if s]
+        keys += [("s", s, it.get("country") or "") for s in {it["sym"], it.get("eu")} if s]
         for k in keys:
             if k in seen:
                 parent[find(i)] = find(seen[k])
@@ -691,6 +769,10 @@ def dedupe_listings(items):
     out = []
     for g in groups.values():
         g.sort(key=listing_rank)
+        # VS-bedrijf: de hoofdnotering in de VS gaat voor (koers en cijfers in dollars, analisten en short interest
+        # compleet). AMZ.DE mag AMZN niet verdringen; de euro-koers komt dan via de euro-notering van AMZN.
+        if any(x.get("country") == "United States" for x in g):
+            g.sort(key=lambda x: 0 if x["region"] == "VS" and (x.get("us_exch") or "") in US_MAIN else 1)
         best = g[0]
         if len(g) > 1:
             best["own"] = any(x["own"] for x in g)
@@ -709,21 +791,35 @@ def norm_name(n):
     return " ".join(words[:2])
 
 
+ETC_US = {"GLD", "SLV"}     # Amerikaanse tegenhanger van je goud/zilver-ETC's (US_LISTING_OVERRIDES in signals.py): geen aandeel
+
+
 def owned_positions():
     """Eigen posities (uitsluiten) en watchlist (markeren) uit portfolio.html, tickers.txt,
-    signals.json (Amerikaanse tegenhanger van euro-noteringen) en data.json (namen)."""
-    own, watch = set(), set()
+    signals.json (Amerikaanse tegenhanger van euro-noteringen) en data.json (namen).
+    stock_us: dollarnotering van elke eigen aandelenpositie -> de ticker die je hebt (voor het universum)."""
+    own, watch, stocks, in_html = set(), set(), set(), set()
     html_path = os.path.join(ROOT, "portfolio.html")
     if os.path.exists(html_path):
         html = open(html_path, encoding="utf-8").read()
         for m in re.finditer(r"\{[^{}]*?ticker:\s*['\"]([^'\"]+)['\"][^{}]*?\}", html):
-            (watch if "watch: true" in m.group(0) else own).add(m.group(1).upper())
+            t = m.group(1).upper()
+            in_html.add(t)
+            if "watch: true" in m.group(0):
+                watch.add(t)
+                continue
+            own.add(t)
+            sec = re.search(r"section:\s*(?:'([^']*)'|\"([^\"]*)\")", m.group(0))
+            if sec and (sec.group(1) or sec.group(2)) == "Stocks":
+                stocks.add(t)
     txt = os.path.join(ROOT, "tickers.txt")
     if os.path.exists(txt):
         for line in open(txt, encoding="utf-8-sig"):
             s = line.split("#")[0].strip().upper()
             if s and s not in watch:
                 own.add(s)
+                if s not in in_html and "." not in s:
+                    stocks.add(s)                  # geen sectie bekend: een dollarticker telt als aandeel (ETC's vallen hieronder af)
     # Amerikaanse notering van je euro-posities (door de Patroonradar gevonden)
     us_of = {}
     try:
@@ -748,7 +844,12 @@ def owned_positions():
     for s in list(watch):
         if s in us_of:
             watch.add(us_of[s])
-    return {"own": own, "watch": watch, "names_own": names_own, "names_watch": names_watch}
+    stock_us = {}
+    for s in sorted(stocks):
+        us = s if "." not in s else us_of.get(s)
+        if us and us not in ETC_US and re.fullmatch(r"[A-Z][A-Z0-9-]{0,6}", us):
+            stock_us.setdefault(us, s)
+    return {"own": own, "watch": watch, "names_own": names_own, "names_watch": names_watch, "stock_us": stock_us}
 
 
 def load_quality():
@@ -801,11 +902,12 @@ def fetch_stock(y, sym, meta, old, fx):
     s = summary(y, sym)
     time.sleep(SLEEP)
     want = "USD" if meta["region"] == "VS" else "EUR"
+    # ook bij overslaan het land bewaren: merge_dyn kiest daarmee de juiste notering (TSM of TSFA.VI)
     if s.get("cur") and s["cur"] != want:
-        c.update({"f": iso(), "skip": f"valuta {s['cur']}", "name": s.get("name")})
+        c.update({"f": iso(), "skip": f"valuta {s['cur']}", "name": s.get("name"), "country": s.get("country")})
         return c
     if s.get("fcur") and s["fcur"] not in OK_FIN_CUR:
-        c.update({"f": iso(), "skip": f"rapporteert in {s['fcur']}", "name": s.get("name")})
+        c.update({"f": iso(), "skip": f"rapporteert in {s['fcur']}", "name": s.get("name"), "country": s.get("country")})
         return c
     c.update(s)
     c["ts"] = timeseries(y, sym)
@@ -1610,7 +1712,25 @@ def expected(c, price_native, extra):
 
 
 # ── Samenvoegen ──────────────────────────────────────────────────────────
+FIN_FIELDS = ("fcf", "ocf", "rev_ttm")       # bedragen uit financialData, in de rapportagevaluta
+TS_COUNTS = {"annualDilutedAverageShares"}   # aantallen aandelen, geen bedragen
+
+
+def in_quote_currency(c, fx):
+    """Rapporteert het bedrijf in de andere valuta dan de koers (euro-notering van een dollarbedrijf zoals TTE.PA,
+    of een dollarnotering van een eurobedrijf zoals SPOT), dan de cijfers omrekenen naar de valuta van de koers.
+    Anders zitten koers/omzet, FCF-rendement en de DCF er een factor EUR/USD naast."""
+    cur = "USD" if c.get("region") == "VS" else "EUR"
+    fcur = c.get("fcur")
+    if not fx or fcur not in OK_FIN_CUR or fcur == cur:
+        return c
+    k = fx if fcur == "EUR" else 1 / fx          # fx = dollars per euro
+    ts = {key: rows if key in TS_COUNTS else [[d, v * k] for d, v in rows] for key, rows in (c.get("ts") or {}).items()}
+    return dict(c, ts=ts, fcur=cur, **{f: c[f] * k for f in FIN_FIELDS if c.get(f) is not None})
+
+
 def build_item(sym, c, prices, fx, curated, own, gics=None):
+    c = in_quote_currency(c, fx)
     region = c.get("region")
     q = prices.get(sym, {})
     price_native = q.get("price") or c.get("price")
@@ -1754,10 +1874,11 @@ def main():
         cache, dyn = {}, None
     uni, dyn = load_universe(cache, y, dyn)
     own = owned_positions()
-    # Elke eigen positie met een dollarnotering hoort erin (ook als hij te klein is voor de brede scan),
+    # Elke eigen aandelenpositie met een dollarnotering hoort erin (ook als hij te klein is voor de brede scan),
     # zodat je ze allemaal op de pagina Beoordeling terugziet. Euro-noteringen van VS-bedrijven lopen via die dollarnotering.
-    for s_ in sorted(own["own"]):
-        if re.fullmatch(r"[A-Z][A-Z0-9-]{0,6}", s_) and s_ not in uni:
+    # Niet voor ETF's en ETC's (GLD, SLV), en niet als je euro-notering zelf al meedoet (ASML.AS: geen ASML erbij).
+    for s_, src_ in sorted(own["stock_us"].items()):
+        if s_ not in uni and src_ not in uni:
             uni[s_] = {"region": "VS", "src": "eigen", "name": None}
     quality_map = load_quality()
     print(f"Universum: {len(uni)} stocks · eigen posities: {len(own['own'])} · kwaliteitsoordelen: {len(quality_map)}")
@@ -1769,8 +1890,12 @@ def main():
     print(f"EUR/USD {fx:.4f}")
 
     def is_owned(sym):
+        """Zelfde herkenning als 'own' in build_item, dus ook op naam: GOOGL telt mee al staat alleen GOOG
+        (via ABEA.DE) in je posities, want dedupe_listings maakt van GOOG een andere notering van GOOGL."""
         c = cache.get(sym) or {}
-        return sym in own["own"] or ((c.get("eu") or {}).get("sym") or "") in own["own"]
+        nm = norm_name(c.get("name"))
+        return (sym in own["own"] or ((c.get("eu") or {}).get("sym") or "") in own["own"]
+                or bool(nm and nm in own["names_own"]))
 
     # 1. Fundamentele cijfers verversen: oudste eerst, binnen het tijdsbudget
     # eigen posities worden ook gescand: ze dienen als referentie en tellen mee in de vergelijking

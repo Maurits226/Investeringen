@@ -237,7 +237,7 @@
   @media (max-width: 560px) {
     .cx-body { padding: 4px 10px 12px; gap: 10px; }
     .cx-c { padding: 10px 12px; }
-    .cx-plot span.bear { display: none; }          /* te smal: jaartallen van berenmarkten vallen over elkaar */
+    .cx-plot span.bear, .cx-bn { display: none; }  /* te smal: jaartallen van berenmarkten vallen over elkaar (en de uitleg erover vervalt) */
     .cx-t th, .cx-t th:not(:first-child) { white-space: normal; }
     .cx-t th:not(:first-child), .cx-t td:not(:first-child) { padding-left: 8px; }
     /* Brede tabellen: per rij eerst het label over de volle breedte, daaronder de cijfers in vaste kolommen
@@ -349,9 +349,11 @@
   .position {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 20px; display: grid;
-    /* vaste laatste kolom: dan staan koers, verwachting en plan op elke kaart op dezelfde plek */
-    grid-template-columns: minmax(0,1.2fr) minmax(118px,.8fr) minmax(118px,.85fr) minmax(0,1.6fr) minmax(220px,1.5fr) 176px; gap: 16px; align-items: center;
-    position: relative; overflow: hidden; transition: .2s;
+    /* vaste kolommen voor koers, verwachting, plan en knoppen: dan staat alles op elke kaart op dezelfde plek.
+       De balk krijgt minstens de breedte voor 'stop US$ 1.046,23 · nu · doel US$ 1.145,47', de naam de rest. */
+    grid-template-columns: minmax(0,1.1fr) 118px 118px minmax(185px,1fr) 224px 156px; gap: 14px; align-items: center;
+    /* clip i.p.v. hidden (waar de browser het kent): knipt hetzelfde af, maar laat 'sticky' in de details werken */
+    position: relative; overflow: hidden; overflow: clip; transition: .2s;
   }
   .position::before {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line);
@@ -374,7 +376,7 @@
   }
 
   .p-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; }
+  .p-ticker { font-size: 19px; font-weight: 700; letter-spacing: -.3px; line-height: 1.15; overflow-wrap: anywhere; }   /* lange Duitse namen niet buiten de kolom */
   .p-company { font-size: 12px; color: var(--muted); max-width: 220px; }
   .rank-tag { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); margin-right: 7px; }
   .src { font-size: 11px; font-weight: 600; margin-left: 4px; white-space: nowrap; }
@@ -401,7 +403,7 @@
 
   .profit-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-right: 10px; }
   .profit-block .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-  .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: grid; grid-template-columns: 94px minmax(0,1fr) auto; align-items: baseline; gap: 6px; }
+  .plan-row { font-size: 11px; font-family: 'IBM Plex Mono', monospace; display: grid; grid-template-columns: 82px minmax(0,1fr) auto; align-items: baseline; gap: 6px; }
   .plan-row b { font-weight: 600; }
   .plan-row b { color: var(--text); }
   .plan-row .pp { color: var(--muted); white-space: nowrap; }
@@ -419,6 +421,10 @@
   .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
   .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; white-space: nowrap; }
   .toggle:hover { border-color: var(--accent); color: var(--text); }
+  /* lange lijst op een smal scherm: de rest van een groep achter deze knop */
+  .more-btn { display: block; width: 100%; min-height: 44px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px;
+              background: transparent; color: var(--muted); font-size: 13px; }
+  .more-btn:hover { border-color: var(--accent); color: var(--text); }
 
   .detail {
     grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px;
@@ -457,9 +463,11 @@
 
   .trade {
     background: var(--panel); border: 1px solid rgba(79,143,240,.45); border-radius: 16px; padding: 18px 20px;
-    display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,2fr) auto;
-    gap: 18px; align-items: center; position: relative; overflow: hidden;
+    /* zelfde kolommen als de kaarten eronder: naam, koers en resultaat staan recht boven naam, koers en verwachting */
+    display: grid; grid-template-columns: minmax(0,1.1fr) 118px 118px minmax(185px,1fr) 224px 156px;
+    gap: 14px; align-items: center; position: relative; overflow: hidden;
   }
+  .trade .t-action { grid-column: 4 / 6; }
   .trade::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
   .trade > .p-block { align-self: start; }      /* 'Koers nu' en 'Resultaat' op één lijn, ook al is het tweede blok hoger */
   .trade.go { border-color: rgba(62,207,142,.6); box-shadow: 0 0 0 1px rgba(62,207,142,.25), 0 8px 30px -12px rgba(62,207,142,.4); }
@@ -478,10 +486,15 @@
   #pinned:not(:empty) { margin-bottom: 26px; }
   .sync-note { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
 
-  /* Desktop: de twee koersblokken even hoog (label op twee regels), dan staan de bedragen op één lijn */
+  /* Desktop: de twee koersblokken even hoog (label en onderregel op twee regels), dan staan de bedragen op één lijn */
   @media (min-width: 1101px) {
     .position > .p-block .k { min-height: 2.6em; line-height: 1.3; display: flex; align-items: flex-end; }
-    .position > .p-block .v { font-size: 16px; }
+    .position > .p-block .v, .trade > .p-block .v { font-size: 16px; }
+    .position > .p-block .drop-tag { min-height: 2.6em; line-height: 1.3; }
+  }
+  /* Details open: de koersgrafiek links blijft in beeld terwijl je de lange rechterkolom leest */
+  @media (min-width: 861px) {
+    .detail > div:first-child { position: sticky; top: 12px; align-self: start; }
   }
   /* Tablet: naam | koers | verwachting op één rij; balk, plan en knoppen eronder over de volle breedte */
   @media (max-width: 1100px) {
@@ -497,10 +510,11 @@
     .plan-row { grid-template-columns: 94px minmax(13ch, max-content) minmax(0,1fr); column-gap: 14px; }
     .plan-row .pp { justify-self: start; }
     .factors { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  }
-  @media (max-width: 860px) {
+    /* opgevolgde adviezen: dezelfde drie kolommen als de kaarten */
     .trade { grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); }
     .trade .t-action, .trade .t-btns { grid-column: 1 / -1; }
+  }
+  @media (max-width: 860px) {
     .summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .stat .label { min-height: 2.8em; }
     .detail { grid-template-columns: 1fr; }
@@ -538,6 +552,14 @@
     .position:not(.flag) > .bar-wrap, .position:not(.flag) > .profit-block { display: none; }
     .trade { grid-template-columns: repeat(2, minmax(0,1fr)); padding: 16px; gap: 14px; }
     .trade .t-name { grid-column: 1 / -1; }
+  }
+  /* Smalle telefoon en smal tablet: 'Verwachting 10 dagen' past niet op één regel. Beide labels twee regels hoog
+     (tekst onderaan), dan staan de bedragen van koers en verwachting op één lijn */
+  @media (max-width: 400px), (min-width: 521px) and (max-width: 720px) {
+    .position > .p-block .k { min-height: 2.6em; line-height: 1.3; display: flex; align-items: flex-end; }
+  }
+  @media (min-width: 521px) and (max-width: 720px) {
+    .position > .p-block .v { font-size: 16px; }      /* 'US$ 3.147,99' past dan in de smalle kolom */
   }
   @media (max-width: 380px) {
     .summary { gap: 8px; }
@@ -645,11 +667,16 @@ const extLink = (u, text) => { const s = safeUrl(u); return s ? `<a href="${esc(
 let data = null;
 let crash = null;              // crash.json: crashradar sinds 1950 (scripts/crash.py)
 let tech = null;               // tech.json: techradar, dreigt een terugval in tech en chips (scripts/tech.py)
-let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [] };
+let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [], more: [] };
 // Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
 try { ui = { ...ui, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
 if (!['section', 'name', 'result', 'rank'].includes(ui.sort) || (ui.sort === 'rank' && SET !== 'top250')) ui.sort = 'section';
 if (!['all', 'up', 'flat', 'new'].includes(ui.status)) ui.status = 'all';
+if (!Array.isArray(ui.more)) ui.more = [];       // groepen waarvan je 'toon nog …' hebt aangetikt
+// Lange lijst (meer dan LANG kaarten, zoals de Top 250) op een smal scherm: per groep alle koopsignalen en
+// alleen de eerste paar kaarten zonder signaal; de rest achter een knop. Anders is het ±90.000 px scrollen.
+const SMAL = matchMedia('(max-width: 1100px)');
+const LANG = 60, MAX_GROEP = 3, MAX_LIJST = 20;
 const saveUI = () => { try { sessionStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
 
 // Posities van het portfolio (zelfde website, dus zelfde localStorage):
@@ -1017,7 +1044,7 @@ function crashDetails(isOpen) {
     <div class="cx-body">
       <div class="cx-c wide cx-chart"><div class="cx-k">S&amp;P 500: hoe ver onder de top <span>rood = daling · amber = 3+ signalen tegelijk</span></div>
         ${crashChart(c.series, c.bears)}
-        <div class="cx-note">Per maand sinds 1950. De amberkleurige stroken laten zien wanneer 3 of meer waarschuwingssignalen tegelijk brandden; jaartallen = begin van een berenmarkt.</div></div>
+        <div class="cx-note">Per maand sinds 1950. De amberkleurige stroken laten zien wanneer 3 of meer waarschuwingssignalen tegelijk brandden<span class="cx-bn">; rode jaartallen = begin van een berenmarkt</span>.</div></div>
       <div class="cx-c"><div class="cx-k">Kooplad <span>gespreid kopen</span></div>
         <table class="cx-t stk lad"><tr><th>stap</th><th>niveau</th><th>stand</th></tr>${lad}</table>
         <div class="cx-note">Top ${nf(n.top, 0)} op ${new Date(n.top_date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}. Wie een derde koopt bij elke stap, hoeft het dieptepunt niet te raden.
@@ -1204,6 +1231,22 @@ function render() {
 
   const cards = document.getElementById('cards');
   cards.innerHTML = '';
+  // Kaarten van één groep tonen; bij een lange lijst op een smal scherm de kaarten zonder signaal inkorten
+  const kort = SMAL.matches && filtered.length + errs.length > LANG;
+  const vul = (key, list, errList, max) => {
+    const alles = !kort || ui.more.includes(key);
+    let n = 0, weg = 0;
+    list.forEach(i => {
+      if (alles || i.flag || n < max || ui.open.includes(i.symbol)) { cards.appendChild(card(i)); if (!i.flag) n++; }
+      else weg++;
+    });
+    errList.forEach(e => { if (alles || n < max) { cards.appendChild(errorCard(e)); n++; } else weg++; });
+    if (!weg) return;
+    const b = document.createElement('button');
+    b.className = 'more-btn'; b.dataset.more = key;
+    b.textContent = `Toon nog ${weg} ${NOUN(weg)} zonder signaal`;
+    cards.appendChild(b);
+  };
   if (!filtered.length && !errs.length) {
     const wat = { up: 'met een verwachte stijging ≥' + MOVE_MIN + '%', flat: 'zonder signaal', new: 'met een nieuw signaal sinds gisteren' }[ui.status] || '';
     const cat = ui.cat === 'Gold & Silver' ? 'edelmetalen' : ui.cat === 'Stocks' ? 'stocks' : ui.cat !== 'all' ? CFG.noun[1] + ' in ' + esc(ui.cat.toLowerCase()) : CFG.noun[1];
@@ -1219,18 +1262,16 @@ function render() {
       h.className = 'section-header';
       h.textContent = CAT_LABEL[sec] || sec;
       cards.appendChild(h);
-      inSec.forEach(i => cards.appendChild(card(i)));
-      errSec.forEach(e => cards.appendChild(errorCard(e)));
+      vul(sec, inSec, errSec, MAX_GROEP);
     });
   } else {
-    filtered.slice().sort((a, b) => {
+    vul('*', filtered.slice().sort((a, b) => {
       if (ui.sort === 'name') return naam(a).localeCompare(naam(b), 'nl');
       if (ui.sort === 'rank') return (a.rank || 999) - (b.rank || 999);
       if (ui.sort === 'result') return byReal(a, b);   // resultaat = realisatie hoog-laag, over alle categorieën
       if (ui.sort === 'move') return Math.abs(b.projected_pct || 0) - Math.abs(a.projected_pct || 0);
       return byReal(a, b);
-    }).forEach(i => cards.appendChild(card(i)));
-    errs.forEach(e => cards.appendChild(errorCard(e)));
+    }), errs, MAX_LIJST);
   }
 
   const total = items.length + errors.length;
@@ -1624,6 +1665,13 @@ document.addEventListener('click', e => {
   ui.open = ui.open.includes(sym) ? ui.open.filter(x => x !== sym) : [...ui.open, sym];
   saveUI(); render();
 });
+// 'Toon nog … zonder signaal': die groep voortaan helemaal tonen (render houdt de scrollpositie vast)
+document.addEventListener('click', e => {
+  const b = e.target.closest('.more-btn[data-more]');
+  if (!b) return;
+  ui.more = [...ui.more, b.dataset.more]; saveUI(); render();
+});
+SMAL.addEventListener('change', () => render());   // draaien of venster breder/smaller: lijst opnieuw inkorten of voluit
 document.getElementById('sortSel').onchange = e => { ui.sort = e.target.value; saveUI(); render(); };
 document.getElementById('catSel').onchange = e => { ui.cat = e.target.value; saveUI(); render(); };
 document.getElementById('statusSel').onchange = e => { ui.status = e.target.value; saveUI(); render(); };

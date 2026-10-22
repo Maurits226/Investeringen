@@ -29,11 +29,14 @@
   .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px; }
   .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--up); animation: pulse 2.4s infinite; }
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(62,207,142,.5); } 70% { box-shadow: 0 0 0 10px rgba(62,207,142,0); } 100% { box-shadow: 0 0 0 0 rgba(62,207,142,0); } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
   .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; }
   .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
 
-  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
-  .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto auto; gap: 14px; margin-bottom: 18px; }
+  /* label, getal en toelichting delen de rijen (subgrid): de getallen staan gelijk, ook als een label afbreekt */
+  .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+          display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; min-width: 0; }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
   .stat .value { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: var(--mono); color: var(--muted); }
@@ -49,10 +52,11 @@
   .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 4px 14px 14px; font-size: 12.5px; line-height: 1.6; color: #c8cbcf; }
   .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
   .howto-body b { color: var(--text); }
+  .howto-body .h-legend { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
 
   .toolbar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
   .tb-group { display: flex; align-items: center; gap: 8px; }
-  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   select, input { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 13px; padding: 6px 9px; border-radius: 8px; }
   input[type=number] { width: 120px; font-family: var(--mono); }
   .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
@@ -69,13 +73,14 @@
   .k-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.25; }
   .k-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-  .chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .chip.zone { color: var(--up); border-color: rgba(62,207,142,.5); background: rgba(62,207,142,.08); }
   .chip.bijna { color: var(--warn); border-color: rgba(245,181,68,.45); background: rgba(245,181,68,.06); }
   .chip.card { color: var(--text); }
   .chip.own { color: #a78bfa; border-color: rgba(167,139,250,.45); }
   .why { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
 
+  .k-mid { min-width: 0; container-type: inline-size; }
   .ladder { position: relative; height: 34px; margin: 6px 0 4px; }
   .ladder .bar { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 4px; background: var(--panel-2); }
   .ladder .zoneband { position: absolute; top: 12px; height: 10px; border-radius: 4px; background: rgba(62,207,142,.28); border: 1px solid rgba(62,207,142,.55); }
@@ -83,25 +88,33 @@
   .ladder .mark.stop { background: var(--down); }
   .ladder .mark.top { background: var(--muted); }
   .ladder .mark.now { background: var(--text); width: 3px; }
-  .ladder-l { display: flex; justify-content: space-between; font-size: 10.5px; font-family: var(--mono); color: var(--muted); gap: 6px; }
+  .ladder-l { display: flex; justify-content: space-between; font-size: 11px; font-family: var(--mono); color: var(--muted); gap: 6px; }
   .ladder-l .s { color: var(--down); } .ladder-l .z { color: var(--up); }
-  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
-  .facts .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  /* smalle kolom (telefoon, tablet, 901–960px): ongeldig links en top rechts onder hun streepjes,
+     de zone gecentreerd eronder; bedragen breken niet af */
+  @container (max-width: 380px) {
+    .ladder-l { display: grid; grid-template-columns: auto auto; justify-content: space-between; row-gap: 2px; }
+    .ladder-l span { white-space: nowrap; }
+    .ladder-l .z { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+  }
+  /* align-items: end houdt de waarden op één lijn als een label over twee regels loopt */
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; align-items: end; }
+  .facts .k { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
   .facts .v { font-family: var(--mono); font-size: 14px; margin-top: 3px; white-space: nowrap; }
   .size { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-  .size .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .size .k { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
   .size .v { font-family: var(--mono); font-size: 20px; font-weight: 600; margin-top: 4px; }
   .size .s { font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
   .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
 
-  .section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 28px 0 10px; display: flex; justify-content: space-between; gap: 10px; }
+  .section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 28px 0 10px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
   .section-h span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
   .an-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .an-c { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; }
-  .an-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .an-c { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; min-width: 0; overflow-x: auto; }
+  .an-k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
   .an-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
   .an-t { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .an-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; padding: 3px 0; }
+  .an-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; padding: 3px 0; }
   .an-t th:not(:first-child), .an-t td:not(:first-child) { text-align: right; font-family: var(--mono); padding-left: 12px; white-space: nowrap; }
   .an-t td { padding: 4px 0; border-top: 1px dashed #26282b; }
   .an-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
@@ -111,16 +124,37 @@
   .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
 
   @media (max-width: 900px) {
-    .k-card { grid-template-columns: 1fr; gap: 12px; }
-    .howto-body, .an-grid { grid-template-columns: 1fr; }
-    .summary { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .stat { padding: 11px 12px; } .stat .value { font-size: 19px; } .stat .label { font-size: 9.5px; letter-spacing: .6px; }
+    .k-card { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .howto-body, .an-grid { grid-template-columns: minmax(0, 1fr); }
+    .howto .h-sub { display: none; }
+    .summary { gap: 8px; }
+    .stat { padding: 11px 12px; } .stat .value { font-size: 19px; } .stat .label { font-size: 11px; letter-spacing: .4px; }
+  }
+  /* tablet staand: naam links, balk en cijfers rechts, positiegrootte eronder (scheelt veel scrollen) */
+  @media (min-width: 700px) and (max-width: 900px) {
+    .k-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
+    .k-card .size { grid-column: 1 / -1; }
+  }
+  /* aanraakschermen: knoppen ruim genoeg om te tikken, invoer op 16px (anders zoomt iOS in) */
+  @media (pointer: coarse), (max-width: 900px) {
+    .seg button { min-height: 40px; padding: 8px 14px; white-space: nowrap; }
+    select, input { min-height: 40px; font-size: 16px; }
   }
   @media (max-width: 560px) {
     body { padding: 18px 12px 40px; }
-    .howto .h-sub { display: none; }
-    .tb-count { margin-left: 0; }
     .facts { grid-template-columns: 1fr 1fr; }
+    .stat .sub { font-size: 11px; line-height: 1.35; }
+    /* werkbalk als twee kolommen: labels links, alle bedieningselementen even breed rechts */
+    .toolbar { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 12px; }
+    .tb-group { display: contents; }
+    .seg { display: flex; } .seg button { flex: 1 1 auto; font-size: 14px; }
+    input[type=number], select { width: 100%; }
+    .tb-count { grid-column: 1 / -1; margin-left: 0; }
+  }
+  @media (max-width: 380px) {
+    .stat { padding: 10px; } .stat .value { font-size: 18px; }
+    .toolbar { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+    .tb-group + .tb-group .tb-label, .tb-count { margin-top: 6px; }
   }
   .k-s12 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
 </style>
@@ -156,6 +190,10 @@
         <h4>Risico en positiegrootte</h4>
         <b>Ongeldig onder</b>: 30% onder de top of 10% onder het 200-daags gemiddelde. Zakt de koers daaronder, dan klopt het
         verhaal niet meer. De positiegrootte is zo gekozen dat je dan maximaal je ingestelde risico verliest. Geen koopadvies.
+      </div>
+      <div class="h-legend">
+        <b>Balk</b>: <span class="c-down">rood</span> = ongeldig onder · <span class="c-up">groen</span> = instapzone · wit = koers nu ·
+        grijs = 52-weekse top. <b>Marktrang</b> P90 = beter dan 90% van de markt.
       </div>
     </div>
   </details>
@@ -218,12 +256,13 @@ const isOwn = (r, own) => r.own || own.has((r.eu || '').toUpperCase()) || own.ha
 function ladder(r) {
   const lo = r.stop * 0.97, hi = r.hi52, span = hi - lo;
   const x = v => Math.max(0, Math.min(100, (v - lo) / span * 100)).toFixed(1);
+  const z0 = Math.max(r.zone[0], r.stop);                // onder 'ongeldig' is het geen instapzone meer
   return `<div class="ladder" title="Van ongeldig-onder (rood) tot de 52-weekse top (grijs); groen = instapzone; wit = koers nu">
       <div class="bar"></div>
-      <div class="zoneband" style="left:${x(r.zone[0])}%;width:${(x(r.zone[1]) - x(r.zone[0])).toFixed(1)}%"></div>
+      <div class="zoneband" style="left:${x(z0)}%;width:${(x(r.zone[1]) - x(z0)).toFixed(1)}%"></div>
       <div class="mark stop" style="left:${x(r.stop)}%"></div><div class="mark top" style="left:${x(hi)}%"></div><div class="mark now" style="left:${x(r.price)}%"></div>
     </div>
-    <div class="ladder-l"><span class="s">ongeldig ${money(r, r.stop)}</span><span class="z">zone ${money(r, r.zone[0])} – ${money(r, r.zone[1])}</span><span>top ${money(r, r.hi52)}</span></div>`;
+    <div class="ladder-l"><span class="s">ongeldig ${money(r, r.stop)}</span><span class="z">zone ${money(r, z0)} – ${money(r, r.zone[1])}</span><span>top ${money(r, r.hi52)}</span></div>`;
 }
 
 function sizeBlock(r) {
@@ -259,7 +298,7 @@ function card(r, own) {
       <div class="why">${(r.why || []).map(esc).join(' · ')}</div>
       ${s12}
     </div>
-    <div>
+    <div class="k-mid">
       ${ladder(r)}
       <div class="facts">
         <div><div class="k">Koers</div><div class="v">${money(r, r.price)}</div></div>

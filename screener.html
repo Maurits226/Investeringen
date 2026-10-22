@@ -46,6 +46,8 @@
     cursor: pointer; transition: border-color .15s, transform .15s; text-align: left;
     font: inherit; color: inherit;
   }
+  /* label, getal en subtekst delen rijen over de drie tegels: een label over 2 regels duwt de andere getallen mee */
+  .summary .stat { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; align-content: start; }
   .stat:hover { border-color: var(--accent); transform: translateY(-2px); }
   .stat:active { transform: translateY(0); }
   .stat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
@@ -64,18 +66,18 @@
   .howto .h-less { display: none; }
   .howto[open] .h-more { display: none; }
   .howto[open] .h-less { display: inline; }
-  .howto-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; padding: 2px 16px 14px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .howto-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 2px 16px 14px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
   .howto-body b { color: var(--text); font-weight: 600; }
   .howto-body h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
 
-  /* Filterbalk: vier filters in gelijke kolommen, daaronder zoeken + reset + teller */
+  /* Filterbalk: vijf filters naast elkaar, daaronder zoeken + reset + teller */
   .toolbar {
-    display: grid; grid-template-columns: 1.5fr 1.3fr 1fr .8fr; gap: 14px 14px;
+    display: grid; grid-template-columns: 1.4fr 1.1fr 1.3fr .8fr .8fr; gap: 14px 14px;
     margin-bottom: 20px; padding: 14px 16px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   }
   .tb-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-  .tb-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .tb-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .toolbar select, .toolbar input {
     font-family: inherit; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
     height: 38px; padding: 0 11px; border-radius: 9px; font-size: 13px; width: 100%; min-width: 0;
@@ -102,10 +104,12 @@
   .stock {
     background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
     padding: 16px 20px 16px 22px; display: grid;
-    grid-template-columns: 44px minmax(0,2.1fr) 76px minmax(0,.95fr) minmax(0,1fr) minmax(0,1.25fr) auto;
-    gap: 18px; align-items: center; position: relative; overflow: hidden; cursor: pointer;
+    grid-template-columns: 44px minmax(0,2.1fr) 76px minmax(0,.95fr) minmax(0,1fr) minmax(180px,1.25fr) auto;
+    gap: 16px; align-items: center; position: relative; overflow: hidden; cursor: pointer;
     transition: border-color .15s;
   }
+  /* ~500 kaarten: wat buiten beeld staat wordt pas opgebouwd als je erheen scrolt */
+  .stock { content-visibility: auto; contain-intrinsic-size: auto 74px; }
   .stock:hover { border-color: #3a3d41; }
   .stock::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
   .stock.t1::before { background: var(--up); }
@@ -119,7 +123,7 @@
   .s-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .s-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
-  .tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .tag.watch { color: var(--accent); border-color: rgba(79,143,240,.45); }
   .tag.warn { color: var(--warn); border-color: rgba(245,181,68,.45); }
   /* Scorecard 125 en waarderingscheck */
@@ -144,35 +148,38 @@
   .br {
     position: relative; overflow: hidden; border-radius: 14px; padding: 14px 16px 12px; cursor: pointer; text-align: left;
     background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); color: inherit; font: inherit;
-    display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, transform .15s; --mark: var(--accent);
+    display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: 6px; align-content: start;
+    transition: border-color .15s, transform .15s; --mark: var(--accent);
   }
   .br::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
   .br:hover { border-color: var(--mark); transform: translateY(-2px); }
   .br.active { border-color: var(--mark); box-shadow: 0 0 0 1px var(--mark); }
   .br[data-b="tech"] { --mark: #4f8ff0; } .br[data-b="fin"] { --mark: #f5b544; }
   .br[data-b="zorg"] { --mark: #3ecf8e; } .br[data-b="energie"] { --mark: #a78bfa; }
-  .br-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .br-k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
   .br-k i { width: 7px; height: 7px; border-radius: 50%; background: var(--mark); }
   .br-main { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
   .br-n { font-family: var(--mono); font-size: 22px; font-weight: 600; }
   .br-n small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
   .br-etf { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
   .br-etf b { color: var(--text); font-weight: 500; }
-  .br-best { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .br-best b { color: var(--text); font-weight: 600; }
+  .br-etf .nw { white-space: nowrap; }   /* afbreken tussen '12 mnd' en '3 mnd', niet midden in een getal */
+  /* alleen de naam wordt afgekapt, de score (113/125) blijft altijd zichtbaar */
+  .br-best { font-size: 11.5px; color: var(--muted); white-space: nowrap; display: flex; gap: .3em; min-width: 0; }
+  .br-best b { color: var(--text); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* Deelscores */
   .pil-mini { display: flex; gap: 2px; justify-content: center; margin-top: 4px; }
   .pil-mini i { width: 9px; height: 16px; border-radius: 2px; background: var(--panel-2); position: relative; overflow: hidden; }
   .pil-mini i b { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); }
   .pillars { display: grid; gap: 8px; margin-bottom: 16px; }
   .pil { display: grid; grid-template-columns: 170px minmax(0,1fr) 40px; gap: 10px; align-items: center; font-size: 13px; }
-  .pil small { display: block; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+  .pil small { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); }
   .pil-bar { height: 8px; border-radius: 5px; background: var(--panel-2); overflow: hidden; }
   .pil-bar i { display: block; height: 100%; border-radius: 5px; }
   .pil-val { font-family: var(--mono); font-size: 12.5px; text-align: right; }
   .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: -4px 0 16px; font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
   .metrics span { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed #26282b; padding: 3px 0; }
-  .metrics b { color: var(--text); font-weight: 500; }
+  .metrics b { color: var(--text); font-weight: 500; white-space: nowrap; }
   .tag.ref { color: var(--violet, #a78bfa); border-color: rgba(167,139,250,.45); }
   .tag.earn { color: var(--warn); border-color: rgba(245,181,68,.45); }
   .stock.is-ref { opacity: .82; border-style: dashed; }
@@ -183,10 +190,10 @@
   .switch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--muted); transition: left .15s, background .15s; }
   .switch input:checked + i { background: rgba(167,139,250,.25); border-color: rgba(167,139,250,.6); }
   .switch input:checked + i::after { left: 15px; background: #a78bfa; }
-  @media (max-width: 860px) { .branches { grid-template-columns: 1fr 1fr; } }
-  .ring-sub { font-size: 10px; color: var(--muted); font-family: var(--mono); text-align: center; margin-top: 3px; white-space: nowrap; }
+  @media (max-width: 860px) { .branches { grid-template-columns: 1fr 1fr; } .howto .h-sub { display: none; } }
+  .ring-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); text-align: center; margin-top: 3px; white-space: nowrap; }
 
-  .blk .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .blk .k { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
   .blk .v { font-family: var(--mono); font-size: 16px; font-weight: 500; margin-top: 4px; white-space: nowrap; }
   .blk .s { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
@@ -201,14 +208,21 @@
   .stock .row2 { display: contents; }
   .toggle { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11px; padding: 5px 9px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
   .toggle:hover { border-color: var(--accent); color: var(--text); }
+  /* naar boven (filters) zonder 500 kaarten terug te scrollen; verschijnt pas na een eind scrollen */
+  .to-top { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5; width: 44px; height: 44px; border-radius: 50%;
+            display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+            font: inherit; font-size: 18px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+  .to-top[hidden] { display: none; }
+  .to-top:hover { border-color: var(--accent); }
 
   .detail { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 24px; cursor: default; }
-  .d-k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; }
-  .d-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
+  .d-k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; }
+  /* past de toelichting niet naast het kopje, dan loopt hij eronder door (het kopje zelf blijft op één regel) */
+  .d-k > span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
   .crit { display: grid; grid-template-columns: minmax(0,1fr) auto 50px 26px; gap: 4px 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid #232528; }
   .crit:last-child { border-bottom: 0; }
   .crit-n { font-size: 13px; min-width: 0; }
-  .crit-n small { display: block; font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
+  .crit-n small { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
   .crit-v { font-family: var(--mono); font-size: 12.5px; text-align: right; white-space: nowrap; }
   .crit.na .crit-n, .crit.na .crit-v { color: var(--muted); }
   .pips { display: flex; gap: 3px; }
@@ -220,7 +234,7 @@
 
   .qual { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
   .q-row { display: grid; grid-template-columns: 116px minmax(0,1fr) 34px; gap: 10px; align-items: center; font-size: 13px; }
-  .q-row small { font-size: 10px; color: var(--muted); font-family: var(--mono); display: block; }
+  .q-row small { font-size: 11px; color: var(--muted); font-family: var(--mono); display: block; }
   .q-bar { height: 7px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
   .q-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--up)); }
   .q-bar.est i { background: repeating-linear-gradient(90deg, #4f8ff0 0 6px, #3b6fbf 6px 9px); }
@@ -231,12 +245,13 @@
   .checklist b { font-family: var(--mono); font-size: 11px; width: 14px; flex-shrink: 0; }
   .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
   .facts .v { font-family: var(--mono); font-size: 14px; margin-top: 3px; }
-  .facts .k { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .facts .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .range { height: 6px; background: var(--panel-2); border-radius: 6px; position: relative; margin-top: 8px; }
   .range .dot { position: absolute; top: -4px; width: 3px; height: 14px; background: #fff; border-radius: 2px; transform: translateX(-50%); }
-  .range-l { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 5px; }
+  .range-l { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 5px; }
   .d-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .note { font-size: 11.5px; color: var(--muted); line-height: 1.55; }
+  .s12-wrap { margin-bottom: 16px; }
 
   .state, .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
   .state code, .empty code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
@@ -245,34 +260,73 @@
 
   @media (max-width: 1000px) {
     .stock { grid-template-columns: 40px minmax(0,1fr) 70px; gap: 14px; }
+    .stock { contain-intrinsic-size: auto 140px; }
     .stock .blk, .stock .steps-blk { grid-column: span 1; }
     .stock .row2 { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 14px; align-items: center; }
     .detail { grid-template-columns: 1fr; }
     .howto-body { grid-template-columns: 1fr; gap: 10px; }
+    /* filters: Sorteer en Scorecard breed, daaronder Sector, Valuta en Marktrang */
+    .toolbar { grid-template-columns: repeat(6, minmax(0,1fr)); }
+    .toolbar .tb-group { grid-column: span 2; }
+    .toolbar .tb-group:nth-child(-n+2) { grid-column: span 3; }
   }
   .crit-v small { font-size: 11px; color: var(--muted); }
   @media (max-width: 560px) {
-    .summary { gap: 8px; }
-    .summary .stat { padding: 11px 11px; }
-    .summary .stat .label { font-size: 9.5px; letter-spacing: .6px; }
-    .summary .stat .sub { font-size: 10.5px; }
-  }
-  @media (max-width: 560px) {
-    .howto .h-sub { display: none; }
     body { padding: 18px 12px 40px; }
     header.top { flex-direction: column; align-items: stretch; }
-    .summary { gap: 10px; }
-    .stat { padding: 12px 14px; }
-    .stat .value { font-size: 20px; }
-    .stock { padding: 14px 14px 14px 18px; }
-    .stock .row2 { grid-template-columns: 1fr 1fr; }
-    .stock .row2 .steps-blk { grid-column: 1 / 2; }
-    .toolbar { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+    /* tegels onder elkaar: label + uitleg links, getal rechts (drie smalle tegels passen geen leesbaar label) */
+    .summary { grid-template-columns: 1fr; gap: 8px; }
+    .summary .stat { grid-row: auto; grid-template-rows: auto auto; grid-template-columns: minmax(0,1fr) auto; column-gap: 12px; align-items: center; padding: 10px 14px; }
+    .summary .stat .label { grid-area: 1 / 1; font-size: 11px; letter-spacing: .8px; }
+    .summary .stat .sub { grid-area: 2 / 1; font-size: 11px; margin-top: 2px; }
+    .summary .stat .value { grid-area: 1 / 2 / 3 / 3; margin-top: 0; font-size: 20px; }
+    .stock { padding: 14px 14px 14px 18px; gap: 12px; contain-intrinsic-size: auto 205px; }
+    .rank { font-size: 16px; }
+    /* naam mag over twee regels, ticker · beurs · sector loopt door */
+    .s-title { font-size: 16px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .s-sub { white-space: normal; }
+    /* Koers | Verwacht | pijl-knop, de 12 stappen op een eigen regel over de hele breedte.
+       Label, getal en subtekst delen rijen, zodat de getallen gelijk staan als een label over 2 regels loopt. */
+    .stock .row2 { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; column-gap: 12px; row-gap: 0; }
+    .stock .row2 .blk { display: grid; grid-row: 1 / span 3; grid-template-rows: subgrid; }
+    .stock .row2 .steps-blk { display: block; grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
+    .stock .row2 > .toggle { grid-column: 3; grid-row: 1 / span 3; align-self: center; width: 40px; height: 40px; padding: 0; font-size: 14px; }
+    .stock .row2 > .toggle .tg-l { display: none; }
+    /* branches onder elkaar: naam + aantal op één regel, ETF en 'beste' eronder zonder af te breken */
+    .branches { grid-template-columns: 1fr; gap: 8px; }
+    .br { grid-row: auto; grid-template-rows: none; grid-template-columns: minmax(0,1fr) auto; column-gap: 12px; row-gap: 4px; align-items: center; padding: 11px 14px 10px; }
+    .br-k { grid-area: 1 / 1; }
+    .br-main { grid-area: 1 / 2; }
+    .br-etf, .br-best { grid-column: 1 / -1; }
+    /* filters: Sorteer en Sector over de hele breedte (lange teksten), de drie korte filters naast elkaar */
+    .toolbar { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; padding: 12px; }
+    .toolbar .tb-group:nth-child(n) { grid-column: auto; }
+    .toolbar .tb-group:first-child, .toolbar .tb-group:nth-child(3) { grid-column: 1 / -1; }
+    .toolbar .tb-group:nth-child(3) { grid-row: 2; }
+    .toolbar select { padding: 0 8px; }
     .tb-row2 { flex-wrap: wrap; }
     .tb-search { flex: 1 1 100%; max-width: none; }
     .checklist { grid-template-columns: 1fr; }
-    .facts { grid-template-columns: 1fr 1fr; }
+    .metrics { grid-template-columns: 1fr; }
+    .pil { grid-template-columns: minmax(0,1fr) minmax(60px,30%) 34px; }
+    /* drie kolommen op inhoud: 'MARKTWAARDE' is breder dan 'CASH' */
+    .facts { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px; }
+    .facts .k { letter-spacing: .5px; }
     .crit { grid-template-columns: minmax(0,1fr) auto 40px 22px; gap: 4px 8px; }
+  }
+  /* iOS zoomt in op invoervelden kleiner dan 16px */
+  @media (max-width: 560px), (pointer: coarse) {
+    .toolbar select, .toolbar input { font-size: 16px; }
+  }
+  /* aanraakscherm: knoppen en schakelaar groot genoeg om te tikken */
+  @media (pointer: coarse) {
+    .toolbar select, .toolbar input, .tb-reset { height: 42px; }
+    .toggle { min-height: 40px; padding: 0 10px; }
+    .switch { min-height: 42px; }
+  }
+  /* geen muis: een getikte tegel blijft anders opgetild staan */
+  @media (hover: none) {
+    .stat:hover, .br:hover { transform: none; }
   }
 </style>
 </head>
@@ -344,23 +398,23 @@
     <div class="tb-group">
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
-        <option value="score">Scorecard 125 (hoog → laag)</option>
-        <option value="rank">Marktrang (hoog → laag)</option>
-        <option value="exp">Verwacht rendement (hoog → laag)</option>
-        <option value="steps">12 stappen (survivors eerst)</option>
-        <option value="Q">Kwaliteit (hoog → laag)</option>
-        <option value="G">Groei (hoog → laag)</option>
-        <option value="V">Waardering (hoog → laag)</option>
-        <option value="M">Momentum (hoog → laag)</option>
+        <option value="score" data-short="Scorecard 125">Scorecard 125 (hoog → laag)</option>
+        <option value="rank" data-short="Marktrang">Marktrang (hoog → laag)</option>
+        <option value="exp" data-short="Verwacht rendement">Verwacht rendement (hoog → laag)</option>
+        <option value="steps" data-short="12 stappen">12 stappen (survivors eerst)</option>
+        <option value="Q" data-short="Kwaliteit">Kwaliteit (hoog → laag)</option>
+        <option value="G" data-short="Groei">Groei (hoog → laag)</option>
+        <option value="V" data-short="Waardering">Waardering (hoog → laag)</option>
+        <option value="M" data-short="Momentum">Momentum (hoog → laag)</option>
         <option value="name">Naam (A → Z)</option>
       </select>
     </div>
     <div class="tb-group">
       <span class="tb-label">Scorecard</span>
       <select id="cardSel">
-        <option value="0">75+ (standaard)</option>
+        <option value="0" data-short="75+">75+ (standaard)</option>
         <option value="90">90+</option>
-        <option value="100">100+ (uitzonderlijk)</option>
+        <option value="100" data-short="100+">100+ (uitzonderlijk)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -371,8 +425,8 @@
       <span class="tb-label">Valuta</span>
       <select id="regionSel">
         <option value="all">Alle</option>
-        <option value="EU">Euro (€)</option>
-        <option value="VS">Dollar ($)</option>
+        <option value="EU" data-short="Euro">Euro (€)</option>
+        <option value="VS" data-short="Dollar">Dollar ($)</option>
       </select>
     </div>
     <div class="tb-group">
@@ -399,6 +453,7 @@
     Dit overzicht is een hulpmiddel om kansen te vinden, geen beleggingsadvies.
   </p>
 </div>
+<button class="to-top" id="toTop" hidden title="Naar boven" aria-label="Naar boven">↑</button>
 
 <script src="steps.js"></script>
 <script>
@@ -547,7 +602,7 @@ function render() {
     return `<button class="br ${on ? 'active' : ''}" data-b="${k}" title="Toon alleen ${esc(b.label.toLowerCase())}">
       <div class="br-k"><i></i>${esc(b.label)}</div>
       <div class="br-main"><span class="br-n">${inb.length}<small>kansen</small></span></div>
-      <div class="br-etf"><b>${esc((b.etf || '').split('.')[0])}</b> ${b.ret12 != null ? `<span class="${cls(b.ret12)}">${pct(b.ret12)}</span> 12 mnd` : '—'}${b.ret3m != null ? ` · <span class="${cls(b.ret3m)}">${pct(b.ret3m)}</span> 3 mnd` : ''}</div>
+      <div class="br-etf"><span class="nw"><b>${esc((b.etf || '').split('.')[0])}</b> ${b.ret12 != null ? `<span class="${cls(b.ret12)}">${pct(b.ret12)}</span> 12 mnd` : '—'}</span>${b.ret3m != null ? ` · <span class="nw"><span class="${cls(b.ret3m)}">${pct(b.ret3m)}</span> 3 mnd</span>` : ''}</div>
       <div class="br-best">${best ? `beste: <b>${esc(best.name)}</b> (${Math.round(cardOf(best))}/125)` : 'nog geen kansen'}</div>
     </button>`;
   }).join('');
@@ -667,7 +722,7 @@ function card(it) {
       <div class="blk"><div class="k">Verwacht 12 mnd</div><div class="v ${cls(e.pct)}">${pct(e.pct)}</div><div class="s">${expSrc}</div></div>
       <div class="blk steps-blk"><div class="k">12 stappen${it.s12 ? (it.s12.survivor ? ' · <span class="c-up">survivor</span>' : ` · valt af bij ${it.s12.fail}`) : ''}</div>
         <div class="steps">${it.s12 ? Steps.dots(it.s12) : '<span class="s">nog niet berekend</span>'}</div></div>
-      <button class="toggle">${open ? 'sluiten ▴' : 'details ▾'}</button>
+      <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>
     </div>
     ${open ? detail(it) : ''}
   </div>`;
@@ -741,6 +796,19 @@ function resetAll() {
 let tSearch;
 $('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
 $('resetBtn').onclick = resetAll;
+// Smalle keuzelijsten (telefoon, aanraakscherm met 16px-tekst): korte optieteksten, anders valt de tekst weg
+const SHORT_MQ = matchMedia('(max-width: 560px), (pointer: coarse)');
+function shortLabels() {
+  document.querySelectorAll('.toolbar option[data-short]').forEach(o => {
+    if (!o.dataset.long) o.dataset.long = o.textContent;
+    o.textContent = SHORT_MQ.matches ? o.dataset.short : o.dataset.long;
+  });
+}
+SHORT_MQ.addEventListener ? SHORT_MQ.addEventListener('change', shortLabels) : SHORT_MQ.addListener(shortLabels);
+shortLabels();
+// Knop naar boven pas tonen als de filters ver uit beeld zijn
+window.addEventListener('scroll', () => { $('toTop').hidden = scrollY < innerHeight * 1.5; }, { passive: true });
+$('toTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   if (Date.now() - lastLoad > 10 * 60 * 1000) load();

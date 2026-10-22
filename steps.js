@@ -5,6 +5,7 @@ const Steps = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const nl = v => String(v ?? '').replace(/(\d)\.(\d)/g, '$1,$2');   // 24.4 → 24,4 (getallen uit screener.py)
   const nf = (v, d = 1) => v == null || !isFinite(v) ? '—' : Number(v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const sc = v => nf(v, Number.isInteger(+v) ? 0 : 1);   // scorecard: 115, of 113,6 uit een oudere screener.json
 
   const NAMES = ['', 'De seculiere trend', 'Sanity check', 'Pre-screen', 'Definieer het bedrijf', 'Marktpotentieel',
     '125-punten scorecard', 'Omzetmotor en 5 jaar', 'Loan Officer Test', 'Concurrentievoordeel', 'Management',
@@ -68,11 +69,13 @@ const Steps = (() => {
   function cardTable(card) {
     if (!card || card.s == null) return `<div class="s12-note">Te weinig cijfers voor de scorecard (${card ? card.n : 0}/13).</div>`;
     const L = LEVEL[card.lvl] || LEVEL.low;
+    // De schaal (s12-cs) staat los van de naam, zodat hij op een telefoon de hele breedte kan gebruiken
     const rows = card.crit.map(c => `<div class="s12-crow ${c.nodata ? 'na' : ''}">
-        <div class="s12-cn">${esc((CARD[c.k] || [c.k])[0])}<small>${esc((CARD[c.k] || ['', ''])[1])}</small></div>
+        <div class="s12-cn">${esc((CARD[c.k] || [c.k])[0])}</div>
         <div class="s12-cv">${cardValue(c)}</div>
-        <div class="s12-pts p${c.p}">${c.p}</div></div>`).join('');
-    return `<div class="s12-chead"><span class="s12-cnum">${card.s}<small>/125</small></span><span class="s12-lvl ${L[1]}">${L[0]}</span></div>
+        <div class="s12-pts p${c.p}">${c.p}</div>
+        <small class="s12-cs">${esc((CARD[c.k] || ['', ''])[1])}</small></div>`).join('');
+    return `<div class="s12-chead"><span class="s12-cnum">${sc(card.s)}<small>/125</small></span><span class="s12-lvl ${L[1]}">${L[0]}</span></div>
       <div class="s12-bar"><i style="left:${Math.min(100, card.s / 1.25).toFixed(1)}%"></i></div>
       ${rows}
       <div class="s12-note">* Subjectief: oordeel uit kwaliteit.json of een strenge schatting uit de cijfers. 100-125 uitzonderlijk · 75-100 watchlist · onder 75 absoluut niet.
@@ -105,12 +108,12 @@ const Steps = (() => {
     const soft = fails.filter(x => !HOLD_HARD.includes(x.n)).map(x => x.n);
     const note = n => { const x = s.list.find(y => y.n === n); return x && x.note ? ` (${x.note.replace(/^[^:]+:\s*/, '')})` : ''; };
     if (c.s < 75 || hard.length) return { cls: 'v-bad', label: 'These herzien',
-      text: `${c.s < 75 ? `Scorecard ${c.s}: onder 75, volgens de gids 'absoluut niet'. ` : ''}${hard.length ? `Valt af bij stap ${failNames(hard)}${note(hard[0])}. ` : ''}Breekt de these langzaam, bouw dan geleidelijk af (de gids: over ±18 maanden). Bij fraude: direct eruit. Een koersdaling alleen is nooit een reden.` };
+      text: `${c.s < 75 ? `Scorecard ${sc(c.s)}: onder 75, volgens de gids 'absoluut niet'. ` : ''}${hard.length ? `Valt af bij stap ${failNames(hard)}${note(hard[0])}. ` : ''}Breekt de these langzaam, bouw dan geleidelijk af (de gids: over ±18 maanden). Bij fraude: direct eruit. Een koersdaling alleen is nooit een reden.` };
     if (soft.length) return { cls: 'v-mid', label: 'Kritisch bekijken',
-      text: `Als nieuwe aankoop zou het afvallen bij stap ${failNames(soft)}${note(soft[0])}. Dat breekt je these niet vanzelf: lees de kwartaalcijfers en kijk of er iets wezenlijks is veranderd.${c.s < 100 ? ` Scorecard ${c.s}: watchlist-niveau.` : ''}` };
+      text: `Als nieuwe aankoop zou het afvallen bij stap ${failNames(soft)}${note(soft[0])}. Dat breekt je these niet vanzelf: lees de kwartaalcijfers en kijk of er iets wezenlijks is veranderd.${c.s < 100 ? ` Scorecard ${sc(c.s)}: watchlist-niveau.` : ''}` };
     const val = s.list.find(x => x.n === 12);
     return { cls: 'v-good', label: 'Behouden',
-      text: `Scorecard ${c.s}${c.s >= 100 ? ' (uitzonderlijk)' : ' (watchlist-niveau)'} en geen afvaller in de bedrijfsstappen.${val && val.s === 'fail' ? ' Wel duur: bijkopen pas bij een betere prijs, maar dat is geen reden om te verkopen.' : ''} Check elk kwartaal, herhaal de scorecard jaarlijks.` };
+      text: `Scorecard ${sc(c.s)}${c.s >= 100 ? ' (uitzonderlijk)' : ' (watchlist-niveau)'} en geen afvaller in de bedrijfsstappen.${val && val.s === 'fail' ? ' Wel duur: bijkopen pas bij een betere prijs, maar dat is geen reden om te verkopen.' : ''} Check elk kwartaal, herhaal de scorecard jaarlijks.` };
   }
 
   // Volledige 12 stappen. opts.ticks = {n: [index, ...]} en opts.tickable = true geven afvinkbare punten
@@ -162,11 +165,14 @@ const Steps = (() => {
       .s12-bar { position: relative; height: 8px; border-radius: 5px; margin-bottom: 10px;
         background: linear-gradient(90deg, rgba(240,89,95,.35) 0 60%, rgba(245,181,68,.35) 60% 80%, rgba(62,207,142,.35) 80%); }
       .s12-bar i { position: absolute; top: -3px; width: 3px; height: 14px; border-radius: 2px; background: var(--text, #eceef0); transform: translateX(-1px); }
-      .s12-crow { display: grid; grid-template-columns: minmax(0,1fr) auto 30px; gap: 4px 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #232528; }
+      .s12-crow { display: grid; grid-template-columns: minmax(0,1fr) auto 30px; gap: 1px 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #232528; }
       .s12-crow.na .s12-cn, .s12-crow.na .s12-cv { color: var(--muted, #83888d); }
-      .s12-cn { font-size: 13px; min-width: 0; } .s12-cn small { display: block; font-size: 10.5px; color: var(--muted, #83888d); font-family: var(--mono, monospace); margin-top: 1px; }
+      .s12-cn { font-size: 13px; min-width: 0; }
+      /* naam, waarde en punten op één regel, de schaal eronder over de volle breedte */
+      .s12-cs { grid-column: 1 / -1; display: block; font-size: 11px; color: var(--muted, #83888d); font-family: var(--mono, monospace); min-width: 0; }
       .s12-cv { font-family: var(--mono, monospace); font-size: 12.5px; text-align: right; } .s12-cv small { color: var(--muted, #83888d); font-size: 11px; }
-      .s12-pts { font-family: var(--mono, monospace); font-size: 12px; font-weight: 600; text-align: center; border-radius: 6px; padding: 2px 0; }
+      .s12-pts { font-family: var(--mono, monospace); font-size: 12px; font-weight: 600; text-align: center; border-radius: 6px; padding: 2px 0;
+        color: var(--muted, #83888d); background: rgba(255,255,255,.05); }   /* andere punten dan 0/5/10 (oudere data) blijven een pil */
       .s12-pts.p10 { color: var(--up, #3ecf8e); background: rgba(62,207,142,.12); } .s12-pts.p5 { color: var(--warn, #f5b544); background: rgba(245,181,68,.1); }
       .s12-pts.p0 { color: var(--down, #f0595f); background: rgba(240,89,95,.1); }
       .s12-note { font-size: 11.5px; color: var(--muted, #83888d); line-height: 1.55; margin-top: 8px; } .s12-note b { color: var(--text, #eceef0); }
@@ -175,8 +181,8 @@ const Steps = (() => {
       .s12-step > summary::-webkit-details-marker { display: none; }
       .s12-step.no { border-color: rgba(240,89,95,.45); } .s12-step.ok { border-color: rgba(62,207,142,.25); }
       .s12-n { font-family: var(--mono, monospace); font-size: 12px; color: var(--muted, #83888d); }
-      .s12-t { font-size: 13px; min-width: 0; } .s12-t small { display: block; font-size: 10.5px; color: var(--muted, #83888d); margin-top: 1px; }
-      .s12-st { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line, #2a2c2f); white-space: nowrap; }
+      .s12-t { font-size: 13px; min-width: 0; } .s12-t small { display: block; font-size: 11px; color: var(--muted, #83888d); margin-top: 1px; }
+      .s12-st { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line, #2a2c2f); white-space: nowrap; }
       .s12-st.ok { color: var(--up, #3ecf8e); border-color: rgba(62,207,142,.45); } .s12-st.no { color: var(--down, #f0595f); border-color: rgba(240,89,95,.45); }
       .s12-st.chk { color: var(--warn, #f5b544); border-color: rgba(245,181,68,.45); } .s12-st.man { color: var(--muted, #83888d); }
       .s12-flag { margin: 0 10px 6px 48px; font-size: 12px; color: var(--down, #f0595f); }
@@ -190,15 +196,20 @@ const Steps = (() => {
       .s12-about { margin: 0 10px 10px 48px; font-size: 12px; color: #c8cbcf; line-height: 1.5; font-style: italic; }
       .s12-dcfrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 10px 0 48px; }
       .s12-dcf { border: 1px solid var(--line, #2a2c2f); border-radius: 8px; padding: 6px 8px; min-width: 0; }
-      .s12-dcf small { display: block; font-size: 10px; color: var(--muted, #83888d); } .s12-dcf b { font-family: var(--mono, monospace); font-size: 13px; }
+      .s12-dcf small { display: block; font-size: 11px; color: var(--muted, #83888d); } .s12-dcf b { font-family: var(--mono, monospace); font-size: 13px; }
       .s12-dcf.up b { color: var(--up, #3ecf8e); } .s12-dcf.down b { color: var(--down, #f0595f); }
       .s12-step .s12-note { margin: 8px 10px 10px 48px; }
       .v-good { color: var(--up, #3ecf8e); } .v-mid { color: var(--warn, #f5b544); } .v-bad { color: var(--down, #f0595f); } .v-na { color: var(--muted, #83888d); }
       @media (max-width: 560px) {
         .s12-flag, .s12-list, .s12-about, .s12-dcfrow, .s12-step .s12-note { margin-left: 10px; }
         .s12-dcfrow { grid-template-columns: repeat(2, 1fr); }
-        .s12-list li { flex-wrap: wrap; } .s12-list li em { margin-left: 22px; padding-left: 0; }
-      }`;
+        /* tekst blijft naast het vinkje; een lange waarde schuift rechts uitgelijnd naar de regel eronder */
+        .s12-list li { flex-wrap: wrap; } .s12-list li > span { flex: 1 1 0; min-width: 60%; }
+        .s12-cv small { display: block; }
+      }
+      /* afvinken met de vinger: de hele regel is een tikvlak van minstens 40px, met een groter vakje */
+      @media (pointer: coarse) { .s12-list label { padding: 8px 0; min-height: 40px; align-items: center; }
+        .s12-list label input[type=checkbox] { width: 20px; height: 20px; top: 0; } }`;
     document.head.appendChild(st);
   }
 

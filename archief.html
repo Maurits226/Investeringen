@@ -35,14 +35,15 @@
   button:disabled { opacity: .35; cursor: default; border-color: var(--line); }
 
   .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px; }
+  /* Kolom met de waarde onderaan: loopt een label over 2 regels, dan staan de getallen in een rij toch op één lijn */
   .stat { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
-          cursor: pointer; transition: border-color .15s, transform .15s; }
+          cursor: pointer; transition: border-color .15s, transform .15s; display: flex; flex-direction: column; }
   /* Alleen met een muis optillen: op een touchscreen blijft :hover na een tik hangen */
   @media (hover: hover) { .stat:hover { border-color: var(--accent); transform: translateY(-2px); } }
   .stat:active { transform: translateY(0); }
   .stat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-  .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: 8px; }
+  .stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; margin-top: auto; padding-top: 8px; }
   .stat .sub { font-size: 12px; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); }
 
   [hidden] { display: none !important; }
@@ -154,8 +155,10 @@
   .an-k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin-bottom: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; }
   .an-k span { text-transform: none; letter-spacing: 0; font-family: 'IBM Plex Mono', monospace; }
   .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  /* Getal onderaan het vak, zodat de twee kolommen gelijk lopen als een label afbreekt */
+  .kpi { display: flex; flex-direction: column; }
   .kpi small { display: block; font-size: 11px; color: var(--muted); }
-  .kpi b { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600; }
+  .kpi b { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600; margin-top: auto; }
   .an-t { width: 100%; border-collapse: collapse; font-size: 12px; }
   .an-t th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; padding: 3px 0; }
   .an-t th:not(:first-child), .an-t td:not(:first-child) { text-align: right; font-family: 'IBM Plex Mono', monospace; padding-left: 12px; white-space: nowrap; }
@@ -217,6 +220,9 @@
   .sd-rows .lo i { background: var(--accent); } .sd-rows .ve i { background: #4a4e53; } .sd-rows .af i { background: linear-gradient(90deg, var(--up) 50%, var(--down) 50%); }
   .sd-rows b { color: var(--text); font-weight: 600; min-width: 74px; font-family: 'Space Grotesk', system-ui, sans-serif; }
   .sd-rows .r { margin-left: auto; }
+  /* Middenstuk als één tekstblok: breekt op een smal scherm als gewone tekst af in plaats van in losse brokjes */
+  .sd-rows .m { flex: 1; min-width: 0; }
+  .sd-rows .m span { white-space: nowrap; }
   .sd-empty { font-size: 12.5px; color: var(--muted); }
   .sb-row {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 12px 18px; position: relative; overflow: hidden;
@@ -754,9 +760,9 @@ function renderScore() {
       <div class="sd-main"><span class="sd-lbl">gemiddeld resultaat</span><span class="sd-num">${tot == null ? '—' : pct(tot)}</span></div>
       <div class="sd-bar">${lo.length ? `<span class="lo" style="width:${w(lo.length)}"></span>` : ''}${ve.length ? `<span class="ve" style="width:${w(ve.length)}"></span>` : ''}${dl.length ? `<span class="dl" style="width:${w(dl.length)}"></span>` : ''}${st.length ? `<span class="st" style="width:${w(st.length)}"></span>` : ''}</div>
       <div class="sd-rows">
-        <div class="lo"><i></i><b>Lopend</b>${lo.length}${lo.length ? ' · nu' : ''}${g(gem(lo))}</div>
-        <div class="ve"><i></i><b>Verlopen</b>${ve.length}${ve.length ? ' · termijn voorbij' : ''}${g(gem(ve))}</div>
-        <div class="af"><i></i><b>Afgerond</b>${af.length}${af.length ? ` · <span class="c-up">${dl.length} doel</span> · <span class="c-down">${st.length} stop</span>` : ''}${g(gem(af))}</div>
+        <div class="lo"><i></i><b>Lopend</b><span class="m">${lo.length}${lo.length ? ' · nu' : ''}</span>${g(gem(lo))}</div>
+        <div class="ve"><i></i><b>Verlopen</b><span class="m">${ve.length}${ve.length ? ' · termijn voorbij' : ''}</span>${g(gem(ve))}</div>
+        <div class="af"><i></i><b>Afgerond</b><span class="m">${af.length}${af.length ? ` · <span class="c-up">${dl.length} doel</span> · <span class="c-down">${st.length} stop</span>` : ''}</span>${g(gem(af))}</div>
       </div>
     </div>`;
   };

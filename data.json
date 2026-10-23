@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-23T11:20:34.757080+00:00",
+  "updated": "2026-10-23T11:21:20.536497+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -129,14 +129,14 @@
     },
     "ENR.DE": {
       "ticker": "ENR.DE",
-      "price": 121.44,
+      "price": 121.48,
       "prevClose": 122.19999694824219,
       "currency": "EUR",
       "name": "Siemens Energy AG",
       "high52": 191.66,
       "vol": 50.9,
-      "sma50": 143.0544,
-      "sma200": 154.4346,
+      "sma50": 143.0552,
+      "sma200": 154.4348,
       "low52": 96.94,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -171,14 +171,14 @@
     },
     "ABEA.DE": {
       "ticker": "ABEA.DE",
-      "price": 288.8,
+      "price": 288.65,
       "prevClose": 292.6000061035156,
       "currency": "EUR",
       "name": "Alphabet Inc.",
       "high52": 350.8,
       "vol": 31.1,
-      "sma50": 300.355,
-      "sma200": 295.5178,
+      "sma50": 300.352,
+      "sma200": 295.517,
       "low52": 217.05,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -269,14 +269,14 @@
     },
     "NVD.DE": {
       "ticker": "NVD.DE",
-      "price": 189.94,
+      "price": 190.14,
       "prevClose": 190.47999572753906,
       "currency": "EUR",
       "name": "NVIDIA Corporation",
       "high52": 216.25,
       "vol": 34.8,
-      "sma50": 195.2122,
-      "sma200": 176.7083,
+      "sma50": 195.2162,
+      "sma200": 176.7093,
       "low52": 144.54,
       "exchange": "GER",
       "exchangeFull": "XETRA"
@@ -311,14 +311,14 @@
     },
     "ASML.AS": {
       "ticker": "ASML.AS",
-      "price": 1395.8,
+      "price": 1396.8,
       "prevClose": 1419.5999755859375,
       "currency": "EUR",
       "name": "ASML Holding N.V.",
       "high52": 1741.0,
       "vol": 42.7,
-      "sma50": 1506.728,
-      "sma200": 1382.894,
+      "sma50": 1506.748,
+      "sma200": 1382.899,
       "low52": 822.2,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"

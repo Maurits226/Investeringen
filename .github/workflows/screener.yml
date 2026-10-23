@@ -31,6 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (vastgepind)
 
+      # Een run die in de wachtrij stond (achter een vorige Top 250-run) begint van de versie van toen:
+      # eerst de nieuwste data ophalen, anders botsen de resultaten van beide runs bij het opslaan
+      - name: Nieuwste stand ophalen
+        run: git pull -q --ff-only origin "${GITHUB_REF_NAME}" || true
+
       - name: Stocks scannen en scoren
         run: python3 scripts/screener.py
 
@@ -48,7 +53,12 @@ jobs:
           fi
           git commit -q -m "Top 250 $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
           for i in 1 2 3 4 5; do
-            git pull -q --rebase origin "${GITHUB_REF_NAME}" && git push -q && exit 0
+            # botst het met een andere run, dan gaat deze (nieuwste) uitvoer voor: bij een rebase is 'theirs' de eigen commit
+            if git pull -q --rebase -X theirs origin "${GITHUB_REF_NAME}"; then
+              git push -q && exit 0
+            else
+              git rebase --abort 2>/dev/null || true
+            fi
             sleep $((i * 7))
           done
           echo "Push na 5 pogingen niet gelukt"; exit 1

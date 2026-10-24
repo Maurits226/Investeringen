@@ -1248,7 +1248,10 @@ TREND_INDUSTRY = {
     "Oil & Gas Integrated": 2, "Oil & Gas E&P": 2, "Oil & Gas Refining & Marketing": 2, "Oil & Gas Midstream": 3,
     "Department Stores": 2, "Publishing": 2, "Broadcasting": 2, "REIT - Office": 2, "Tobacco": 1, "Thermal Coal": 1,
 }
-NO_CASHDEBT = re.compile(r"^(Banks|Insurance)")   # bij banken en verzekeraars zegt cash vs schuld weinig
+# Banken, brokers en verzekeraars: schuld (spaargeld, polissen) is hun grondstof en hun kasstroom schommelt met deposito's en
+# handelsposities. Cash vs. schuld, vrije kasstroom (scorecard, stap 2, 3, 7, Find the gap) en de Loan Officer Test (stap 8)
+# zeggen daar niets; die tellen als 'geen data' of 'zelf beoordelen'.
+FIN_BALANCE = re.compile(r"^(Banks|Capital Markets|Insurance|Mortgage Finance|Credit Services|Financial Conglomerates)")
 
 
 def pts3(v, good, ok, high_is_good=True):
@@ -1293,7 +1296,9 @@ def scorecard(it, sp5):
 
     # 1. Cash vs. schuld (laatste kwartaal): meer schuld dan cash 0 · meer cash dan schuld 5 · 2x+ cash 10
     cash, debt = d["cash"], d["debt"]
-    if cash is None or debt is None:
+    if FIN_BALANCE.search(it.get("industry") or ""):
+        cash = debt = p1 = None                          # financiële instelling: telt als 'geen data' (neutraal)
+    elif cash is None or debt is None:
         p1 = None
     elif debt <= 0 or cash >= 2 * debt:
         p1 = 10
@@ -1398,10 +1403,6 @@ def _aligned(ts, k1, k2):
     return [(v, b[d_]) for d_, v in (ts.get(k1) or []) if d_ in b and v is not None and b[d_] is not None]
 
 
-# Banken, brokers en verzekeraars: schuld is hun grondstof, dus de Loan Officer Test (stap 8) zegt daar niets
-FIN_BALANCE = re.compile(r"^(Banks|Capital Markets|Insurance|Mortgage Finance|Credit Services|Financial Conglomerates)")
-
-
 def _yoy(vals):
     return [(b / a - 1) * 100 for a, b in zip(vals, vals[1:]) if a and a > 0]
 
@@ -1459,6 +1460,8 @@ def twelve_steps(it, med):
     om_hist = [o / r * 100 for o, r in _aligned(ts, "annualOperatingIncome", rev_key) if r]
     g12, om12 = d["g12"], d["om12"]
     cash, debt = d["cash"], d["debt"]
+    fin = bool(FIN_BALANCE.search(it.get("industry") or ""))
+    cmp_cash, cmp_debt = (None, None) if fin else (cash, debt)    # cash vs. schuld zegt niets bij een bank of verzekeraar
     mcap_usd = d["mcap_usd"]
     age = d["age"]
 
@@ -1482,7 +1485,7 @@ def twelve_steps(it, med):
     # 2. Sanity check (No B***t Rule): minstens 2 van 3
     grew = None if len(rev_g) < 2 else (sum(1 for x in rev_g[-3:] if x > 0) >= max(2, len(rev_g[-3:]) - 1) and rev_g[-1] > 0)
     prof = None if not ni and c.get("eps") is None else ((ni[-1] > 0) if ni else c["eps"] > 0)
-    more_cash = None if cash is None or debt is None else cash > debt
+    more_cash = None if cmp_cash is None or cmp_debt is None else cmp_cash > cmp_debt
     c2 = [chk("Omzet groeide de afgelopen jaren", grew), chk("Winstgevend", prof), chk("Meer cash dan schuld", more_cash)]
     okn = sum(1 for x in c2 if x[1])
     known = sum(1 for x in c2 if x[1] is not None)
@@ -1494,8 +1497,8 @@ def twelve_steps(it, med):
     qc = dict(map(tuple, ts.get("quarterlyCashCashEquivalentsAndShortTermInvestments") or ts.get("quarterlyCashAndCashEquivalents") or []))
     qd = dict(map(tuple, ts.get("quarterlyTotalDebt") or []))
     qdates = sorted(set(qc) & set(qd))
-    fcf_pos = (all(x > 0 for x in qf[-6:]) if len(qf) >= 4 else (all(x > 0 for x in fcf[-2:]) if len(fcf) >= 2 else None))
-    net_cash = (all(qc[q] > qd[q] for q in qdates[-6:]) if len(qdates) >= 4 else more_cash)
+    fcf_pos = None if fin else (all(x > 0 for x in qf[-6:]) if len(qf) >= 4 else (all(x > 0 for x in fcf[-2:]) if len(fcf) >= 2 else None))
+    net_cash = None if fin else (all(qc[q] > qd[q] for q in qdates[-6:]) if len(qdates) >= 4 else more_cash)
     fcf_margin = (fcf[-1] / rev[-1] * 100) if fcf and rev and rev[-1] else None
     r40 = g12 + fcf_margin if g12 is not None and fcf_margin is not None else None
     soft = bool(SOFTWARE.search(it.get("industry") or ""))
@@ -1515,7 +1518,7 @@ def twelve_steps(it, med):
     falling = len(rev_g) >= 2 and rev_g[-1] < rev_g[-2]
     kills = [k for k, hit in [
         ("beurswaarde onder $1 mld", mcap_usd is not None and mcap_usd < 1e9),
-        ("meer schuld dan cash", cash is not None and debt is not None and debt > cash),
+        ("meer schuld dan cash", cmp_cash is not None and cmp_debt is not None and cmp_debt > cmp_cash),
         ("omzetgroei onder 10% en dalend", g12 is not None and g12 < 10 and falling),
         ("short interest boven 10%", d["short"] is not None and d["short"] > 10),
         ("operationele marge onder 20%", om12 is not None and om12 < 20),
@@ -1545,15 +1548,16 @@ def twelve_steps(it, med):
     c7 = [chk("Omzet groeit elk jaar", None if len(rev_g) < 2 else all(x > 0 for x in rev_g), f"{len(rev)} jaar"),
           chk("Operationele marge stijgt", None if len(om_hist) < 3 else om_hist[-1] > om_hist[0],
               f"{om_hist[0]:.0f}% → {om_hist[-1]:.0f}%" if len(om_hist) >= 2 else None),
-          chk("Vrije kasstroom positief en stijgend", None if len(fcf) < 3 else (all(x > 0 for x in fcf) and fcf[-1] > fcf[0])),
-          chk("Elk jaar meer cash dan schuld", None if n_cd < 3 else all(a > b for a, b in zip(cash_y[-n_cd:], debt_y[-n_cd:])))]
+          chk("Vrije kasstroom positief en stijgend", None if len(fcf) < 3 or fin else (all(x > 0 for x in fcf) and fcf[-1] > fcf[0])),
+          chk("Elk jaar meer cash dan schuld", None if n_cd < 3 or fin else all(a > b for a, b in zip(cash_y[-n_cd:], debt_y[-n_cd:])))]
     f7 = sum(1 for x in c7 if x[1] is False)
     step(7, "fail" if f7 >= 2 else "check" if f7 == 1 or sum(1 for x in c7 if x[1] is None) >= 2 else "pass", c7)
 
     # 8. Loan Officer Test
     last = lambda k: (_series(ts, k) or [None])[-1]  # noqa: E731
     intexp = d["intexp"]
-    cov = (oi[-1] / intexp) if oi and intexp else (None if not oi else 99)
+    # geen rentelast bekend: alleen 'geen rente' als de schuld niet groter is dan de cash, anders onbekend
+    cov = (oi[-1] / intexp) if oi and intexp else (None if not oi or (debt or 0) > (cash or 0) else 99)
     ta, gw, tl, eq = last("annualTotalAssets"), last("annualGoodwill") or 0, last("annualTotalLiabilitiesNetMinorityInterest"), last("annualStockholdersEquity")
     ca, cl = last("annualCurrentAssets"), last("annualCurrentLiabilities")
     a2l = (ta - gw) / tl if ta and tl else None
@@ -1627,9 +1631,10 @@ def twelve_steps(it, med):
     cagr = ((rev3[-1] / rev3[0]) ** (1 / (len(rev3) - 1)) - 1) if len(rev3) >= 2 and rev3[0] > 0 and rev3[-1] > 0 else None
     g_used = max(-0.05, min(0.25, cagr * 0.8)) if cagr is not None else None      # groei inperken: conservatief blijven
     rev0 = d["rev_ttm"] or (rev[-1] if rev else None)
-    vals = {k: dcf_value(rev0, g_used, margin, r, cash, debt, shares) if g_used is not None and margin and margin > 0 else None
+    # bij banken en verzekeraars is een DCF op vrije kasstroom zinloos (kasstroom schommelt met deposito's en premies)
+    vals = {k: dcf_value(rev0, g_used, margin, r, cash, debt, shares) if g_used is not None and margin and margin > 0 and not fin else None
             for k, r in DCF_R.items()}
-    impl = implied_growth(price, rev0, margin, cash, debt, shares)
+    impl = None if fin else implied_growth(price, rev0, margin, cash, debt, shares)
     pe, peg = d["fpe"], d["peg"]
     ps = (d["mcap_n"] / rev0) if d["mcap_n"] and rev0 else None
     unprofitable = (oi and oi[-1] <= 0) or (c.get("eps") is not None and c["eps"] <= 0)
@@ -1654,13 +1659,16 @@ def twelve_steps(it, med):
     else:
         st12 = "fail"
     step(12, st12, c12,
+         note="DCF n.v.t. bij banken en verzekeraars: vergelijk zelf K/W en koers/boekwaarde met de sector." if fin else None,
          dcf={k: rnd(v, 2) for k, v in vals.items()}, price=rnd(price, 2), g=rnd(g_used * 100 if g_used is not None else None, 1),
          margin=rnd(margin * 100 if margin is not None else None, 1), implied=rnd(impl * 100 if impl is not None else None, 1),
          actual=rnd(cagr * 100 if cagr is not None else None, 1), mult=mult)
 
     fails = [s_["n"] for s_ in steps if s_["s"] == "fail"]
+    # survivor = alle 12 stappen gehaald. Bij banken en verzekeraars zijn balans (8) en waardering (12) niet uit de cijfers
+    # te beoordelen, dus daar nooit automatisch een survivor (wel 'geen afvaller' voor het oordeel op Beoordeling)
     it["s12"] = {"list": steps, "fail": fails[0] if fails else None, "nfail": len(fails),
-                 "survivor": not fails, "auto_ok": sum(1 for s_ in steps if s_["s"] == "pass")}
+                 "survivor": not fails and not fin, "auto_ok": sum(1 for s_ in steps if s_["s"] == "pass")}
 
 
 def valuation_check(it):
@@ -1740,15 +1748,21 @@ GAP_CAP = 100               # groei boven 100% telt als 100% (basiseffect bij ee
 GAP_CARD = 90               # Find the gap = hoge score én een gap: pas vanaf deze scorecard een kans (zelfde grens als Koopmoment)
 
 
-def find_gap(it):
+def find_gap(it, fxchg=None):
     """Gap tussen bedrijf en aandeel, of None. ok = geen tekenen dat de markt gelijk heeft (anders staan die in warn).
-    Gebruikt de cijfers uit _card (dus vóór het opruimen in main aanroepen)."""
+    Gebruikt de cijfers uit _card (dus vóór het opruimen in main aanroepen). fxchg = verandering EUR/USD over 12 maanden."""
     d = it.get("_card") or {}
     c, ts, chg = d.get("c") or {}, d.get("ts") or {}, d.get("chg12")
     rev_q = c["rev_g"] * 100 if c.get("rev_g") is not None else None
     eps_q = c["eps_g"] * 100 if c.get("eps_g") is not None else None
     if rev_q is None or eps_q is None or chg is None:
         return None
+    # Koers en cijfers in dezelfde valuta vergelijken: een dollarbedrijf met een euronotering (of andersom) zou anders
+    # een gap tonen die alleen uit de wisselkoers komt
+    q_cur, f_cur = ("USD" if it.get("region") == "VS" else "EUR"), d.get("fcur0")
+    chg_f = chg
+    if fxchg is not None and f_cur in ("USD", "EUR") and f_cur != q_cur:
+        chg_f = ((1 + chg / 100) * (1 + fxchg) - 1) * 100 if q_cur == "EUR" else ((1 + chg / 100) / (1 + fxchg) - 1) * 100
     dd = (it["price"] / it["hi52"] - 1) * 100 if it.get("price") and it.get("hi52") else None
 
     def yoy(*keys):                                   # laatste boekjaar t.o.v. het jaar ervoor
@@ -1761,18 +1775,20 @@ def find_gap(it):
     stock_down = chg < 0 or (dd is not None and dd <= -GAP_DD)
     if not (business_up and stock_down):
         return None
-    gap = min(1 - (1 + chg / 100) / (1 + min(GAP_CAP, g) / 100) for g in (rev_q, eps_q)) * 100
+    gap = min(1 - (1 + chg_f / 100) / (1 + min(GAP_CAP, g) / 100) for g in (rev_q, eps_q)) * 100
     if gap < GAP_MIN:
         return None
+    fin = bool(FIN_BALANCE.search(it.get("industry") or ""))     # kasstroom zegt niets bij een bank of verzekeraar
     # Waarom daalt het aandeel? Tekenen dat de markt gelijk kan hebben (dan is het een valkuil, geen kans)
     up, dn, fwd = c.get("rev_up") or 0, c.get("rev_down") or 0, c.get("fwd_growth")
     # stap 8 (balans) en 11 (bear case: rode vlaggen) gaan over 'is er iets mis'; de andere stappen zijn kwaliteitsfilters
     hard = [x["n"] for x in (it.get("s12") or {}).get("list", []) if x["s"] == "fail" and x["n"] in (8, 11)]
     warn = ([f"analisten verlagen hun verwachtingen ({dn}× omlaag, {up}× omhoog)"] if dn > up else []) \
         + ([f"verwachte winstgroei volgend jaar {fwd * 100:.0f}%"] if fwd is not None and fwd < -0.01 else []) \
-        + (["vrije kasstroom negatief"] if fcf is not None and fcf <= 0 else []) \
-        + (["zwakke balans (stap 8)"] if 8 in hard else []) + (["rode vlaggen (stap 11)"] if 11 in hard else [])
-    plus = ([f"vrije kasstroom +{fcf_y:.0f}%"] if fcf_y is not None and fcf_y > 0 and fcf and fcf > 0 else []) \
+        + (["vrije kasstroom negatief"] if fcf is not None and fcf <= 0 and not fin else []) \
+        + (["zwakke balans (stap 8)"] if 8 in hard else []) + (["rode vlaggen (stap 11)"] if 11 in hard else []) \
+        + (["nog steeds zeer duur t.o.v. de sector"] if (it.get("val") or {}).get("lvl") == "zeer duur" else [])
+    plus = ([f"vrije kasstroom +{fcf_y:.0f}%"] if fcf_y is not None and fcf_y > 0 and fcf and fcf > 0 and not fin else []) \
         + (["analisten verhogen hun verwachtingen"] if up > dn else []) \
         + ([f"omzet vorig boekjaar +{rev_y:.0f}%"] if rev_y is not None and rev_y >= 10 else [])
     return {"pct": rnd(gap, 1), "rev": rnd(rev_q, 1), "eps": rnd(eps_q, 1), "px": rnd(chg, 1), "dd": rnd(dd, 1),
@@ -1918,6 +1934,7 @@ def in_quote_currency(c, fx):
 
 
 def build_item(sym, c, prices, fx, curated, own, gics=None):
+    fcur0 = c.get("fcur")                            # rapportagevaluta vóór het omrekenen (voor Find the gap)
     c = in_quote_currency(c, fx)
     region = c.get("region")
     q = prices.get(sym, {})
@@ -2018,7 +2035,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
                if (c.get("first") or {}).get("d") else None,
         "eps_hist": c.get("eps_hist"), "ins_buy": c.get("ins_buy"), "ins_sell": c.get("ins_sell"), "ins_net": c.get("ins_net"),
         "co_ceo": c.get("co_ceo"), "chg12": chg12, "dilution": m.get("dilution"),
-        "fpe": fpe if fpe and fpe > 0 else None, "peg": m.get("peg"),
+        "fpe": fpe if fpe and fpe > 0 else None, "peg": m.get("peg"), "fcur0": fcur0,
     }
     above200 = (price_native > sma200) if sma200 else None
     earn = c.get("earnings")
@@ -2298,7 +2315,7 @@ def main():
             print(f"  {it['sym']:<10} 12 stappen mislukt: {e}")
             it["s12"] = None
         try:
-            it["gap"] = find_gap(it)
+            it["gap"] = find_gap(it, fxchg)
         except Exception as e:  # noqa: BLE001
             print(f"  {it['sym']:<10} gap mislukt: {e}")
             it["gap"] = None
@@ -2313,6 +2330,15 @@ def main():
             if it["region"] == "VS" and fxchg is not None:
                 r = (1 + r) / (1 + fxchg) - 1
             it["rs"] = {"etf": b["etf"].split(".")[0], "pp": round(r * 100 - b["ret12"], 1)}
+    # Find the gap: hoe deed de sector het (mediaan over 12 maanden)? Daalde de hele sector, dan is de gap breder dan dit bedrijf
+    by_sec = {}
+    for it in items:
+        if it.get("chg12") is not None:
+            by_sec.setdefault(it.get("sector"), []).append(it["chg12"])
+    for it in items:
+        xs = sorted(by_sec.get(it.get("sector")) or [])
+        if it.get("gap") and len(xs) >= 10:
+            it["gap"]["sec"] = rnd(xs[len(xs) // 2], 1)
     from bisect import bisect_left, bisect_right
     comps = sorted(it["composite"] for it in items)
     n = len(comps)

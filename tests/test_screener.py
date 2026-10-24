@@ -75,8 +75,13 @@ for it in items:
     if s12:
         check(all(x["s"] in STATUS for x in s12["list"]), f"{it['sym']}: onbekende stapstatus")
         fails_ = [x["n"] for x in s12["list"] if x["s"] == "fail"]
-        check(s12["survivor"] == (not fails_) and s12["nfail"] == len(fails_) and s12["fail"] == (fails_[0] if fails_ else None),
+        fin = bool(getattr(S, "FIN_BALANCE", None) and S.FIN_BALANCE.search(it.get("industry") or ""))
+        check(s12["survivor"] == (not fails_ and not fin) and s12["nfail"] == len(fails_) and s12["fail"] == (fails_[0] if fails_ else None),
               f"{it['sym']}: survivor/fail klopt niet met de stappen")
+        if fin:   # bank of verzekeraar: cash vs. schuld en vrije kasstroom tellen niet, DCF n.v.t.
+            s3 = next(x for x in s12["list"] if x["n"] == 3)
+            check("meer schuld dan cash" not in (s3.get("note") or ""), f"{it['sym']}: bank valt af op schuld > cash")
+            check(next(x for x in s12["list"] if x["n"] == 12)["s"] != "fail", f"{it['sym']}: DCF-afvaller bij een bank")
         hard = any(x["s"] == "fail" and x["n"] in S.HARD_STEPS for x in s12["list"])
         check(not (hard and it["koop"]), f"{it['sym']}: koopmoment terwijl een harde stap faalt")
 # Find the gap: alleen als de cijfers omhoog gaan en het aandeel omlaag, en de gap groot genoeg is
@@ -93,6 +98,11 @@ if hasattr(S, "find_gap"):
         "rev_g": 0.20, "eps_g": 0.30, "eps": 2.0, "rev_up": 3, "rev_down": 1, "fwd_growth": 0.1}}}
     g = S.find_gap(demo)
     check(g is not None and abs(g["pct"] - 33.3) < 0.1 and g["ok"], f"gap-voorbeeld: verwacht 33,3% en ok, kreeg {g}")
+    # dollarbedrijf met euronotering: koers -20% in euro, maar de euro steeg 10% → in dollars -12%, gap kleiner
+    demo_fx = json.loads(json.dumps(demo))
+    demo_fx["region"], demo_fx["_card"]["fcur0"] = "EU", "USD"
+    g_fx = S.find_gap(demo_fx, 0.10)
+    check(g_fx is not None and abs(g_fx["pct"] - (1 - 0.88 / 1.2) * 100) < 0.1, f"gap-voorbeeld valuta: kreeg {g_fx}")
     demo["_card"]["c"]["rev_down"] = 9
     check((S.find_gap(demo) or {}).get("ok") is False, "gap-voorbeeld: verlaagde verwachtingen moeten 'let op' geven")
     demo["_card"]["chg12"], demo["price"] = 5.0, 100.0

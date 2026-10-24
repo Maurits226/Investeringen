@@ -852,7 +852,7 @@ const gapTier = it => !it.gap ? 0 : isGap(it) ? (cardOf(it) >= 100 ? 4 : 3) : it
 const growth = v => v > 300 ? '>+300%' : pct(v, 0);                             // +2000% winst = basiseffect, niet interessant
 function gapTitle(g) {
   return `Find the gap: omzet ${growth(g.rev)}, winst ${growth(g.eps)}, koers ${pct(g.px, 0)} in 12 maanden`
-    + `${g.dd != null ? ` (${nf(-g.dd, 0)}% onder de top)` : ''} → ${nf(g.pct, 0)}% goedkoper t.o.v. omzet en winst`
+    + `${g.dd != null ? ` (${nf(-g.dd, 0)}% onder de top)` : ''}${g.sec != null ? `, sector ${pct(g.sec, 0)}` : ''} → ${nf(g.pct, 0)}% goedkoper t.o.v. omzet en winst`
     + (g.warn.length ? `. Let op: ${g.warn.join(', ')}` : '');
 }
 function gapHTML(it) {
@@ -862,7 +862,8 @@ function gapHTML(it) {
   return `<div class="gap-box ${hit ? '' : g.ok ? 'low' : 'warn'}">
     <div class="d-k">${hit ? 'Find the gap · hoge score én een gap' : 'Gap'} <span class="${hit ? 'c-up' : g.ok ? '' : 'c-warn'}">${nf(g.pct, 0)}% goedkoper dan een jaar geleden</span></div>
     <div class="gap-nums"><span>Omzet<b class="c-up">${growth(g.rev)}</b></span><span>Winst<b class="c-up">${growth(g.eps)}</b></span>
-      <span>Koers 12 mnd<b class="${cls(g.px)}">${pct(g.px, 0)}</b></span>${g.dd != null ? `<span>Onder de top<b class="c-down">${nf(-g.dd, 0)}%</b></span>` : ''}</div>
+      <span>Koers 12 mnd<b class="${cls(g.px)}">${pct(g.px, 0)}</b></span>${g.dd != null ? `<span>Onder de top<b class="c-down">${nf(-g.dd, 0)}%</b></span>` : ''}
+      ${g.sec != null ? `<span title="Mediaan van de sector over 12 maanden: daalde de hele sector, dan is de gap breder dan dit bedrijf">Sector 12 mnd<b class="${cls(g.sec)}">${pct(g.sec, 0)}</b></span>` : ''}</div>
     <p class="note">De cijfers gaan omhoog (laatste kwartaal t.o.v. een jaar eerder), het aandeel ging omlaag. Ten opzichte van
       omzet én winst is het aandeel <b>${nf(g.pct, 0)}% goedkoper</b> geworden.${g.plus.length ? ' Verder: ' + g.plus.map(esc).join(' · ') + '.' : ''}</p>
     <p class="note ${g.ok ? '' : 'c-warn'}">${g.warn.length ? `Let op: ${g.warn.map(esc).join(' · ')}. De markt kan een reden hebben; zoek uit waarom het aandeel daalde.`

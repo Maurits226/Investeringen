@@ -298,6 +298,7 @@
   .sell-date { color: var(--muted); white-space: nowrap; }
   .undo-sell { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0 2px; margin-left: auto; opacity: .5; }
   .undo-sell:hover { color: var(--down); opacity: 1; }
+  .sell-price { background: none; border: 1px dashed var(--warn); color: var(--warn); font-size: 10px; padding: 1px 6px; border-radius: 6px; cursor: pointer; font-family: inherit; }
   .next-target { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
   .realise {
     background: rgba(55,211,154,.15); border: 1px solid rgba(55,211,154,.45); color: var(--up);
@@ -367,6 +368,7 @@
     .edit-cost { min-height: 40px; padding: 8px 10px; }
     .remove { min-height: 40px; padding: 8px 10px; margin-right: -10px; }
     .undo-sell { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: flex-end; opacity: .7; }
+    .sell-price { min-height: 32px; padding: 4px 10px; }
     .realise { min-height: 40px; padding: 10px 12px; }
   }
   @media (max-width: 520px) {
@@ -1001,7 +1003,10 @@ function positionCard(p, q, err) {
           const heropend = laatsteVerkoop(s.level) === s && tredeVervallen(s.level);
           const cls = heropend ? 'sell-row reopened' : 'sell-row';
           const mark = heropend ? '<span title="koers zakte na deze verkoop 25%: trede weer open">↻</span>' : '✓';
-          return `<div class="${cls}">${mark} +${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht <span class="sell-date">${esc(s.date)}</span> <button class="undo-sell" data-id="${esc(id)}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
+          // verkoopkoers: nodig voor de 25%-regel; oude registraties (begin september) hebben er nog geen
+          const prijs = s.price > 0 ? `<span class="sell-date">· ${fmt(s.price, cur)}</span>`
+            : `<button class="sell-price" data-idx="${i}" title="verkoopkoers invullen: zonder koers kan deze trede niet weer opengaan na een daling">koers?</button>`;
+          return `<div class="${cls}">${mark} +${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht <span class="sell-date">${esc(s.date)}</span>${prijs} <button class="undo-sell" data-id="${esc(id)}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
         })
         .join('') + '</div>';
     }
@@ -1092,6 +1097,24 @@ function positionCard(p, q, err) {
     userState[id].sells.push({ level: step, pct: sellPct, date: today, price: q.price });
     saveState(); render();
   };
+
+  // Knoppen: ontbrekende verkoopkoers invullen (voorstel: de koers van die trede op je huidige aankoopprijs)
+  el.querySelectorAll('.sell-price').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const s = ((userState[id] || {}).sells || [])[parseInt(btn.dataset.idx)];
+      if (!s) return;
+      const guess = p.cost > 0 ? p.cost * (1 + (+s.level || 0) / 2) : q.price;
+      const v = prompt(`Tegen welke koers (in ${cur}) verkocht je ${p.label || q.name || p.ticker} op ${String(s.date || '')}, trede +${(+s.level || 0) * 50}%?\n` +
+        `Staat in je broker-app. Daarmee gaat deze trede weer open als de koers 25% onder die verkoop zakt.`,
+        guess.toFixed(2).replace('.', ','));
+      if (v == null) return;
+      const t = String(v).trim(), n = parseFloat(/,/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t);
+      if (!(n > 0) || !isFinite(n)) { alert('Ongeldige koers'); return; }
+      s.price = Math.round(n * 1e4) / 1e4;
+      saveState(); render();
+    };
+  });
 
   // Knoppen: verkoopregistratie verwijderen
   el.querySelectorAll('.undo-sell').forEach(btn => {

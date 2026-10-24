@@ -239,6 +239,11 @@ async function render() {
       sub: `trede ${s.nextStep} (+${s.nextTargetPct}%) ${s.isHeropend ? 'opnieuw bereikt na een daling van 25%' : 'bereikt'} · resultaat ${pct(pl, 0)}`,
       val: `<span class="c-warn">${s.nextSellPct}% verkopen</span>`, go: 'investeringen', prio: 1 });
   });
+  // Oude verkopen zonder vastgelegde verkoopkoers: zonder koers kan die trede niet weer opengaan na een daling van 25%
+  const noPrice = held.filter(x => (x.p.sells || []).some(v => v && !(v.price > 0)));
+  if (noPrice.length) todo.push({ g: 'Winst nemen', cls: 'sell', ic: '✏️', title: `Verkoopkoers invullen: ${noPrice.map(nm).slice(0, 3).join(', ')}${noPrice.length > 3 ? ' …' : ''}`,
+    sub: 'bij oude verkopen ontbreekt de koers; nodig om een trede na 25% daling weer te openen (tik op “koers?” bij die verkoop)',
+    val: '<span class="c-warn">invullen</span>', go: 'investeringen', prio: 3 });
   // 3. Beoordeling (12 stappen): these herzien, these-alarm (these.json, zelfde regels als Beoordeling via shared.js)
   //    en de kwartaalcheck: na nieuwe kwartaalcijfers per aandeel, zonder bekende cijferdatum elke 100 dagen (samen).
   //    Volgorde: eerst wat nieuw is (alarm, net gepubliceerde cijfers), dan wat al langer speelt.

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-24T21:40:49.613345+00:00",
+  "updated": "2026-10-24T22:08:30.325515+00:00",
   "quotes": {
     "AMD.DE": {
       "ticker": "AMD.DE",
@@ -420,6 +420,20 @@
       "low52": 203.23,
       "exchange": "AMS",
       "exchangeFull": "Amsterdam"
+    },
+    "SNDK": {
+      "ticker": "SNDK",
+      "price": 1238.03,
+      "prevClose": 1260.9300537109375,
+      "currency": "USD",
+      "name": "Sandisk Corporation",
+      "high52": 2354.39,
+      "vol": 111.5,
+      "sma50": 1593.4529,
+      "sma200": 1236.3302,
+      "low52": 164.56,
+      "exchange": "NMS",
+      "exchangeFull": "NasdaqGS"
     }
   }
 }

@@ -772,7 +772,6 @@ let positions = loadPositions();
 
 // Winst-cyclus: elke +50% een trede. Trede 1,4,7.. = 10%, trede 2,5,8.. = 20%,
 // trede 3,6,9.. = 30% van de winst verkopen.
-const sellPctForStep = Shared.sellPctForStep;   // regels staan in shared.js (ook gebruikt door Vandaag)
 // Hoeveel treden zijn bereikt bij een bepaald winstpercentage (elke 50%)
 const stepsReached = Shared.stepsReached;
 
@@ -826,7 +825,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 let extra = { refs: [], etf: null, sig: null, at: 0 };
 async function loadExtra() {
   if (Date.now() - extra.at < 15 * 60 * 1000) return;
-  const get = async u => { try { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+  const get = async u => { try { const r = await fetch(u, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
   const [scr, etf, sig] = await Promise.all([get('screener.json'), get('etf_holdings.json'), get('signals.json')]);
   extra = { refs: (scr && scr.refs) || [], branches: (scr && scr.branches) || {}, weights: scr && scr.weights,
             etf: etf && etf.etfs, sig, at: Date.now() };
@@ -925,7 +924,7 @@ function renderCheck() {
 
 async function loadData() {
   // cache-buster zodat de browser niet een oude versie vasthoudt
-  const r = await fetch('data.json?t=' + Date.now());
+  const r = await fetch('data.json', { cache: 'no-cache' });
   if (!r.ok) throw new Error('data.json niet gevonden');
   const j = await r.json();
   dataCache = j.quotes || {};
@@ -972,7 +971,6 @@ function positionCard(p, q, err) {
   const dropFromHigh = -fromHigh;
   const isWatch = p.watch || p.cost == null;
   const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
-  const plAbs = isWatch ? 0 : (q.price - p.cost) * (p.qty || 1);
   const thr = thresholdFor(p, q);
   const alert = dropFromHigh >= thr;
   const trendUp = q.sma200 ? q.price > q.sma200 : null;
@@ -1242,7 +1240,6 @@ async function render() {
   }
 
   const totalPl = totalValue - totalCost;
-  const totalPlPct = totalCost ? (totalPl / totalCost) * 100 : 0;
 
   const cnt = s => (bySection[s] ? bySection[s].length : 0);
   summary.innerHTML = `
@@ -1296,9 +1293,7 @@ function removePosition(id) {
 const dlg = document.getElementById('dlg');
 const fSearch = document.getElementById('f-search'), fRes = document.getElementById('f-results');
 const fTicker = document.getElementById('f-ticker'), fPicked = document.getElementById('f-picked');
-const SECTOR_NL = { Technology: 'Technologie', Healthcare: 'Gezondheidszorg', 'Financial Services': 'Financieel',
-  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', Industrials: 'Industrie',
-  'Communication Services': 'Communicatie', Energy: 'Energie', Utilities: 'Nutsbedrijven', 'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen' };
+const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
 let picked = null, searchT = null;
 function showPicked() {
   const t = fTicker.value.trim().toUpperCase();
@@ -1387,7 +1382,6 @@ const EXCHANGES = {
   NASDAQ: { name: 'NASDAQ',             city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  },
   US:     { name: 'VS-beurs',           city: 'New York',   tz: 'America/New_York', open: [9, 30], close: [16, 0]  }
 };
-const EXCHANGE_ORDER = ['XETRA', 'DUS', 'AMS', 'MIL', 'ATH', 'NYSE', 'NASDAQ', 'US'];
 
 // Yahoo-beurscodes -> onze sleutels
 const YAHOO_EXCHANGE = {

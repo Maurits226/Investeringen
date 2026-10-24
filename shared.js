@@ -147,7 +147,7 @@ const Shared = (() => {
     let pos = lsGet('portfolio_positions', null);
     if (!pos || !pos.length) {
       try {
-        const html = await (await fetch('portfolio.html?t=' + Date.now(), { cache: 'no-store' })).text();
+        const html = await (await fetch('portfolio.html', { cache: 'no-cache' })).text();
         pos = [...html.matchAll(/\{[^{}]*?ticker:\s*'([^']+)'[^{}]*?\}/g)].map(m => {
           const o = m[0], g = re => (o.match(re) || [])[1];
           // 'ETF\'s' bevat een apostrof: tussen dubbele aanhalingstekens lezen we tot de dubbele, en andersom
@@ -238,7 +238,7 @@ const Shared = (() => {
   // Vandaag en Beoordeling gebruiken allebei theseAlerts(), zodat ze nooit iets anders zeggen. Geen these.json: geen meldingen.
   async function loadThese() {
     try {
-      const r = await fetch('these.json?t=' + Date.now(), { cache: 'no-store' });
+      const r = await fetch('these.json', { cache: 'no-cache' });
       const j = r.ok ? await r.json() : null;
       return j && j.stocks && typeof j.stocks === 'object' ? j : null;
     } catch (e) { return null; }

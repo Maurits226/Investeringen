@@ -384,7 +384,7 @@ let index = [], live = { history: [], items: [] }, trades = [], dayCache = {}, c
 
 // ---- Laden ----
 async function getJSON(url) {
-  const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+  const r = await fetch(url, { cache: 'no-cache' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -476,7 +476,6 @@ function togglePicker(open) {
 function renderSummary() {
   const hist = (live.history || []).filter(h => !skipCat(((live.items || []).find(i => i.symbol === h.symbol) || {}).category));
   const n = c => hist.filter(h => h.outcome === c).length;
-  const klaar = n('doel') + n('stop') + n('verlopen');
   const closed = trades.filter(t => t.status === 'closed');
   const gem = closed.length ? closed.reduce((s, t) => s + tradeResult(t, t.close_price), 0) / closed.length : null;
   const on = f => ui.view === 'score' && ui.sbFilter === f ? ' active' : '';
@@ -574,7 +573,7 @@ function tradeRow(t, soort) {
 
 function posCard(it, snap) {
   const cur = it.currency, sig = it.flag, d = sig ? it.direction : 'flat';
-  const pats = (it.patterns || []).filter(p => p.dir !== 'info');
+  const pats = (it.patterns || []).filter(p => p.dir !== 'info' && !p.ctx);   // achtergrond (beurs, nieuws) telt niet mee
   const info = (it.patterns || []).filter(p => p.dir === 'info');
   const top = pats.slice(0, 3).map(p => `<span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span> ${esc(p.label)}`).join(' · ') || 'geen patronen gevonden';
   const plan = sig && it.plan
@@ -629,7 +628,7 @@ const UITKOMST = { open: 'loopt', doel: 'doel gehaald', stop: 'stop geraakt', ve
 let changes = null;
 async function loadChanges() {
   if (changes) return changes;
-  try { const r = await fetch('modelwijzigingen.json?t=' + Date.now(), { cache: 'no-store' }); changes = r.ok ? await r.json() : []; }
+  try { const r = await fetch('modelwijzigingen.json', { cache: 'no-cache' }); changes = r.ok ? await r.json() : []; }
   catch (e) { changes = []; }
   return changes;
 }
@@ -664,6 +663,9 @@ function analyseHTML(all) {
   const REG = { calm: 'Rustig & stijgend', neutral: 'Neutraal', off: 'Risico-uit' };
   const byDir = [['Koopadviezen', closed.filter(h => h.dir === 'up')]];
   const byReg = ['calm', 'neutral', 'off'].map(k => [REG[k], closed.filter(h => h.regime === k)]).concat([['Onbekend (van vóór deze analyse)', closed.filter(h => !h.regime)]]);
+  // Werken sterkere signalen beter? Dan kan de drempel voor een advies omhoog (nu vanaf patroonscore 35)
+  const band = h => h.score == null ? null : h.score < 50 ? '35–49' : h.score < 60 ? '50–59' : h.score < 70 ? '60–69' : '70+';
+  const byScore = ['35–49', '50–59', '60–69', '70+'].map(k => [`score ${k}`, closed.filter(h => h.dir === 'up' && band(h) === k)]);
   const pc = {};
   closed.forEach(h => (h.patterns || []).forEach(p => (pc[p] = pc[p] || []).push(h)));
   const byPat = Object.entries(pc).sort((a, b) => b[1].length - a[1].length).slice(0, 6);
@@ -703,6 +705,7 @@ function analyseHTML(all) {
   return `<details class="an" id="anBox"${ui.anOpen ? ' open' : ''}><summary>📊 Analyse &amp; reflectie <span class="h-sub">${closed.length} afgerond · ${hitTxt}</span>
       <span class="h-btn"><span class="h-more">tonen</span><span class="h-less">verbergen</span></span></summary>
     <div class="an-grid">${kpi}${whatWorks(closed)}${table('Per richting', byDir, '')}${table('Per beursklimaat bij start', byReg, 'v', 'Werkt het model beter in een rustige markt? Dan kun je in risico-uit terughoudender zijn.')}
+      ${table('Per signaalscore', byScore, 'o', 'Leveren sterkere signalen meer op? Dan is een hogere drempel voor een advies het overwegen waard (bij de kwartaalevaluatie, één wijziging tegelijk).')}
       ${table('Per patroon', byPat, 'g', 'De drie sterkste patronen per advies. Welke patronen leveren echt iets op?')}${calib}${mkt}${refl}</div></details>`;
 }
 

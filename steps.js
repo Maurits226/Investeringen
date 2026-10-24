@@ -51,6 +51,10 @@ const Steps = (() => {
     talent: ['Talent*', 'laag 0 · gemiddeld 5 · hoog 10']
   };
   const LEVEL = { top: ['Uitzonderlijk', 'lvl-top'], watch: ['Watchlist · investeerbaar', 'lvl-watch'], low: ['Absoluut niet', 'lvl-low'] };
+  // Sectornamen van Yahoo in het Nederlands (één lijst voor alle pagina's)
+  const SECTOR_NL = { Technology: 'Technologie', Healthcare: 'Gezondheidszorg', 'Financial Services': 'Financieel',
+    'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', Industrials: 'Industrie',
+    'Communication Services': 'Communicatie', Energy: 'Energie', Utilities: 'Nutsbedrijven', 'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen' };
 
   function cardValue(c) {
     if (c.nodata) return '<small>geen data · neutraal</small>';
@@ -236,5 +240,5 @@ const Steps = (() => {
     document.head.appendChild(st);
   }
 
-  return { NAMES, SUB, CARD, LEVEL, MANUAL, ring, esc, dots, failText, verdict, cardTable, panel, css };
+  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, MANUAL, ring, esc, dots, failText, verdict, cardTable, panel, css };
 })();

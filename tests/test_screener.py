@@ -164,6 +164,26 @@ if hasattr(S, "write_search_index"):
         check(len({r[1] for r in rows}) == len(rows), "zoekindex: dubbele ticker")
         check(any(r[1] == "NVDA" and r[2] for r in rows), "zoekindex: NVIDIA met euro-notering ontbreekt")
 
+# Find the gap volgen: een nieuwe kans (scorecard 90+ én een gap) komt in het logboek, een kans zonder gap of met 'let op' niet
+if hasattr(S, "update_koop"):
+    mk = lambda sym, card, gap: {"sym": sym, "name": sym, "region": "VS", "native": 100.0, "card": {"s": card, "lvl": "top"},  # noqa: E731
+                                 "gap": gap, "own": False}
+    pool = [mk("AAA", 105, {"pct": 30.0, "ok": True, "warn": []}), mk("BBB", 80, {"pct": 30.0, "ok": True, "warn": []}),
+            mk("CCC", 110, {"pct": 30.0, "ok": False, "warn": ["x"]}), mk("DDD", 110, None)]
+    k1 = S.update_koop(None, [], pool, {"AAA": {"price": 110.0}}, {}, {"lvl": 5000.0}, 1.1)
+    check([e["sym"] for e in k1.get("gaplog", [])] == ["AAA"], f"gaplog: verwacht alleen AAA, kreeg {[e['sym'] for e in k1.get('gaplog', [])]}")
+    k2 = S.update_koop(k1, [], pool, {"AAA": {"price": 110.0}}, {}, {"lvl": 5000.0}, 1.1)
+    check(len(k2["gaplog"]) == 1, "gaplog: dezelfde kans mag niet dubbel worden vastgelegd")
+    json.dumps(k2, allow_nan=False)
+
+# Verversen: een overgeslagen bedrijf (rapporteert in yen, pond, ...) pas na een maand opnieuw ophalen, niet elke run
+if hasattr(S, "SKIP_REFRESH_DAYS"):
+    from datetime import datetime, timedelta, timezone
+    ago = lambda d: (datetime.now(timezone.utc) - timedelta(days=d)).isoformat(timespec="seconds")  # noqa: E731
+    check(not S.needs_refresh({"f": ago(2), "skip": "rapporteert in JPY"}, "VS"), "overgeslagen VS-aandeel wordt elke run opnieuw opgehaald")
+    check(S.needs_refresh({"f": ago(S.SKIP_REFRESH_DAYS + 1), "skip": "rapporteert in JPY"}, "VS"), "overgeslagen aandeel wordt nooit opnieuw bekeken")
+    check(S.needs_refresh({"f": ago(S.FUND_REFRESH_DAYS + 1), "ts": {}, "v": S.CACHE_V}, "EU"), "verouderde cijfers worden niet ververst")
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten, "
       f"{sum(1 for it in items if (it.get('gap') or {}).get('ok'))} gaps · "

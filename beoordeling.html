@@ -210,9 +210,7 @@
 const OWN = new URLSearchParams(location.search).get('set') !== 'top';   // standaard: je eigen aandelen
 const $ = id => document.getElementById(id);
 const esc = Steps.esc;
-const SECTOR_NL = { Technology: 'Technologie', Healthcare: 'Gezondheidszorg', 'Financial Services': 'Financieel', 'Consumer Cyclical': 'Cyclische consumptie',
-  'Consumer Defensive': 'Basisconsumptie', Industrials: 'Industrie', 'Communication Services': 'Communicatie', Energy: 'Energie', Utilities: 'Nutsbedrijven',
-  'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen' };
+const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
 const today = () => new Date().toISOString().slice(0, 10);
 let rows = [], extraRows = [], DATA = null, sortBy = 'verdict', filter = null;
 const openSet = new Set();
@@ -220,7 +218,7 @@ const openSet = new Set();
 const BLANK = { list: Array.from({ length: 12 }, (_, i) => ({ n: i + 1, s: 'manual', c: [] })), fail: null, nfail: 0, survivor: false, auto_ok: 0 };
 Steps.css();
 
-async function getJSON(u) { try { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } }
+async function getJSON(u) { try { const r = await fetch(u, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch (e) { return null; } }
 
 const VORDER = { 'v-bad': 0, 'v-mid': 1, 'v-good': 2, 'v-na': 3 };
 function sorted(list) {

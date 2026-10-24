@@ -22,7 +22,7 @@ import math
 import os
 import sys
 import time
-from bisect import bisect_left, bisect_right
+from bisect import bisect_right
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import quote
 from urllib.request import Request, urlopen

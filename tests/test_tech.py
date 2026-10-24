@@ -3,7 +3,6 @@ Draait in de GitHub-check (tests/run_checks.sh) en lokaal: python3 tests/test_te
 import io
 import json
 import os
-import random
 import shutil
 import tempfile
 import sys

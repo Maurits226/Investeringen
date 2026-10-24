@@ -488,12 +488,7 @@
 <script>
 const LIMIT = 1000;     // maximaal zoveel bedrijven in de lijst
 const CARD_SELECT = 75;  // bedrijven met een lagere scorecard (van 125) tonen we niet
-const SECTOR_NL = {
-  'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
-  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', 'Industrials': 'Industrie',
-  'Communication Services': 'Communicatie', 'Energy': 'Energie', 'Utilities': 'Nutsbedrijven',
-  'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen'
-};
+const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
 const RATING_NL = { strong_buy: 'sterk kopen', buy: 'kopen', hold: 'houden', underperform: 'onderwegen', sell: 'verkopen', none: '—' };
 const PIL = { F: ['Scorecard', '125 punten uit de gids'], Q: ['Kwaliteit', 'rendement, kasstroom, moat'],
   G: ['Groei', 'omzet en winst'], V: ['Waardering', 'goedkoop t.o.v. sector'], M: ['Momentum', 'trend en analisten'] };
@@ -556,7 +551,7 @@ function portfolio() {
 
 async function load() {
   try {
-    const r = await fetch('screener.json?t=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch('screener.json', { cache: 'no-cache' });
     if (!r.ok) throw new Error(r.status);
     DATA = await r.json();
     lastLoad = Date.now();

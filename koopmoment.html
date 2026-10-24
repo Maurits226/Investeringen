@@ -227,12 +227,7 @@
 <script>
 const OWN_SET = new URLSearchParams(location.search).get('set') === 'own';   // Mijn investeringen: alleen bijkopen
 const PREF = 'koop_prefs';
-const SECTOR_NL = {
-  'Technology': 'Technologie', 'Healthcare': 'Gezondheidszorg', 'Financial Services': 'Financieel',
-  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', 'Industrials': 'Industrie',
-  'Communication Services': 'Communicatie', 'Energy': 'Energie', 'Utilities': 'Nutsbedrijven',
-  'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen'
-};
+const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (v, d = 2) => v == null || v === '' || !isFinite(+v) ? '—' : (+v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -317,19 +312,23 @@ function card(r, own) {
   </div>`;
 }
 
-function trackHTML() {
-  const log = DATA.log || [], coh = DATA.cohorts || [];
+// Gevolgde kansen (koopmomenten, Find the gap): nu en vastgezet na 1, 3, 6 en 12 maanden, tegen de S&P 500
+function followTable(log) {
   const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
   const H = [['1m', '1 maand'], ['3m', '3 maanden'], ['6m', '6 maanden'], ['12m', '12 maanden']];
   const run = log.filter(e => e.ret != null && e.days >= 1);
   const rows = [['Lopend (nu)', run.map(e => [e.ret, e.sp])]].concat(H.map(([h, t]) => [t, log.filter(e => e[h]).map(e => e[h])]));
-  const tr = rows.map(([t, xs]) => {
+  return `<table class="an-t"><tr><th>na</th><th>n</th><th>gem.</th><th>S&amp;P 500</th><th>beter</th></tr>${rows.map(([t, xs]) => {
     const r = avg(xs.map(x => x[0])), b = avg(xs.map(x => x[1]));
     return `<tr><td>${t}</td><td>${xs.length || '—'}</td><td class="${cls(r)}">${xs.length ? pct(r) : '—'}</td><td>${xs.length ? pct(b) : '—'}</td>
       <td>${xs.length ? Math.round(xs.filter(x => x[0] > x[1]).length / xs.length * 100) + '%' : '—'}</td></tr>`;
-  }).join('');
+  }).join('')}</table>`;
+}
+
+function trackHTML() {
+  const log = DATA.log || [], coh = DATA.cohorts || [], gaplog = DATA.gaplog || [];
   const koop = `<div class="an-c"><div class="an-k">Koopmomenten <span>${log.length} vastgelegd</span></div>
-    <table class="an-t"><tr><th>na</th><th>n</th><th>gem.</th><th>S&amp;P 500</th><th>beter</th></tr>${tr}</table>
+    ${followTable(log)}
     <div class="an-note">Elk aandeel dat in de zone komt, gemeten vanaf die dag tegen de S&amp;P 500 in dezelfde valuta. Pas na
       <b>3 maanden en 20+ koopmomenten</b> zegt dit echt iets.</div></div>`;
   const G = { top: '100+ (uitzonderlijk)', watch: '75–100 (watchlist)' };
@@ -344,7 +343,11 @@ function trackHTML() {
     <table class="an-t"><tr><th>groep</th><th>n</th><th>gem.</th><th>S&amp;P 500</th><th>beter</th></tr>${cr || '<tr><td colspan="5" style="color:var(--muted)">Nog geen groepen.</td></tr>'}</table>
     <div class="an-note">Elke maand de bedrijven met scorecard 100+ en 75–100, daarna gevolgd. Verslaan de 100+-bedrijven de S&amp;P 500 vaker dan de
       75–100-groep, dan wijst de scorecard echt betere aandelen aan. Uitslagen na 1, 3, 6 en 12 maanden worden vastgezet.</div></div>`;
-  return koop + sc;
+  const gap = `<div class="an-c"><div class="an-k">Find the gap <span>${gaplog.length} vastgelegd</span></div>
+    ${gaplog.length ? followTable(gaplog) : '<div class="an-note" style="margin-top:0">Vanaf de volgende Top 250-run wordt elke nieuwe kans vastgelegd.</div>'}
+    <div class="an-note">Elke nieuwe Find the gap-kans (scorecard 90+ én een gap: cijfers omhoog, aandeel omlaag), gemeten vanaf die dag tegen
+      de S&amp;P 500 in dezelfde valuta. Werkt de combinatie, dan verslaat deze groep de S&amp;P 500 vaker dan de scorecard-groep 75–100.</div></div>`;
+  return koop + gap + sc;
 }
 
 function render() {
@@ -364,7 +367,7 @@ function render() {
     : `<div class="empty">${OWN_SET ? 'Geen van je eigen posities is nu een koopmoment om bij te kopen.' : 'Nu geen koopmomenten met deze instellingen.'}
        ${!showAll && nNear ? `<br>${nNear} aandeel/aandelen staan bijna in de zone: kies "+ bijna".` : ''}${min === 100 ? '<br>Of verlaag de drempel naar scorecard 90+.' : ''}</div>`;
   $('track').innerHTML = trackHTML();
-  $('trackSub').textContent = 'koopmomenten en scorecard tegen de S&P 500';
+  $('trackSub').textContent = 'koopmomenten, Find the gap en scorecard tegen de S&P 500';
 }
 
 function bindSeg(id, key) {
@@ -376,7 +379,7 @@ function bindSeg(id, key) {
 
 async function load() {
   try {
-    const r = await fetch('koopmoment.json?t=' + Date.now(), { cache: 'no-store' });
+    const r = await fetch('koopmoment.json', { cache: 'no-cache' });
     if (!r.ok) throw new Error(r.status);
     DATA = await r.json();
   } catch (e) {

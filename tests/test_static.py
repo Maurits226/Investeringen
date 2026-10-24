@@ -71,5 +71,16 @@ for f in sorted(glob.glob(os.path.join(ROOT, "*.html"))):
     if re.search(r"@import\s+url\(\s*['\"]?https?://", html):
         fail(f"{name}: @import van buiten")
 
+# 5. Patroonradar: achtergrond (beurs vandaag, nieuws) is niet terug te testen en telt niet mee in de adviesscore
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+try:
+    import signals as SG  # noqa: E402
+    P = SG.context_patterns({"sens": [{"impact_pct": 2.5, "label": "Nasdaq 100", "today_pct": 1.6, "beta": 1.4}],
+                             "news": [{"sent": 0.8}, {"sent": 0.6}]})
+    if not P or any(p["w"] != 0 or not p.get("ctx") for p in P):
+        fail(f"signals.py: achtergrondpatronen tellen mee in de score: {P}")
+except Exception as e:  # noqa: BLE001
+    fail(f"signals.py: achtergrondpatronen niet te testen: {e}")
+
 print(f"STATISCH: {len(fails)} fout(en)" if fails else "STATISCH: alles in orde")
 sys.exit(1 if fails else 0)

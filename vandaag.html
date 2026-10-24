@@ -124,9 +124,7 @@ const pct = (v, d = 1) => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '')
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
 Steps.css();
 const tone = v => v == null ? '' : v >= 0.5 ? 'good' : v <= -0.5 ? 'bad' : 'mid';
-const SECTOR_NL = { Technology: 'Technologie', Healthcare: 'Gezondheidszorg', 'Financial Services': 'Financieel',
-  'Consumer Cyclical': 'Cyclische consumptie', 'Consumer Defensive': 'Basisconsumptie', Industrials: 'Industrie',
-  'Communication Services': 'Communicatie', Energy: 'Energie', Utilities: 'Nutsbedrijven', 'Real Estate': 'Vastgoed', 'Basic Materials': 'Grondstoffen' };
+const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
 
 // Naar een ander scherm van het dashboard (de pagina staat in een iframe van index.html)
 function go(hash) {
@@ -135,9 +133,8 @@ function go(hash) {
 }
 
 async function getJSON(u) {
-  try { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; }
+  try { const r = await fetch(u, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch (e) { return null; }
 }
-const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
 
 // Posities en state: zelfde bron als alle andere pagina's (shared.js)
 const loadPositions = Shared.positions;
@@ -158,7 +155,9 @@ function ageTxt(iso) {
 }
 
 async function render() {
-  const [data, sig, scr, pos, sigTop, trades, tech, these] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), getJSON('signals_top250.json'), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese()]);
+  const [data, sig, scr, pos, trades, tech, these] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese()]);
+  // de Top 250-radar (1,2 MB) alleen als je een Top 250-advies opvolgt: daar komt dan de actuele koers vandaan
+  const sigTop = (trades || []).some(t => t && !t.deleted && t.status === 'open' && t.set === 'top250') ? await getJSON('signals_top250.json') : null;
   const idx = Shared.stockIndex(scr, sig, data);
   const quotes = (data && data.quotes) || {};
   const q = t => quotes[(t || '').toUpperCase()];

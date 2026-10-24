@@ -39,7 +39,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 # ── Instellingen ─────────────────────────────────────────────────────────
@@ -82,6 +82,7 @@ ETF_REFRESH_DAYS = 7
 ETF_OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "etf_holdings.json")  # bedrijven die in een andere valuta rapporteren (bv. Taiwanese ADR's) vallen af
 TIME_BUDGET_MIN = float(os.environ.get("SCREENER_BUDGET_MIN", "45"))
 FUND_REFRESH_DAYS = 7       # fundamentele cijfers per stock hooguit wekelijks verversen
+SKIP_REFRESH_DAYS = 30      # overgeslagen (rapporteert in yen, pond, ...): dat verandert zelden, dus pas na een maand opnieuw kijken
 ERROR_RETRY_H = 20          # mislukte stock pas na zoveel uur opnieuw proberen
 LISTING_RETRY_DAYS = 30     # geen euro-notering gevonden: maandelijks opnieuw zoeken
 MIN_CRITERIA = 6            # minstens zoveel van de 10 formuleblad-criteria moeten data hebben
@@ -969,6 +970,8 @@ def load_quality():
 def needs_refresh(c, region):
     if not c or not c.get("f"):
         return not c or age_h(c.get("err_at")) > ERROR_RETRY_H
+    if c.get("skip"):                             # geen euro-notering te zoeken: dit bedrijf scoren we toch niet
+        return age_h(c["f"]) > SKIP_REFRESH_DAYS * 24
     if age_h(c["f"]) > FUND_REFRESH_DAYS * 24:
         return True
     if not c.get("skip") and c.get("v", 1) < CACHE_V:
@@ -1863,6 +1866,21 @@ def update_koop(prev, rows, items, prices, cache, sp, fx):
         follow(e, e["px0"], e["region"])
     log = [e for e in log if e.get("days", 0) <= 400]
 
+    # Find the gap (hoge score én een gap): elke nieuwe kans vastleggen en volgen, op dezelfde manier als koopmomenten
+    gaplog = list((prev or {}).get("gaplog") or [])
+    recent_g = {e["sym"] for e in gaplog if (today - datetime.fromisoformat(e["date"]).date()).days < KOOP_NEW_DAYS}
+    for it in items:
+        g = it.get("gap") or {}
+        if g.get("ok") and ((it.get("card") or {}).get("s") or 0) >= GAP_CARD and it.get("native") \
+                and it["sym"] not in recent_g and sp_of(it["region"]):
+            gaplog.append({"sym": it["sym"], "name": it["name"], "region": it["region"], "date": today.isoformat(),
+                           "px0": it["native"], "card": it["card"]["s"], "gap": g["pct"], "own": bool(it.get("own")),
+                           "sp0": rnd(sp_of(it["region"]), 4)})
+    for e in gaplog:
+        if e.get("days", 0) <= 400:
+            follow(e, e["px0"], e["region"])
+    gaplog = [e for e in gaplog if e.get("days", 0) <= 400]
+
     # 2. Scorecard-groepen: elke maand de stand vastleggen (100+ en 75-100), daarna volgen
     cohorts = list((prev or {}).get("cohorts") or [])
     month = today.strftime("%Y-%m")
@@ -1896,7 +1914,7 @@ def update_koop(prev, rows, items, prices, cache, sp, fx):
     cohorts = cohorts[-24:]
     return {"updated": iso(), "params": {"min_card": KOOP_MIN_CARD, "dd": list(KOOP_DD), "near": KOOP_NEAR,
                                          "sma": KOOP_SMA, "earn_days": KOOP_EARN_DAYS},
-            "candidates": rows, "log": log, "cohorts": cohorts}
+            "candidates": rows, "log": log, "gaplog": gaplog, "cohorts": cohorts}
 
 
 # ── Verwacht rendement ───────────────────────────────────────────────────

@@ -636,22 +636,29 @@ def stock_context(tk, us, prev):
     return ctx
 
 
+CTX_NOTE = "achtergrond: telt niet mee in de score (niet terug te testen)"
+
+
 def context_patterns(ctx):
-    """Patronen van buitenaf die alleen vandaag meetellen (niet terug te testen)."""
+    """Patronen van buitenaf (de beurs vandaag, nieuws): niet terug te testen, dus ze tellen niet mee in de score
+    die een advies geeft. Live bleken ze er zelfs slechter van te worden (archief: 'Nieuws overwegend positief'
+    en 'Nasdaq 100 ... vandaag' met verlies). Ze blijven zichtbaar als achtergrond (w0 = het oude gewicht)."""
     P = []
     for sn in ctx.get("sens", []):
         if abs(sn["impact_pct"]) >= 1.0:
             w = max(-1.0, min(1.0, sn["impact_pct"] / 3))
             nl = lambda x, d=1: f"{x:+.{d}f}".replace(".", ",")  # noqa: E731
             P.append({"label": f"{sn['label']} {nl(sn['today_pct'])}% vandaag", "dir": "up" if w > 0 else "down",
-                      "w": round(w, 2), "detail": f"beweegt gemiddeld {nl(sn['beta'], 2)}% per 1%: invloed {nl(sn['impact_pct'])}%"})
+                      "w": 0.0, "w0": round(w, 2), "ctx": True,
+                      "detail": f"beweegt gemiddeld {nl(sn['beta'], 2)}% per 1%: invloed {nl(sn['impact_pct'])}% · {CTX_NOTE}"})
     news = ctx.get("news") or []
     scored = [n["sent"] for n in news if n["sent"]]
     if len(scored) >= 2:
         avg = sum(scored) / len(scored)
         if abs(avg) >= 0.3:
             P.append({"label": f"Nieuws overwegend {'positief' if avg > 0 else 'negatief'}", "dir": "up" if avg > 0 else "down",
-                      "w": round(max(-1.0, min(1.0, avg)), 2), "detail": f"{len(scored)} recente koppen"})
+                      "w": 0.0, "w0": round(max(-1.0, min(1.0, avg)), 2), "ctx": True,
+                      "detail": f"{len(scored)} recente koppen · {CTX_NOTE}"})
     e = ctx.get("earnings")
     if e and e.get("days") is not None and 0 <= e["days"] <= EARNINGS_WARN_DAYS:
         P.append({"label": "Kwartaalcijfers binnen de planperiode", "dir": "info", "w": 0,
@@ -1302,7 +1309,7 @@ def update_history(prev_hist, items, bars_by_sym, bootstrap, ctx=None):
              # context bij de start, voor de analyse in het scorebord
              "regime": ctx.get("regime"),
              "patterns": [p["label"] for p in sorted(it.get("patterns") or [], key=lambda p: -abs(p.get("w") or 0))
-                          if p.get("dir") == it["direction"]
+                          if p.get("dir") == it["direction"] and not p.get("ctx")
                           and p["label"] not in ("Markt in risico-uit-stand", "Rustige, stijgende markt")][:3]}
         if bootstrap and not it.get("new_signal"):
             h["bootstrap"] = True                      # stond er al vóór de geschiedenis begon

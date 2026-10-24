@@ -62,6 +62,14 @@ const Shared = (() => {
 
   // Beoordeling (notities, afgevinkte punten, kwartaalcheck): de laatst gewijzigde versie wint, waar die ook vandaan komt
   const newerReview = (a, b) => !a ? b : !b ? a : ((b.updated || '') > (a.updated || '') ? b : a);
+  // Een vastgelegde heropende winsttrede (rearm, zie sellStatus) gaat bij samenvoegen niet verloren, van welke kant hij ook komt
+  const sellKey = s => [s.level, s.date, s.price].join('|');
+  function withRearms(sells, other) {
+    if (!Array.isArray(sells) || !Array.isArray(other)) return sells;
+    const flag = new Map(other.filter(s => s && s.rearm).map(s => [sellKey(s), s.rearm]));
+    const add = s => s && !s.rearm && flag.has(sellKey(s));
+    return sells.some(add) ? sells.map(s => add(s) ? { ...s, rearm: flag.get(sellKey(s)) } : s) : sells;
+  }
   // Portefeuille-state: GitHub is leidend, lokaal bekende aankoopprijzen/verkopen vullen ontbrekende aan
   function mergeState(remote, local) {
     const out = {};
@@ -73,6 +81,7 @@ const Shared = (() => {
       if (r.cost == null && l.cost != null) out[id].cost = l.cost;
       if (r.qty == null && l.qty != null) out[id].qty = l.qty;
       if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
+      if (out[id].sells) out[id].sells = withRearms(withRearms(out[id].sells, l.sells), r.sells);
       const rv = newerReview(r.review, l.review);
       if (rv) out[id].review = rv;
     });
@@ -87,6 +96,8 @@ const Shared = (() => {
       if (!out[id]) { out[id] = r; return; }
       const rv = newerReview(out[id].review, r.review);
       if (rv && rv !== out[id].review) out[id] = { ...out[id], review: rv };
+      const sv = withRearms(out[id].sells, r.sells);
+      if (sv !== out[id].sells) out[id] = { ...out[id], sells: sv };
     });
     return out;
   }
@@ -329,23 +340,50 @@ const Shared = (() => {
   }
 
   // ── Winstnemingstrap: elke +50% een trede; trede 1,4,7.. = 10%, 2,5,8.. = 20%, 3,6,9.. = 30% verkopen.
-  // Een afgevinkte trede gaat weer open als de koers 25% of meer onder je verkoopkoers zakt
-  // (alleen zolang je nog boven dat winstniveau zit).
+  // Een afgevinkte trede gaat weer open als de koers ná die verkoop 25% of meer onder je verkoopkoers is gezakt
+  // (laagste slotkoers per week uit data.json, dus ook als je het dashboard toen niet opende). Het verkoopsignaal komt
+  // pas terug als je winst dat niveau weer haalt, gerekend op je aankoopprijs: koop je in de daling bij en pas je de
+  // aankoopprijs aan, dan verkoop je die trede opnieuw bij +50/100/150% op die nieuwe prijs.
+  // Investeringen legt een heropende trede vast in je state (rearm), zodat hij open blijft als die daling later
+  // uit het jaar koersdata valt.
   const REOPEN_DROP = 0.25;
   const sellPctForStep = step => [10, 20, 30][(step - 1) % 3];
   const stepsReached = plPct => plPct < 50 ? 0 : Math.floor(plPct / 50);
-  function sellStatus(sells, plPct, price) {
-    sells = sells || [];
+  // Verkoopdatum ('24-10-2026' zoals nl-NL hem schrijft, of ISO) → '2026-10-24'
+  function isoDay(d) {
+    const s = String(d || '').trim(), m = /^(\d{1,2})[-./](\d{1,2})[-./](\d{4})$/.exec(s);
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+  }
+  // Laagste koers ná de week van de verkoop (wk = { from: maandag van week 0, low: [laagste slotkoers per week] })
+  // en de koers van nu. De verkoopweek zelf telt niet mee: daarin zitten ook de dagen vóór je verkoop.
+  function lowSince(wk, date, price) {
+    let low = price > 0 ? +price : Infinity;
+    const day = isoDay(date), t0 = wk ? Date.parse(wk.from + 'T00:00:00Z') : NaN;
+    if (!day || !isFinite(t0) || !Array.isArray(wk.low)) return low;
+    const first = Math.max(0, Math.floor((Date.parse(day + 'T00:00:00Z') - t0) / 6048e5) + 1);
+    for (let i = first; i < wk.low.length; i++) if (wk.low[i] > 0 && wk.low[i] < low) low = wk.low[i];
+    return low;
+  }
+  function sellStatus(sells, plPct, price, wk) {
+    sells = (sells || []).filter(s => s && +s.level > 0);
     const reached = stepsReached(plPct);
-    const last = step => { const x = sells.filter(s => s.level === step); return x.length ? x[x.length - 1] : null; };
-    const reopened = step => { const v = last(step); return !!(v && v.price != null && step <= reached && price <= v.price * (1 - REOPEN_DROP)); };
-    const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
+    const last = step => { const x = sells.filter(s => +s.level === +step); return x.length ? x[x.length - 1] : null; };
+    // Weer open: vastgelegd, of de koers zakte na de laatste verkoop op deze trede 25% onder die verkoopkoers
+    const reopened = step => { const v = last(step);
+      return !!(v && (v.rearm || (v.price > 0 && lowSince(wk, v.date, price) <= v.price * (1 - REOPEN_DROP)))); };
+    const maxDone = sells.length ? Math.max(...sells.map(s => +s.level)) : 0;
     let openStep = null;
-    for (let step = 1; step <= maxDone; step++) if (last(step) && reopened(step)) { openStep = step; break; }
+    for (let step = 1; step <= maxDone; step++) if (reopened(step)) { openStep = step; break; }
     const isHeropend = openStep != null;
     const nextStep = isHeropend ? openStep : maxDone + 1;
     return { reached, maxDone, isHeropend, nextStep, nextTargetPct: nextStep * 50, nextSellPct: sellPctForStep(nextStep),
-             canRealise: isHeropend || reached >= nextStep, last, reopened };
+             canRealise: reached >= nextStep, last, reopened };
+  }
+  // Verkopen die volgens de koersdata weer open zijn, maar nog niet als 'rearm' in je state staan
+  function newRearms(sells, price, wk) {
+    const S = sellStatus(sells, 0, price, wk), out = [];
+    for (let step = 1; step <= S.maxDone; step++) { const v = S.last(step); if (v && !v.rearm && S.reopened(step)) out.push(v); }
+    return out;
   }
 
   // ── Koopdrempel: slim = halve jaarbeweeglijkheid tussen 8% en 35%, anders je vaste drempel
@@ -457,5 +495,5 @@ const Shared = (() => {
   }
 
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
-           sellPctForStep, stepsReached, sellStatus, smartOn, thresholdFor, onRefresh, searchIndex, searchStocks, addTicker, removeTicker };
+           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, onRefresh, searchIndex, searchStocks, addTicker, removeTicker };
 })();

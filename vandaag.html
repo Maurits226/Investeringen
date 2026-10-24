@@ -233,10 +233,10 @@ async function render() {
   // 2. Winstnemingstrap (zelfde regel als de knop "Realiseer" op het tabblad Investeringen)
   held.forEach(x => {
     const pl = (x.q.price / x.p.cost - 1) * 100;
-    const s = Shared.sellStatus(x.p.sells, pl, x.q.price);
+    const s = Shared.sellStatus(x.p.sells, pl, x.q.price, x.q.wk);
     if (!s.canRealise) return;
     todo.push({ g: 'Winst nemen', cls: 'sell', ic: '💰', title: `Winstneming ${nm(x)}`,
-      sub: `${s.isHeropend ? 'trede ' + s.nextStep + ' weer open (koers 25% onder je verkoop)' : 'trede ' + s.nextStep + ' (+' + s.nextTargetPct + '%) bereikt'} · resultaat ${pct(pl, 0)}`,
+      sub: `trede ${s.nextStep} (+${s.nextTargetPct}%) ${s.isHeropend ? 'opnieuw bereikt na een daling van 25%' : 'bereikt'} · resultaat ${pct(pl, 0)}`,
       val: `<span class="c-warn">${s.nextSellPct}% verkopen</span>`, go: 'investeringen', prio: 1 });
   });
   // 3. Beoordeling (12 stappen): these herzien, these-alarm (these.json, zelfde regels als Beoordeling via shared.js)

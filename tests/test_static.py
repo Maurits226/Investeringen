@@ -3,6 +3,7 @@
   * alle JavaScript (losse .js en de scripts in elke .html) is geldige syntaxis (via node --check)
   * alle JSON-databestanden zijn geldige JSON zoals een browser die leest (geen NaN of Infinity)
   * elke pagina heeft het beveiligingsbeleid (CSP), de anti-inbed-regels en laadt niets van buiten
+  * de rekenregels in shared.js (tests/test_rules.js): winstnemingstrap en samenvoegen van je state
 """
 import glob
 import json
@@ -81,6 +82,11 @@ try:
         fail(f"signals.py: achtergrondpatronen tellen mee in de score: {P}")
 except Exception as e:  # noqa: BLE001
     fail(f"signals.py: achtergrondpatronen niet te testen: {e}")
+
+# 6. Rekenregels van het dashboard (winstnemingstrap, samenvoegen van je state) in shared.js
+r = subprocess.run(["node", os.path.join(ROOT, "tests", "test_rules.js")], capture_output=True, text=True)
+if r.returncode:
+    fail("shared.js rekenregels:\n" + (r.stdout + r.stderr).strip())
 
 print(f"STATISCH: {len(fails)} fout(en)" if fails else "STATISCH: alles in orde")
 sys.exit(1 if fails else 0)

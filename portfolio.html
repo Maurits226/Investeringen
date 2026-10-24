@@ -770,11 +770,6 @@ function savePositions() {
 
 let positions = loadPositions();
 
-// Winst-cyclus: elke +50% een trede. Trede 1,4,7.. = 10%, trede 2,5,8.. = 20%,
-// trede 3,6,9.. = 30% van de winst verkopen.
-// Hoeveel treden zijn bereikt bij een bepaald winstpercentage (elke 50%)
-const stepsReached = Shared.stepsReached;
-
 // Slimme koopdrempel: halve jaarbeweeglijkheid, tussen 8% en 35% (een wild aandeel krijgt meer ruimte dan een rustig)
 const smartOn = Shared.smartOn;
 const thresholdFor = Shared.thresholdFor;
@@ -786,26 +781,13 @@ function metrics(p, q) {
   const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
   const drop = q.high52 ? ((q.high52 - q.price) / q.high52) * 100 : 0;
   const alert = drop >= thresholdFor(p, q);
-  // Openstaande verkoop? (winsttrede bereikt en nog niet/again te realiseren)
-  let openSell = false;
+  // Openstaande verkoop? (volgende trede, of een heropende, bereikt) en de afstand tot die trede
+  // (voor 'dichtst bij verkoopsignaal'; 0 = verkoopsignaal actief)
+  let openSell = false, toSell = Infinity;
   if (!isWatch) {
-    const st = userState[posId(p)] || {};
-    openSell = Shared.sellStatus(st.sells, plPct, q.price).canRealise;
-  }
-  // Afstand tot volgende winsttrede (voor 'dichtst bij verkoopsignaal').
-  // 0 = precies op een trede of eroverheen (verkoopsignaal actief).
-  let toSell = Infinity;
-  if (!isWatch && q) {
-    if (openSell) {
-      toSell = 0;
-    } else {
-      // volgende trede die nog niet is afgevinkt
-      const st = userState[posId(p)] || {};
-      const sells = st.sells || [];
-      const maxDone = sells.length ? Math.max(...sells.map(s => s.level)) : 0;
-      const nextTargetPct = (maxDone + 1) * 50;
-      toSell = nextTargetPct - plPct;   // hoeveel % winst nog te gaan
-    }
+    const S = Shared.sellStatus((userState[posId(p)] || {}).sells, plPct, q.price, q.wk);
+    openSell = S.canRealise;
+    toSell = openSell ? 0 : S.nextTargetPct - plPct;   // hoeveel % winst nog te gaan
   }
   return { plPct, drop, alert, openSell, toSell };
 }
@@ -923,7 +905,7 @@ function renderCheck() {
 }
 
 async function loadData() {
-  // cache-buster zodat de browser niet een oude versie vasthoudt
+  // no-cache: de browser vraagt altijd na of er een nieuwere versie is (304 als die er niet is)
   const r = await fetch('data.json', { cache: 'no-cache' });
   if (!r.ok) throw new Error('data.json niet gevonden');
   const j = await r.json();
@@ -942,6 +924,7 @@ function getQuote(ticker) {
     high52: q.high52,
     low52: q.low52,
     vol: q.vol, sma50: q.sma50, sma200: q.sma200,
+    wk: q.wk,                                   // laagste slotkoers per week (winsttrede weer open na 25% daling)
     source: 'github'
   };
 }
@@ -1002,15 +985,9 @@ function positionCard(p, q, err) {
   // Winstniveau-blok (niet voor watchlist)
   let profitBlock = '';
   if (!isWatch) {
-    const reached = stepsReached(plPct);   // hoogste bereikte trede op basis van huidige winst
-
-    // Voor elke trede: is hij al gerealiseerd en nog "geldig"?
-    // Een verkoop op een trede vervalt (trede weer beschikbaar) zodra de koers
-    // 25% of meer onder de verkoopkoers van die verkoop is gezakt (optie B),
-    // MAAR alleen zolang je nog boven dat winstniveau zit.
-    // Zelfde regel als Vandaag (shared.js): een afgevinkte trede gaat weer open als de koers
-    // 25% onder je verkoopkoers zakt, zolang je nog boven dat winstniveau zit.
-    const S = Shared.sellStatus(sells, plPct, q.price);
+    // Zelfde regel als Vandaag (shared.js): een afgevinkte trede gaat weer open als de koers na die verkoop
+    // 25% onder je verkoopkoers zakte; verkopen kan pas weer als je winst (op je aankoopprijs) dat niveau haalt
+    const S = Shared.sellStatus(sells, plPct, q.price, q.wk);
     const laatsteVerkoop = S.last, tredeVervallen = S.reopened;
     const { isHeropend, nextStep, nextTargetPct, nextSellPct, canRealise } = S;
 
@@ -1023,7 +1000,7 @@ function positionCard(p, q, err) {
         .map(({ s, i }) => {
           const heropend = laatsteVerkoop(s.level) === s && tredeVervallen(s.level);
           const cls = heropend ? 'sell-row reopened' : 'sell-row';
-          const mark = heropend ? '↻' : '✓';
+          const mark = heropend ? '<span title="koers zakte na deze verkoop 25%: trede weer open">↻</span>' : '✓';
           return `<div class="${cls}">${mark} +${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht <span class="sell-date">${esc(s.date)}</span> <button class="undo-sell" data-id="${esc(id)}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
         })
         .join('') + '</div>';
@@ -1033,7 +1010,9 @@ function positionCard(p, q, err) {
       ? `<button class="realise" data-id="${esc(id)}" data-step="${nextStep}" data-pct="${nextSellPct}">
            ${isHeropend ? 'Opnieuw realiseren' : 'Realiseer'} +${nextTargetPct}% (verkoop ${nextSellPct}%)
          </button>`
-      : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
+      : isHeropend
+        ? `<div class="next-target">↻ Weer open na 25% daling: opnieuw ${nextSellPct}% verkopen bij +${nextTargetPct}%</div>`
+        : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
 
     profitBlock = `
       <div class="profit-block">
@@ -1133,6 +1112,20 @@ function positionCard(p, q, err) {
 }
 
 let firstRender = true;
+// Winsttreden die volgens de koersdata weer open zijn (koers na je verkoop 25% gezakt) vastleggen in je state, zodat
+// ze open blijven als die daling later uit het jaar koersdata valt. Lokaal; bij het volgende openen (initSync) of de
+// volgende wijziging gaat het versleuteld mee naar GitHub, en bij samenvoegen gaat zo'n vlag nooit verloren (shared.js).
+function markRearms(results) {
+  const today = new Date().toLocaleDateString('nl-NL');
+  let changed = false;
+  results.forEach(({ p, q }) => {
+    const st = userState[posId(p)];
+    if (!q || p.watch || !st || !Array.isArray(st.sells)) return;
+    Shared.newRearms(st.sells, q.price, q.wk).forEach(s => { s.rearm = today; changed = true; });
+  });
+  if (changed) saveStateLocal();
+}
+
 async function render() {
   const cards = document.getElementById('cards');
   const summary = document.getElementById('summary');
@@ -1152,6 +1145,7 @@ async function render() {
     const q = getQuote(p.ticker);
     return { p, q, err: !q };
   });
+  markRearms(results);
 
   cards.innerHTML = '';
   let totalValue = 0, totalCost = 0, alerts = 0, loaded = 0;

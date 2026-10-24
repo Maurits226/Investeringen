@@ -10,7 +10,7 @@ import math
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 TICKERS_FILE = "tickers.txt"
 OUTPUT_FILE = "data.json"
@@ -78,6 +78,20 @@ def fetch_one(ticker):
         vol = math.sqrt(sum((r - mu) ** 2 for r in rets) / (len(rets) - 1)) * math.sqrt(252) * 100
     sma = lambda n: (sum(closes[-n:]) / n) if len(closes) >= n else None  # noqa: E731
 
+    # Laagste slotkoers per week, een jaar terug ('from' = maandag van de eerste week, een week zonder handel is null).
+    # Daarmee ziet het dashboard of de koers na een verkoop 25% is gezakt: dan gaat die winsttrede weer open,
+    # ook als je het dashboard in die tijd niet opende.
+    lows = {}
+    for t, c in pairs:
+        d = dag(t)
+        m = d - timedelta(days=d.weekday())
+        lows[m] = min(lows.get(m, c), c)
+    wk = None
+    if lows:
+        w0 = min(lows)
+        weeks = (w0 + timedelta(weeks=i) for i in range((max(lows) - w0).days // 7 + 1))
+        wk = {"from": w0.isoformat(), "low": [float(f"{lows[w]:.5g}") if w in lows else None for w in weeks]}
+
     return {
         "ticker": ticker,
         "price": meta.get("regularMarketPrice"),
@@ -89,6 +103,7 @@ def fetch_one(ticker):
         "sma50": round(sma(50), 4) if sma(50) else None,
         "sma200": round(sma(200), 4) if sma(200) else None,
         "low52": low52,
+        "wk": wk,
         "exchange": clean(meta.get("exchangeName")),
         "exchangeFull": clean(meta.get("fullExchangeName")),
     }
@@ -123,7 +138,7 @@ def main():
         "quotes": quotes,
     }
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
+        json.dump(output, f, ensure_ascii=False, separators=(",", ":"))      # compact: wordt elke 10 min opgehaald
     print(f"Geschreven naar {OUTPUT_FILE}: {len(quotes)} tickers")
 
 if __name__ == "__main__":

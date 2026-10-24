@@ -30,3 +30,4 @@ VHYL.MI
 VUAA.MI
 WSLV.MI
 PHAU.AS
+SNDK, Sandisk Corporation, Stocks  # via dashboard

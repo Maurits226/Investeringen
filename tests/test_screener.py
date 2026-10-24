@@ -61,6 +61,8 @@ for it in items:
 med = {}
 for it in items:
     S.twelve_steps(it, med)
+    if hasattr(S, "find_gap"):
+        it["gap"] = S.find_gap(it)
     it.pop("_card", None)
     it["koop"] = S.koopmoment(it)
 
@@ -77,6 +79,24 @@ for it in items:
               f"{it['sym']}: survivor/fail klopt niet met de stappen")
         hard = any(x["s"] == "fail" and x["n"] in S.HARD_STEPS for x in s12["list"])
         check(not (hard and it["koop"]), f"{it['sym']}: koopmoment terwijl een harde stap faalt")
+# Find the gap: alleen als de cijfers omhoog gaan en het aandeel omlaag, en de gap groot genoeg is
+for it in items:
+    g = it.get("gap")
+    if not g:
+        continue
+    check(g["rev"] >= S.GAP_REV_MIN and g["eps"] > 0, f"{it['sym']}: gap zonder groeiende omzet en winst")
+    check(g["px"] < 0 or (g["dd"] is not None and g["dd"] <= -S.GAP_DD), f"{it['sym']}: gap terwijl het aandeel niet daalde")
+    check(g["pct"] >= S.GAP_MIN and g["ok"] == (not g["warn"]), f"{it['sym']}: gap te klein of ok/warn klopt niet")
+# en een vast voorbeeld: omzet +20%, winst +30%, koers -20% → 1 - 0,8/1,2 = 33% goedkoper (de kleinste van de twee)
+if hasattr(S, "find_gap"):
+    demo = {"price": 80.0, "hi52": 110.0, "s12": None, "_card": {"chg12": -20.0, "ts": {}, "c": {
+        "rev_g": 0.20, "eps_g": 0.30, "eps": 2.0, "rev_up": 3, "rev_down": 1, "fwd_growth": 0.1}}}
+    g = S.find_gap(demo)
+    check(g is not None and abs(g["pct"] - 33.3) < 0.1 and g["ok"], f"gap-voorbeeld: verwacht 33,3% en ok, kreeg {g}")
+    demo["_card"]["c"]["rev_down"] = 9
+    check((S.find_gap(demo) or {}).get("ok") is False, "gap-voorbeeld: verlaagde verwachtingen moeten 'let op' geven")
+    demo["_card"]["chg12"], demo["price"] = 5.0, 100.0
+    check(S.find_gap(demo) is None, "gap-voorbeeld: aandeel steeg en staat dicht bij de top, dus geen gap")
 try:
     json.dumps(items, allow_nan=False)
     json.dumps(S.koop_rows(items), allow_nan=False)
@@ -135,6 +155,7 @@ if hasattr(S, "write_search_index"):
         check(any(r[1] == "NVDA" and r[2] for r in rows), "zoekindex: NVIDIA met euro-notering ontbreekt")
 
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
-print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten · "
+print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten, "
+      f"{sum(1 for it in items if (it.get('gap') or {}).get('ok'))} gaps · "
       + (f"{len(fails)} fout(en)" if fails else "alles in orde"))
 sys.exit(1 if fails else 0)

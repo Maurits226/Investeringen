@@ -74,6 +74,9 @@
   .b-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; line-height: 1.45; }
   .b-sub span { white-space: nowrap; }
   .b-verdict { font-size: 11px; font-weight: 600; margin-top: 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
+  /* Find the gap: cijfers omhoog, aandeel omlaag (zie Kansen portefeuille) */
+  .b-gap { font-size: 11px; font-weight: 600; margin: 6px 0 0 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(62,207,142,.55); color: var(--up); background: rgba(62,207,142,.08); }
+  .b-gap.warn { color: var(--warn); border-color: rgba(245,181,68,.45); background: none; }
   .b-score { text-align: center; }
   .b-score small { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
   .b-steps { min-width: 0; }
@@ -278,6 +281,16 @@ function bodyWait(r) {
   return '<div class="b-body"><div class="b-msg" role="status"><span class="b-spin"></span>Details laden…</div></div>';
 }
 
+// Find the gap: omzet en winst omhoog, aandeel omlaag → zoveel % goedkoper t.o.v. omzet en winst dan een jaar geleden
+function gapPill(it) {
+  const g = it && it.gap;
+  if (!g) return '';
+  const gr = v => v > 300 ? '>+300%' : (v > 0 ? '+' : '') + Math.round(v) + '%';
+  const t = `Find the gap: omzet ${gr(g.rev)}, winst ${gr(g.eps)}, koers ${g.px > 0 ? '+' : ''}${Math.round(g.px)}% in 12 maanden → `
+    + `${Math.round(g.pct)}% goedkoper t.o.v. omzet en winst${OWN ? ' (bijkoopkans?)' : ''}` + (g.warn.length ? `. Let op: ${g.warn.join(', ')}` : '');
+  return `<span class="b-gap ${g.ok ? '' : 'warn'}" title="${esc(t)}">gap ${Math.round(g.pct)}%${g.ok ? '' : ' · let op'}</span>`;
+}
+
 function rowHTML(r) {
   const it = r.it, c = it && it.card, open = openSet.has(r.key);
   const lvl = c && c.s != null ? (Steps.LEVEL[c.lvl] || Steps.LEVEL.low) : null;
@@ -288,7 +301,7 @@ function rowHTML(r) {
   const head = `<div class="b-head" data-key="${esc(r.key)}">
       <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
         <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due && !al.some(a => a.kind === 'earn') ? '&nbsp;· <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
-        <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span></div>
+        <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span>${gapPill(it)}</div>
       <div class="b-score" title="${c && c.s != null ? `Scorecard ${c.s} van 125 · ${esc(lvl[0])}` : 'Nog geen scorecard'}">${Steps.ring(c && c.s, 52)}<small>${c && c.s != null ? 'van 125' : 'geen data'}</small>${sp}</div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
       <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>

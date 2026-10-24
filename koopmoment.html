@@ -286,6 +286,7 @@ function card(r, own) {
   const chips = [
     `<span class="chip ${r.status === 'zone' ? 'zone' : 'bijna'}">${r.status === 'zone' ? 'in de zone' : 'bijna'}</span>`,
     mine ? '<span class="chip own">bijkopen</span>' : '',
+    r.gap ? `<span class="chip ${r.gap.ok ? 'zone' : 'bijna'}" title="Find the gap: omzet en winst omhoog, aandeel omlaag → ${Math.round(r.gap.pct)}% goedkoper t.o.v. omzet en winst dan een jaar geleden${r.gap.warn.length ? '. Let op: ' + esc(r.gap.warn.join(', ')) : ''}">gap ${Math.round(r.gap.pct)}%</span>` : '',
     r.watch ? '<span class="chip">op watchlist</span>' : '',
     Number.isInteger(r.earn_days) ? `<span class="chip" title="Volgende kwartaalcijfers">cijfers over ${r.earn_days} d</span>` : ''
   ].join('');

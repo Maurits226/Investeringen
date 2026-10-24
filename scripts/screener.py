@@ -1730,6 +1730,54 @@ def koopmoment(it):
             "stop": rnd(stop, 2), "risk": rnd((1 - stop / price) * 100, 1), "why": [txt for key, ok, txt in checks if ok and key != "scorecard"]}
 
 
+# ── Find the gap: de cijfers gaan omhoog (omzet, winst), het aandeel gaat omlaag ──
+# Dan is het aandeel goedkoper geworden ten opzichte van wat het bedrijf verdient. De gap = hoeveel procent lager de
+# koers/omzet én de koers/winst zijn dan een jaar geleden (de kleinste van de twee, voorzichtig gerekend).
+GAP_REV_MIN = 5             # omzetgroei (%, laatste kwartaal t.o.v. een jaar eerder) minstens
+GAP_DD = 25                 # aandeel 'omlaag': lager dan een jaar geleden, of minstens zoveel % onder de 52-weekse top
+GAP_MIN = 15                # minstens zoveel % goedkoper t.o.v. omzet én winst dan een jaar geleden
+GAP_CAP = 100               # groei boven 100% telt als 100% (basiseffect bij een lage winst een jaar eerder)
+
+
+def find_gap(it):
+    """Gap tussen bedrijf en aandeel, of None. ok = geen tekenen dat de markt gelijk heeft (anders staan die in warn).
+    Gebruikt de cijfers uit _card (dus vóór het opruimen in main aanroepen)."""
+    d = it.get("_card") or {}
+    c, ts, chg = d.get("c") or {}, d.get("ts") or {}, d.get("chg12")
+    rev_q = c["rev_g"] * 100 if c.get("rev_g") is not None else None
+    eps_q = c["eps_g"] * 100 if c.get("eps_g") is not None else None
+    if rev_q is None or eps_q is None or chg is None:
+        return None
+    dd = (it["price"] / it["hi52"] - 1) * 100 if it.get("price") and it.get("hi52") else None
+
+    def yoy(*keys):                                   # laatste boekjaar t.o.v. het jaar ervoor
+        s = series(ts, *keys)
+        return (s[-1][1] / s[-2][1] - 1) * 100 if len(s) >= 2 and s[-1][1] is not None and s[-2][1] and s[-2][1] > 0 else None
+    last = lambda k: (series(ts, k) or [[None, None]])[-1][1]  # noqa: E731
+    rev_y, fcf_y, fcf, ni = yoy("annualTotalRevenue", "annualOperatingRevenue"), yoy("annualFreeCashFlow"), last("annualFreeCashFlow"), last("annualNetIncome")
+    profit = c["eps"] > 0 if c.get("eps") is not None else bool(ni and ni > 0)
+    business_up = rev_q >= GAP_REV_MIN and eps_q > 0 and profit and (rev_y is None or rev_y >= 0)
+    stock_down = chg < 0 or (dd is not None and dd <= -GAP_DD)
+    if not (business_up and stock_down):
+        return None
+    gap = min(1 - (1 + chg / 100) / (1 + min(GAP_CAP, g) / 100) for g in (rev_q, eps_q)) * 100
+    if gap < GAP_MIN:
+        return None
+    # Waarom daalt het aandeel? Tekenen dat de markt gelijk kan hebben (dan is het een valkuil, geen kans)
+    up, dn, fwd = c.get("rev_up") or 0, c.get("rev_down") or 0, c.get("fwd_growth")
+    # stap 8 (balans) en 11 (bear case: rode vlaggen) gaan over 'is er iets mis'; de andere stappen zijn kwaliteitsfilters
+    hard = [x["n"] for x in (it.get("s12") or {}).get("list", []) if x["s"] == "fail" and x["n"] in (8, 11)]
+    warn = ([f"analisten verlagen hun verwachtingen ({dn}× omlaag, {up}× omhoog)"] if dn > up else []) \
+        + ([f"verwachte winstgroei volgend jaar {fwd * 100:.0f}%"] if fwd is not None and fwd < -0.01 else []) \
+        + (["vrije kasstroom negatief"] if fcf is not None and fcf <= 0 else []) \
+        + (["zwakke balans (stap 8)"] if 8 in hard else []) + (["rode vlaggen (stap 11)"] if 11 in hard else [])
+    plus = ([f"vrije kasstroom +{fcf_y:.0f}%"] if fcf_y is not None and fcf_y > 0 and fcf and fcf > 0 else []) \
+        + (["analisten verhogen hun verwachtingen"] if up > dn else []) \
+        + ([f"omzet vorig boekjaar +{rev_y:.0f}%"] if rev_y is not None and rev_y >= 10 else [])
+    return {"pct": rnd(gap, 1), "rev": rnd(rev_q, 1), "eps": rnd(eps_q, 1), "px": rnd(chg, 1), "dd": rnd(dd, 1),
+            "ok": not warn, "warn": warn, "plus": plus}
+
+
 def s12_brief(s12, fail_notes=False):
     """De 12 stappen in het kort (status per stap), genoeg voor de vakjes op Koopmoment.
     fail_notes: de toelichting alleen bij stappen waarop het bedrijf afvalt (lichte lijst in screener.json)."""
@@ -1753,7 +1801,7 @@ def koop_rows(items):
                      "hi52": it.get("hi52"), "sma200": it.get("sma200"),
                      "card": it["card"]["s"], "lvl": it["card"]["lvl"], "val": (it.get("val") or {}).get("lvl"),
                      "score": it.get("score"), "exp": (it.get("exp") or {}).get("pct"), "earn_days": it.get("earn_days"),
-                     "own": it.get("own"), "watch": it.get("watch"), "s12": s12_brief(it.get("s12")), **k})
+                     "own": it.get("own"), "watch": it.get("watch"), "s12": s12_brief(it.get("s12")), "gap": it.get("gap"), **k})
     rows.sort(key=lambda r: (r["status"] != "zone", -r["card"]))
     return rows
 
@@ -2008,7 +2056,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
 # staat in screener_det/NN.json en wordt pas geladen als je een aandeel openklapt. Licht + detail = het volledige item.
 LIGHT_KEYS = ("sym", "eu", "exch", "us_exch", "name", "region", "country", "sector", "industry", "branch",
               "price", "native", "approx", "cur", "day", "mcap", "score", "rank", "pillars", "val", "rs", "koop",
-              "watch", "own", "earn_days", "earnings", "alt", "chg12", "exp", "card", "s12")
+              "watch", "own", "earn_days", "earnings", "alt", "chg12", "exp", "card", "s12", "gap")
 SHORT_KEYS = ("exp", "card", "s12")            # ingekort in de lijst, volledig in het detail
 
 
@@ -2248,6 +2296,11 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"  {it['sym']:<10} 12 stappen mislukt: {e}")
             it["s12"] = None
+        try:
+            it["gap"] = find_gap(it)
+        except Exception as e:  # noqa: BLE001
+            print(f"  {it['sym']:<10} gap mislukt: {e}")
+            it["gap"] = None
         it.pop("_card", None)
         it["koop"] = koopmoment(it)
         if not it["own"] and ((it.get("card") or {}).get("s") or 0) < CARD_SELECT:
@@ -2280,7 +2333,8 @@ def main():
     tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
     pending = sum(1 for s in uni if not tried(s))
     failed = sum(1 for s in uni if not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
-    top = items[:TOP_N]
+    # Find the gap: een goede gap (scorecard 75+) valt nooit buiten de lijst, ook niet als die vol zit
+    top = items[:TOP_N] + [it for it in items[TOP_N:] if (it.get("gap") or {}).get("ok") and cardv(it) >= CARD_SELECT]
     out = {
         "updated": iso(),
         "fmt": 2,                                    # kansen licht, details in screener_det/ (refs blijven volledig)

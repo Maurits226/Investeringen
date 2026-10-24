@@ -63,6 +63,7 @@ const WIDTHS = [390, 1280];
       if (info.text < 40) errs.push('pagina lijkt leeg');
       // belangrijkste interactie per pagina
       try {
+        if (pg === 'screener.html' && !(await page.$('.stat[data-q="gap"]'))) errs.push('tegel Find the gap ontbreekt');
         if (pg === 'screener.html' && await page.$('.stock')) {
           await page.click('.stock .toggle');
           await page.waitForSelector('.stock.open .detail', { timeout: 8000 });

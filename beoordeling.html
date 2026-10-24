@@ -77,6 +77,7 @@
   /* Find the gap: cijfers omhoog, aandeel omlaag (zie Kansen portefeuille) */
   .b-gap { font-size: 11px; font-weight: 600; margin: 6px 0 0 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(62,207,142,.55); color: var(--up); background: rgba(62,207,142,.08); }
   .b-gap.warn { color: var(--warn); border-color: rgba(245,181,68,.45); background: none; }
+  .b-gap.low { color: var(--muted); border-color: var(--line); background: none; }
   .b-score { text-align: center; }
   .b-score small { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
   .b-steps { min-width: 0; }
@@ -281,14 +282,17 @@ function bodyWait(r) {
   return '<div class="b-body"><div class="b-msg" role="status"><span class="b-spin"></span>Details laden…</div></div>';
 }
 
-// Find the gap: omzet en winst omhoog, aandeel omlaag → zoveel % goedkoper t.o.v. omzet en winst dan een jaar geleden
+// Find the gap = hoge score (90+) én een gap: omzet en winst omhoog, aandeel omlaag → zoveel % goedkoper t.o.v. omzet en winst.
+// Groen alleen bij die combinatie; een gap bij een lagere score grijs, met een waarschuwing oranje.
 function gapPill(it) {
   const g = it && it.gap;
   if (!g) return '';
+  const min = (DATA && DATA.gap_card) || 90, hit = g.ok && ((it.card || {}).s || 0) >= min;
   const gr = v => v > 300 ? '>+300%' : (v > 0 ? '+' : '') + Math.round(v) + '%';
   const t = `Find the gap: omzet ${gr(g.rev)}, winst ${gr(g.eps)}, koers ${g.px > 0 ? '+' : ''}${Math.round(g.px)}% in 12 maanden → `
-    + `${Math.round(g.pct)}% goedkoper t.o.v. omzet en winst${OWN ? ' (bijkoopkans?)' : ''}` + (g.warn.length ? `. Let op: ${g.warn.join(', ')}` : '');
-  return `<span class="b-gap ${g.ok ? '' : 'warn'}" title="${esc(t)}">gap ${Math.round(g.pct)}%${g.ok ? '' : ' · let op'}</span>`;
+    + `${Math.round(g.pct)}% goedkoper t.o.v. omzet en winst${hit && OWN ? ' (bijkoopkans?)' : ''}` + (g.warn.length ? `. Let op: ${g.warn.join(', ')}` : '')
+    + (g.ok && !hit ? `. Scorecard onder ${min}: geen Find the gap-kans` : '');
+  return `<span class="b-gap ${hit ? '' : g.ok ? 'low' : 'warn'}" title="${esc(t)}">gap ${Math.round(g.pct)}%${g.ok ? '' : ' · let op'}</span>`;
 }
 
 function rowHTML(r) {

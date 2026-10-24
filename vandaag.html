@@ -297,12 +297,17 @@ async function render() {
   // Kansen van de dag
   const own = new Set(pos.filter(p => !p.watch).map(p => p.ticker.toUpperCase()));
   const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;   // scorecard (van 125), het hoofdgetal
-  const kansen = ((scr && scr.items) || []).filter(it => cardOf(it) >= 75 && !own.has((it.eu || '').toUpperCase()) && !own.has(it.sym)).sort((a, b) => cardOf(b) - cardOf(a) || b.score - a.score);
+  // Find the gap (hoge score én een gap: cijfers omhoog, aandeel omlaag) eerst, zoals op Kansen portefeuille:
+  // scorecard 100+ met gap, dan 90+ met gap, daarbinnen de grootste gap; daarna de hoogste scorecard
+  const isGap = it => !!(it.gap && it.gap.ok && cardOf(it) >= ((scr && scr.gap_card) || 90));
+  const tier = it => isGap(it) ? (cardOf(it) >= 100 ? 2 : 1) : 0;
+  const kansen = ((scr && scr.items) || []).filter(it => cardOf(it) >= 75 && !own.has((it.eu || '').toUpperCase()) && !own.has(it.sym))
+    .sort((a, b) => tier(b) - tier(a) || (tier(a) ? b.gap.pct - a.gap.pct : 0) || cardOf(b) - cardOf(a) || b.score - a.score);
   const money = it => it.region === 'VS' ? '$\u00a0' + nf(it.native, 2) : '€\u00a0' + nf(it.price, 2);   // valuta en bedrag niet los van elkaar
   const brs = Object.entries((scr && scr.branches) || {});
   $('kansen').innerHTML = kansen.length ? '<div class="kans-h"><span>scorecard van 125</span><span>verwacht 12 mnd</span></div>' + kansen.slice(0, 5).map(it => `<div class="kans" role="button" tabindex="0" onclick="go('top250')">
       <div class="sc" title="Scorecard ${Math.round(cardOf(it))} van 125">${Steps.ring(cardOf(it), 38)}</div>
-      <div class="t-main"><div class="t-title">${esc(it.name)}</div><div class="t-sub">${esc(it.region === 'VS' ? it.sym : (it.eu || it.sym))}&nbsp;· ${esc(SECTOR_NL[it.sector] || it.sector || '')}&nbsp;· ${money(it)}${it.gap && it.gap.ok ? `&nbsp;· <span class="c-up" title="Find the gap: omzet en winst omhoog, aandeel omlaag">gap ${Math.round(it.gap.pct)}%</span>` : ''}</div></div>
+      <div class="t-main"><div class="t-title">${esc(it.name)}</div><div class="t-sub">${esc(it.region === 'VS' ? it.sym : (it.eu || it.sym))}&nbsp;· ${esc(SECTOR_NL[it.sector] || it.sector || '')}&nbsp;· ${money(it)}${isGap(it) ? `&nbsp;· <span class="c-up" title="Find the gap: hoge score én een gap (omzet en winst omhoog, aandeel omlaag)">gap ${Math.round(it.gap.pct)}%</span>` : ''}</div></div>
       <div class="t-val ${cls(it.exp && it.exp.pct)}" title="Verwacht rendement 12 maanden">${pct(it.exp && it.exp.pct)}</div></div>`).join('')
     + (brs.length ? `<div class="brs">${brs.map(([k, b]) => `<div class="brc" role="button" tabindex="0" onclick="go('top250')"><b>${esc(b.label)}</b><small>${kansen.filter(i => i.branch === k).length} kansen · ${esc((b.etf || '').split('.')[0])}&nbsp;${pct(b.ret12)}</small></div>`).join('')}</div>` : '')
     : '<div class="empty">Nog geen kansenlijst. Draai de workflow Top 250.</div>';

@@ -1737,6 +1737,7 @@ GAP_REV_MIN = 5             # omzetgroei (%, laatste kwartaal t.o.v. een jaar ee
 GAP_DD = 25                 # aandeel 'omlaag': lager dan een jaar geleden, of minstens zoveel % onder de 52-weekse top
 GAP_MIN = 15                # minstens zoveel % goedkoper t.o.v. omzet én winst dan een jaar geleden
 GAP_CAP = 100               # groei boven 100% telt als 100% (basiseffect bij een lage winst een jaar eerder)
+GAP_CARD = 90               # Find the gap = hoge score én een gap: pas vanaf deze scorecard een kans (zelfde grens als Koopmoment)
 
 
 def find_gap(it):
@@ -2333,8 +2334,8 @@ def main():
     tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
     pending = sum(1 for s in uni if not tried(s))
     failed = sum(1 for s in uni if not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
-    # Find the gap: een goede gap (scorecard 75+) valt nooit buiten de lijst, ook niet als die vol zit
-    top = items[:TOP_N] + [it for it in items[TOP_N:] if (it.get("gap") or {}).get("ok") and cardv(it) >= CARD_SELECT]
+    # Find the gap (hoge score én een gap) valt nooit buiten de lijst, ook niet als die vol zit
+    top = items[:TOP_N] + [it for it in items[TOP_N:] if (it.get("gap") or {}).get("ok") and cardv(it) >= GAP_CARD]
     out = {
         "updated": iso(),
         "fmt": 2,                                    # kansen licht, details in screener_det/ (refs blijven volledig)
@@ -2347,6 +2348,7 @@ def main():
         "pending": pending,
         "weights": PILLAR_W,
         "card_select": CARD_SELECT,
+        "gap_card": GAP_CARD,
         "sp5": {k: rnd(sp5[k] * 100, 1) for k in ("VS", "EU")} if sp5 else None,
         "branches": bench,
         "refs": refs,

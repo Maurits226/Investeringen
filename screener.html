@@ -140,6 +140,7 @@
   /* Find the gap: cijfers omhoog, aandeel omlaag (bovenaan de details, over de hele breedte) */
   .gap-box { grid-column: 1 / -1; border: 1px solid rgba(62,207,142,.35); background: rgba(62,207,142,.05); border-radius: 12px; padding: 12px 14px; }
   .gap-box.warn { border-color: rgba(245,181,68,.4); background: rgba(245,181,68,.05); }
+  .gap-box.low { border-color: var(--line); background: rgba(255,255,255,.02); }
   .gap-box .d-k { margin-bottom: 8px; }
   .gap-nums { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
   .gap-nums b { font-family: var(--mono); font-size: 14px; margin-left: 4px; }
@@ -403,12 +404,13 @@
         Valt een bedrijf bij één stap af, dan is het geen survivor. De 12 vakjes: groen gehaald, rood valt af, oranje twijfel, open = zelf beoordelen.
       </div>
       <div>
-        <h4>Find the gap · cijfers omhoog, aandeel omlaag</h4>
-        Omzet groeit minstens 5% en de winst stijgt (laatste kwartaal t.o.v. een jaar eerder, bedrijf winstgevend), terwijl
+        <h4>Find the gap · hoge score én een gap</h4>
+        De combinatie van een <b>scorecard van 90 of hoger</b> en een gap: de cijfers gaan omhoog, het aandeel omlaag. Omzet groeit minstens 5% en de winst stijgt (laatste kwartaal t.o.v. een jaar eerder, bedrijf winstgevend), terwijl
         het aandeel <b>lager staat dan een jaar geleden</b> of minstens 25% onder de top. Dan is het aandeel goedkoper geworden
         t.o.v. wat het bedrijf doet: de <b>gap</b> = hoeveel procent lager koers/omzet én koers/winst zijn dan een jaar geleden
         (minstens 15%). Een gap telt alleen als kans als niets erop wijst dat de markt gelijk heeft: analisten verlagen hun
-        verwachtingen niet, vrije kasstroom positief, geen zwakke balans (stap 8) of rode vlaggen (stap 11). Anders: <i>let op</i>.
+        verwachtingen niet, vrije kasstroom niet negatief, geen zwakke balans (stap 8) of rode vlaggen (stap 11). Anders: <i>let op</i>.
+        Een gap bij een lagere scorecard zie je wel (grijs label), maar telt niet als kans.
       </div>
       <div>
         <h4>Verwacht rendement · 12 mnd</h4>
@@ -424,7 +426,7 @@
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
         <option value="score" data-short="Scorecard 125">Scorecard 125 (hoog → laag)</option>
-        <option value="gap" data-short="Gap">Find the gap (grootste eerst)</option>
+        <option value="gap" data-short="Gap">Find the gap (hoge score + grootste gap eerst)</option>
         <option value="rank" data-short="Marktrang">Marktrang (hoog → laag)</option>
         <option value="exp" data-short="Verwacht rendement">Verwacht rendement (hoog → laag)</option>
         <option value="steps" data-short="12 stappen">12 stappen (survivors eerst)</option>
@@ -598,7 +600,7 @@ function fillSectors() {
 }
 
 const QUICK = {
-  gap:    { label: 'Find the gap', sub: 'cijfers omhoog, aandeel omlaag', test: it => !!(it.gap && it.gap.ok) },
+  gap:    { label: 'Find the gap', sub: 'scorecard 90+ én cijfers omhoog, aandeel omlaag', test: it => isGap(it) },
   strong: { label: 'Uitzonderlijk', sub: 'scorecard 100+ van 125', test: it => cardOf(it) >= 100 },
   steps:  { label: 'Survivors', sub: 'overleven alle 12 stappen', test: it => !!(it.s12 && it.s12.survivor) },
   exp:    { label: 'Verwacht rendement ≥ 15%', sub: 'komende 12 maanden', test: it => (it.exp && it.exp.pct) >= 15 }
@@ -673,7 +675,7 @@ function render() {
     V: (a, b) => ((b.pillars || {}).V ?? -1) - ((a.pillars || {}).V ?? -1) || byDefault(a, b),
     M: (a, b) => ((b.pillars || {}).M ?? -1) - ((a.pillars || {}).M ?? -1) || byDefault(a, b),
     exp: (a, b) => expOf(b) - expOf(a) || byDefault(a, b),
-    gap: (a, b) => gapOf(b) - gapOf(a) || byDefault(a, b),
+    gap: (a, b) => gapTier(b) - gapTier(a) || ((b.gap || {}).pct || 0) - ((a.gap || {}).pct || 0) || byDefault(a, b),
     rank: (a, b) => b.score - a.score || byDefault(a, b),
     steps: (a, b) => s12rank(b) - s12rank(a) || byDefault(a, b),
     name: (a, b) => a.name.localeCompare(b.name, 'nl')
@@ -753,7 +755,7 @@ function card(it) {
   const expSrc = e.src === 'analisten' ? `analisten (${e.n})` : e.src === 'schatting' ? 'schatting' : e.src === 'dividend' ? 'alleen dividend' : 'geen data';
   const tags = [
     it.ref ? '<span class="tag ref">in portefeuille · referentie</span>' : '',
-    it.gap ? `<span class="tag ${it.gap.ok ? 'gap' : 'warn'}" title="${esc(gapTitle(it.gap))}">gap ${nf(it.gap.pct, 0)}%${it.gap.ok ? '' : ' · let op'}</span>` : '',
+    it.gap ? `<span class="tag ${isGap(it) ? 'gap' : it.gap.ok ? '' : 'warn'}" title="${esc(gapTitle(it.gap) + (it.gap.ok && !isGap(it) ? `. Scorecard onder ${gapCard()}: geen Find the gap-kans` : ''))}">gap ${nf(it.gap.pct, 0)}%${it.gap.ok ? '' : ' · let op'}</span>` : '',
     it.s12 && it.s12.survivor ? '<span class="tag sc-top" title="Overleeft alle 12 stappen van de gids">survivor</span>' : '',
     it.card && it.card.lvl === 'top' ? '<span class="tag sc-top" title="Scorecard 100+ van 125">uitzonderlijk</span>' : '',
     it.koop ? `<span class="tag ${it.koop.status === 'zone' ? 'v-cheap' : 'warn'}" title="${it.koop.status === 'zone' ? 'Koopmoment' : 'Bijna een koopmoment'}: ${nf(it.koop.dd, 0)}% onder de top · zie het tabblad Koopmoment">${it.koop.status === 'zone' ? 'koopmoment' : 'bijna koopmoment'}</span>` : '',
@@ -813,7 +815,7 @@ function detail(it) {
   const metrics = ['Q', 'G', 'V', 'M'].map(pl => METRIC_PIL[pl].filter(k => mv[k] != null).map(k =>
       `<span title="${PIL[pl][0]} · percentiel binnen de sector: ${mp[k] == null ? '—' : Math.round(mp[k])}">${METRIC_NL[k][0]} <b>${mval(k, mv[k])}${mp[k] != null ? ` <em style="color:${PIL_COLOR(mp[k])};font-style:normal">P${Math.round(mp[k])}</em>` : ''}</b></span>`).join('')).join('');
   return `<div class="detail">
-    ${gapHTML(it.gap)}
+    ${gapHTML(it)}
     <div>
       <div class="d-k">Marktrang <span>P${Math.round(it.score)} · beter dan ${Math.round(it.score)}% van de markt</span></div>
       <div class="pillars">${pillars}</div>
@@ -842,24 +844,30 @@ function detail(it) {
   </div>`;
 }
 
-// Find the gap: het bedrijf groeit (omzet en winst t.o.v. een jaar eerder), het aandeel ging omlaag
-const gapOf = it => it.gap ? it.gap.pct + (it.gap.ok ? 1000 : 0) : -1;          // goede gaps vóór gaps met een waarschuwing
+// Find the gap = hoge score én een gap: het bedrijf groeit (omzet en winst t.o.v. een jaar eerder), het aandeel ging omlaag
+const gapCard = () => (DATA && DATA.gap_card) || 90;                             // vanaf deze scorecard een kans
+const isGap = it => !!(it.gap && it.gap.ok && cardOf(it) >= gapCard());
+// volgorde: uitzonderlijk (100+) met gap, dan 90+ met gap, dan een gap bij een lagere score, dan 'let op'; daarbinnen de grootste gap
+const gapTier = it => !it.gap ? 0 : isGap(it) ? (cardOf(it) >= 100 ? 4 : 3) : it.gap.ok ? 2 : 1;
 const growth = v => v > 300 ? '>+300%' : pct(v, 0);                             // +2000% winst = basiseffect, niet interessant
 function gapTitle(g) {
   return `Find the gap: omzet ${growth(g.rev)}, winst ${growth(g.eps)}, koers ${pct(g.px, 0)} in 12 maanden`
     + `${g.dd != null ? ` (${nf(-g.dd, 0)}% onder de top)` : ''} → ${nf(g.pct, 0)}% goedkoper t.o.v. omzet en winst`
     + (g.warn.length ? `. Let op: ${g.warn.join(', ')}` : '');
 }
-function gapHTML(g) {
+function gapHTML(it) {
+  const g = it.gap;
   if (!g) return '';
-  return `<div class="gap-box ${g.ok ? '' : 'warn'}">
-    <div class="d-k">Find the gap <span class="${g.ok ? 'c-up' : 'c-warn'}">${nf(g.pct, 0)}% goedkoper dan een jaar geleden</span></div>
+  const c = cardOf(it), hit = isGap(it);
+  return `<div class="gap-box ${hit ? '' : g.ok ? 'low' : 'warn'}">
+    <div class="d-k">${hit ? 'Find the gap · hoge score én een gap' : 'Gap'} <span class="${hit ? 'c-up' : g.ok ? '' : 'c-warn'}">${nf(g.pct, 0)}% goedkoper dan een jaar geleden</span></div>
     <div class="gap-nums"><span>Omzet<b class="c-up">${growth(g.rev)}</b></span><span>Winst<b class="c-up">${growth(g.eps)}</b></span>
       <span>Koers 12 mnd<b class="${cls(g.px)}">${pct(g.px, 0)}</b></span>${g.dd != null ? `<span>Onder de top<b class="c-down">${nf(-g.dd, 0)}%</b></span>` : ''}</div>
     <p class="note">De cijfers gaan omhoog (laatste kwartaal t.o.v. een jaar eerder), het aandeel ging omlaag. Ten opzichte van
       omzet én winst is het aandeel <b>${nf(g.pct, 0)}% goedkoper</b> geworden.${g.plus.length ? ' Verder: ' + g.plus.map(esc).join(' · ') + '.' : ''}</p>
     <p class="note ${g.ok ? '' : 'c-warn'}">${g.warn.length ? `Let op: ${g.warn.map(esc).join(' · ')}. De markt kan een reden hebben; zoek uit waarom het aandeel daalde.`
       : 'Geen tekenen dat de markt gelijk heeft: analisten verlagen niet, geen negatieve kasstroom, balans en rode vlaggen in orde. Zoek wel uit waarom het aandeel daalde.'}</p>
+    ${g.ok && !hit ? `<p class="note">Scorecard ${Math.round(c)}: onder de ${gapCard()}, dus geen Find the gap-kans. Die vraagt een hoge score én een gap.</p>` : ''}
   </div>`;
 }
 

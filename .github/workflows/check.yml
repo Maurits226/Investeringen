@@ -2,7 +2,8 @@ name: Controle
 
 # Controleert elke wijziging aan de code voordat die live gaat (eerst op een werkbranch, daarna pas naar main):
 # Python-scripts, JavaScript, de databestanden, de techradar en de Top 250-pijplijn op testdata,
-# en alle pagina's in een echte browser op telefoon- en desktopformaat.
+# alle pagina's in een echte browser op telefoon- en desktopformaat, en of tekst van buiten (namen, nieuws) nergens
+# als HTML of code in een pagina belandt.
 # Alleen lezen: deze check kan niets in de repository veranderen. Data-commits van de andere workflows starten hem niet.
 
 on:
@@ -49,3 +50,6 @@ jobs:
 
       - name: Alle pagina's in de browser (telefoon en desktop)
         run: node tests/test_pages.js
+
+      - name: Geen ingevoegde HTML of code via tekst van buiten (XSS)
+        run: node tests/test_xss.js

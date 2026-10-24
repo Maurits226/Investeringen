@@ -365,6 +365,7 @@ const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', { sty
 const nf = (v, d = 1) => v == null ? '—' : v.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (n, d = 1) => n == null ? '–' : (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+const tok = s => String(s ?? '').replace(/[^\w-]/g, '');   // waarde uit de data als CSS-klasse: alleen letters, cijfers, - en _
 function toDate(iso) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
   return new Date(iso);
@@ -517,7 +518,7 @@ function expiredRow(a, snap) {
   return `<div class="h-row done">
     <span class="h-date">${a.start ? (a.bootstrap ? 'vóór ' + dag(a.start) : dag(a.start)) : '–'} → ${tijd(a.end)}</span>
     <span class="h-name" title="${esc(a.name || a.symbol)}">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
-    <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
+    <span class="pill ${tok(a.dir)}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}</small></span>
     <span class="h-res"><b>${reden}</b> · ${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(liveEpisode(a.id) || a), true) : ''}</span>
   </div>`;
@@ -552,7 +553,7 @@ function adviceRow(a, snap, isToday) {
   return `<div class="h-row${nieuw ? ' new' : ''}">
     <span class="h-date">${wanneer}</span>
     <span class="h-name" title="${esc(a.name || a.symbol)}">${esc(a.name || a.symbol)}<small>${esc(a.symbol)}</small></span>
-    <span class="pill ${a.dir}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
+    <span class="pill ${tok(a.dir)}">${a.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
     <span class="h-px">${fmt(a.price, cur)} → ${fmt(a.plan && a.plan.target, cur)}<small>stop ${fmt(a.plan && a.plan.stop, cur)}${a.projected_pct != null ? ' · verwacht ' + pct(a.projected_pct) : ''}</small></span>
     <span class="h-res">${st}<small>${extra}</small>${a.plan ? trackHTML(a, adviesStand(live || a), true) : ''}</span>
   </div>`;
@@ -572,10 +573,10 @@ function tradeRow(t, soort) {
 }
 
 function posCard(it, snap) {
-  const cur = it.currency, sig = it.flag, d = sig ? it.direction : 'flat';
+  const cur = it.currency, sig = it.flag, d = sig ? tok(it.direction) : 'flat';
   const pats = (it.patterns || []).filter(p => p.dir !== 'info' && !p.ctx);   // achtergrond (beurs, nieuws) telt niet mee
   const info = (it.patterns || []).filter(p => p.dir === 'info');
-  const top = pats.slice(0, 3).map(p => `<span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span> ${esc(p.label)}`).join(' · ') || 'geen patronen gevonden';
+  const top = pats.slice(0, 3).map(p => `<span class="c-${tok(p.dir)}">${p.dir === 'up' ? '▲' : '▼'}</span> ${esc(p.label)}`).join(' · ') || 'geen patronen gevonden';
   const plan = sig && it.plan
     ? [['Kopen', it.plan.entry], ['Verkopen (doel)', it.plan.target], ['Terugkopen', it.plan.next], ['Stop', it.plan.stop]] : null;
   const el = document.createElement('details');
@@ -589,7 +590,7 @@ function posCard(it, snap) {
     </summary>
     <div class="pos-body">
       <div>
-        <ul class="pat">${pats.map(p => `<li><span class="c-${p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li style="color:var(--muted)">Geen patronen gevonden</li>'}</ul>
+        <ul class="pat">${pats.map(p => `<li><span class="c-${tok(p.dir)}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li style="color:var(--muted)">Geen patronen gevonden</li>'}</ul>
         ${info.length ? `<p class="note">${info.map(p => '⚠ ' + esc(p.label) + (p.detail ? ': ' + esc(p.detail) : '')).join('<br>')}</p>` : ''}
       </div>
       <div>
@@ -781,9 +782,9 @@ function renderScore() {
     const kop = h.outcome === 'open'
       ? `<span style="color:var(--accent)">loopt</span> · dag ${st.days}/10`
       : `<span class="${h.outcome === 'doel' ? 'c-up' : h.outcome === 'stop' ? 'c-down' : 'c-info'}">${UITKOMST[h.outcome]}</span> · ${dag(h.outcome_at)}`;
-    return `<div class="sb-row ${h.outcome}">
+    return `<div class="sb-row ${tok(h.outcome)}">
       <div class="sb-name"><b title="${esc(h.name || h.symbol)}">${esc(h.name || h.symbol)}</b><small>${esc(h.symbol)} · ${h.bootstrap ? 'al vóór ' : ''}${dagTijd(h.start)}</small></div>
-      <span class="pill ${h.dir}">${h.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
+      <span class="pill ${tok(h.dir)}">${h.dir === 'up' ? 'KOPEN' : DOWN_PILL}</span>
       <div class="sb-plan">${fmt(h.price, cur)} → ${fmt(p.target, cur)}<small>stop ${fmt(p.stop, cur)}${st.nowPx != null ? ` · nu ${fmt(st.nowPx, cur)}` : ''}</small></div>
       <div class="sb-bar">${trackHTML(h, st)}</div>
       <div class="sb-res"><span class="big ${st.res >= 0 ? 'c-up' : 'c-down'}">${pct(st.res)}</span><small>${kop}</small>

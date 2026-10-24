@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 TICKERS_FILE = "tickers.txt"
 OUTPUT_FILE = "data.json"
+TICKER_OK = re.compile(r"^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$")      # zelfde regel als het dashboard (shared.js)
 
 def read_tickers():
     """Lees tickers uit tickers.txt, één per regel, negeer lege regels en # commentaar.
@@ -23,7 +24,9 @@ def read_tickers():
         with open(TICKERS_FILE, "r", encoding="utf-8-sig") as f:
             for line in f:
                 t = re.split(r"[\s,;|#]", line.strip())[0].upper()
-                if t and t not in tickers:
+                if t and not TICKER_OK.match(t):
+                    print(f"Overgeslagen, geen geldige ticker: {t[:30]!r}")
+                elif t and t not in tickers:
                     tickers.append(t)
     except FileNotFoundError:
         print(f"{TICKERS_FILE} niet gevonden, gebruik standaard AVGO.DE")

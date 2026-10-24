@@ -665,6 +665,7 @@ const fmt = (n, cur) => n == null ? '–' : new Intl.NumberFormat('nl-NL', {
 }).format(n);
 const pct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d).replace('.', ',') + '%';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+const tok = s => String(s ?? '').replace(/[^\w-]/g, '');   // waarde uit de data als CSS-klasse: alleen letters, cijfers, - en _
 // Externe links (nieuws): alleen http(s), anders gewoon tekst. Nieuw tabblad zonder verwijzing terug naar het dashboard.
 const safeUrl = u => { try { const x = new URL(String(u || ''), location.href); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch (e) { return ''; } };
 // Google News zet de bron achter de kop ("… - Yahoo Finance"); die staat al in de regel eronder
@@ -782,7 +783,7 @@ function card(it) {
   const el = document.createElement('div');
   const cur = it.currency;
   // alleen een signaal bij een verwachte beweging van 5% of meer
-  const sig = it.flag, d = sig ? it.direction : 'flat', p = it.projected_pct;
+  const sig = it.flag, d = sig ? tok(it.direction) : 'flat', p = it.projected_pct;
   el.className = 'position' + (sig ? ' ' + d + ' flag' : '') + (isNew(it) ? ' new' : '');
   const open = ui.open.includes(it.symbol);
   const title = it.label || it.name || it.symbol;

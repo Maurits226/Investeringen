@@ -4,6 +4,8 @@ name: Top 250
 # cijfers per stock wekelijks ververst. Vier runs per dag: nieuwe bedrijven zijn na 1 à 2 dagen gescand,
 # daarna is elke run vooral koersen bijwerken. Handmatig starten: Actions → Top 250 → Run workflow.
 # Schrijft screener.json (licht), screener_det/ (details per kans), these.json en koopmoment.json.
+# Opzoeken: zet je op het dashboard een aandeel in opzoeklijst.json, dan start deze run meteen en beoordeelt hij het
+# (opzoeken.json, meestal binnen 2 à 3 minuten).
 
 on:
   schedule:
@@ -15,6 +17,7 @@ on:
       - 'scripts/screener.py'
       - 'screener_universe.txt'
       - 'kwaliteit.json'
+      - 'opzoeklijst.json'             # tab Opzoeken: een nieuw aandeel meteen beoordelen
       - '.github/workflows/screener.yml'
 
 permissions:
@@ -48,6 +51,7 @@ jobs:
           [ -f koopmoment.json ] && git add koopmoment.json
           [ -f these.json ] && git add these.json
           [ -f zoek.json ] && git add zoek.json                # zoekindex voor 'positie toevoegen'
+          [ -f opzoeken.json ] && git add opzoeken.json        # tab Opzoeken: beoordeling per opgezocht aandeel
           if git diff --cached --quiet; then
             echo "Geen wijzigingen"; exit 0
           fi

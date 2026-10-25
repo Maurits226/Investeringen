@@ -12,6 +12,10 @@ Alleen euro- en dollarbedrijven: bedrijven die in een andere valuta noteren of r
 Uitvoer: screener.json (lichte lijst: eigen posities volledig, kansen kort), screener_det/00..15.json
 (details per kans, pas geladen bij openklappen), koopmoment.json en these.json (wekelijkse stand van je eigen aandelen).
 
+Opzoeken: aandelen uit opzoeklijst.json (zet het dashboard erin, tab Opzoeken) gaan mee in deze run, met dezelfde
+scorecard en 12 stappen en afgezet tegen hetzelfde universum; het resultaat staat in opzoeken.json. Een opgezocht
+aandeel buiten het universum telt niet mee in de lijsten, de vergelijking of het bewijs (koopmoment, gaplog).
+
 Per stock:
   * De 12 stappen en de 125-punten scorecard uit 'How to Find the Best Stocks' (Tom Nash):
     alles wat uit de cijfers te halen is wordt nagerekend, de rest staat als checklist klaar.
@@ -39,7 +43,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 # ── Instellingen ─────────────────────────────────────────────────────────
@@ -104,6 +108,11 @@ DET_N = 16
 THESE_OUT = os.path.join(ROOT, "these.json")
 ZOEK_OUT = os.path.join(ROOT, "zoek.json")       # zoekindex voor 'positie toevoegen' (naam -> tickers)   # wekelijkse stand van je eigen aandelen (these-bewaking)
 THESE_MAX = 104                                # zoveel weken historie bewaren (2 jaar)
+LOOK_IN = os.path.join(ROOT, "opzoeklijst.json")   # je opzoeklijst: het dashboard zet er met je token een aandeel in
+LOOK_OUT = os.path.join(ROOT, "opzoeken.json")     # scorecard en 12 stappen per opgezocht aandeel
+LOOK_DAYS = 30                                   # na een maand valt een opgezocht aandeel vanzelf uit de lijst
+LOOK_MAX = 50                                    # hooguit zoveel tegelijk (de nieuwste)
+TICKER_OK = re.compile(r"^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$")   # zelfde regel als het dashboard (shared.js)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
@@ -528,8 +537,9 @@ def etf_lookthrough(y, prev):
     return res
 
 
-def pct_ranks(items, key, higher, group_of):
-    """Percentiel (0-100) per bedrijf binnen zijn groep; te kleine groepen vergelijken met de hele markt."""
+def pct_ranks(items, key, higher, group_of, extra=()):
+    """Percentiel (0-100) per bedrijf binnen zijn groep; te kleine groepen vergelijken met de hele markt.
+    extra: bedrijven die alleen tegen items worden afgezet zonder zelf mee te tellen (opgezocht, buiten het universum)."""
     from bisect import bisect_left, bisect_right
     vals = [(it, it["m"].get(key)) for it in items if it["m"].get(key) is not None]
     groups = {}
@@ -537,7 +547,7 @@ def pct_ranks(items, key, higher, group_of):
         groups.setdefault(group_of(it), []).append(v)
     groups = {g: sorted(v) for g, v in groups.items()}
     allv = sorted(v for _, v in vals)
-    for it, v in vals:
+    for it, v in vals + [(x, x["m"].get(key)) for x in extra if x["m"].get(key) is not None]:
         g = groups.get(group_of(it)) or []
         ref = g if len(g) >= MIN_PEERS else allv
         n = len(ref)
@@ -955,6 +965,89 @@ def owned_positions():
         if us and us not in ETC_US and re.fullmatch(r"[A-Z][A-Z0-9-]{0,6}", us):
             stock_us.setdefault(us, s)
     return {"own": own, "watch": watch, "names_own": names_own, "names_watch": names_watch, "stock_us": stock_us}
+
+
+# ── Opzoeken ─────────────────────────────────────────────────────────────
+def load_lookups(path=None, at=None):
+    """Je opzoeklijst (opzoeklijst.json, door het dashboard geschreven), de nieuwste eerst: alleen geldige tickers en
+    alleen van de laatste LOOK_DAYS dagen. Een regel = {sym, alt (andere noteringen van hetzelfde bedrijf), name, at}."""
+    try:
+        raw = json.load(open(path or LOOK_IN, encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return []
+    t = at or now()
+    out, seen = [], set()
+    for e in (raw.get("items") if isinstance(raw, dict) else None) or []:
+        if not isinstance(e, dict):
+            continue
+        sym = str(e.get("sym") or "").strip().upper()
+        try:
+            when = datetime.fromisoformat(str(e.get("at") or "").replace("Z", "+00:00"))
+            when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if not TICKER_OK.match(sym) or sym in seen or not t - timedelta(days=LOOK_DAYS) < when <= t + timedelta(days=1):
+            continue
+        seen.add(sym)
+        alt = []
+        for a in (e.get("alt") if isinstance(e.get("alt"), list) else [])[:8]:
+            a = str(a or "").strip().upper()
+            if TICKER_OK.match(a) and a != sym and a not in alt:
+                alt.append(a)
+        out.append({"sym": sym, "alt": alt, "name": str(e.get("name") or "")[:80] or None,
+                    "at": when.astimezone(timezone.utc).isoformat(timespec="seconds")})
+    out.sort(key=lambda e: e["at"], reverse=True)
+    return out[:LOOK_MAX]
+
+
+def lookup_pick(e, uni):
+    """Welke notering scoren: een die de scan al kent (geen extra verzoeken, zelfde cijfers), anders de gevraagde."""
+    return next((s for s in [e["sym"]] + e["alt"] if s in uni), e["sym"])
+
+
+def lookup_index(scored):
+    """Gescoorde bedrijven per notering, ook hun euro-notering en de noteringen die dedupe_listings wegliet."""
+    idx = {}
+    for x in scored:
+        for s in [x.get("eu"), *(x.get("alt") or [])]:
+            if s:
+                idx.setdefault(s, x)
+    for x in scored:
+        idx[x["sym"]] = x                          # de eigen notering gaat voor
+    return idx
+
+
+def lookup_find(e, idx):
+    return next((idx[s] for s in [e.get("pick") or e["sym"], e["sym"]] + e["alt"] if s in idx), None)
+
+
+def lookup_result(e, idx, cache, outside=()):
+    """Uitkomst voor één opgezocht aandeel: het volledige item (scorecard, 12 stappen, Find the gap), anders waarom niet.
+    buiten: het bedrijf zit niet in het universum van de scan (wel ertegen afgezet, de plek is ter vergelijking)."""
+    it = lookup_find(e, idx)
+    if it:
+        return dict({"at": e["at"], "status": "ok", "it": it}, **({"buiten": True} if it["sym"] in outside else {}))
+    c = cache.get(e.get("pick") or e["sym"]) or {}
+    if c.get("skip"):
+        status, why = "skip", c["skip"]             # bv. 'valuta GBp' of 'rapporteert in DKK'
+    elif not c.get("f") and c.get("err_at"):            # wordt elke run opnieuw geprobeerd
+        err = str(c.get("err") or "")
+        status, why = "fout", "Yahoo kent deze ticker niet" if "404" in err else f"ophalen mislukt ({err[:80]})"
+    elif not c.get("f"):
+        status, why = "wacht", None
+    else:
+        status, why = "geen", "te weinig cijfers om te scoren (ETF, fonds of pas kort op de beurs?)"
+    return {"at": e["at"], "status": status, "why": why, "name": c.get("name") or e.get("name")}
+
+
+def write_lookups(look, scored, cache, n, path=None, outside=()):
+    """opzoeken.json: per opgezochte ticker het resultaat van deze run. n = aantal gescoorde bedrijven in de scan."""
+    idx = lookup_index(scored)
+    out = {"updated": iso(), "days": LOOK_DAYS, "n": n,
+           "items": {e["sym"]: lookup_result(e, idx, cache, outside) for e in look}}
+    with open(path or LOOK_OUT, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    return out
 
 
 def load_quality():
@@ -2195,8 +2288,18 @@ def main():
     for s_, src_ in sorted(own["stock_us"].items()):
         if s_ not in uni and src_ not in uni:
             uni[s_] = {"region": "VS", "src": "eigen", "name": None}
+    # Opzoeken (tab Opzoeken): de notering die de scan al kent, anders komt de gevraagde er voor deze run bij
+    look, look_only = load_lookups(), set()
+    for e in look:
+        e["pick"] = lookup_pick(e, uni)
+        if e["pick"] not in uni:
+            suf = e["pick"].rsplit(".", 1)[1] if "." in e["pick"] else None
+            uni[e["pick"]] = {"region": "EU" if suf else "VS", "src": "opzoeken", "name": e.get("name")}
+            look_only.add(e["pick"])
+    look_pick = {e["pick"] for e in look}
     quality_map = load_quality()
-    print(f"Universum: {len(uni)} stocks · eigen posities: {len(own['own'])} · kwaliteitsoordelen: {len(quality_map)}")
+    print(f"Universum: {len(uni)} stocks · eigen posities: {len(own['own'])} · kwaliteitsoordelen: {len(quality_map)}"
+          f" · opgezocht: {len(look)} ({len(look_only)} buiten het universum)")
     # euro-notering die bij een ander bedrijf hoort (oude koppeling alleen op koers): wissen, dan zoekt de volgende
     # verversing opnieuw, nu met naamcontrole
     for s_, c_ in cache.items():
@@ -2220,9 +2323,11 @@ def main():
 
     # 1. Fundamentele cijfers verversen: oudste eerst, binnen het tijdsbudget
     # eigen posities worden ook gescand: ze dienen als referentie en tellen mee in de vergelijking
-    todo = [s for s in uni if needs_refresh(cache.get(s), uni[s]["region"])]
-    # eigen posities eerst (die beoordeel je zelf), dan de oudste
-    todo.sort(key=lambda s: (0 if is_owned(s) else 1, (cache.get(s) or {}).get("f") or ""))
+    # opgezocht en nog nooit gelukt: elke run opnieuw proberen (niet pas na ERROR_RETRY_H uur)
+    todo = [s for s in uni if needs_refresh(cache.get(s), uni[s]["region"])
+            or (s in look_pick and not (cache.get(s) or {}).get("f"))]
+    # eerst wat je opzocht (daar wacht je op), dan je eigen posities (die beoordeel je zelf), dan de oudste
+    todo.sort(key=lambda s: (0 if s in look_pick else 1 if is_owned(s) else 2, (cache.get(s) or {}).get("f") or ""))
     print(f"Te verversen: {len(todo)}")
     fails, done = 0, 0
     for sym in todo:
@@ -2291,14 +2396,19 @@ def main():
     before = len(items)
     items = dedupe_listings(items)
     print(f"Dubbele noteringen: {before - len(items)} weggelaten, {len(items)} bedrijven over")
+    # Opgezocht en buiten het universum: wel gescoord en afgezet tegen de rest, maar zelf niet in de vergelijking,
+    # de lijsten of het bewijs (koopmoment, gaplog). Een opgezocht aandeel krijgt altijd de volledige 12 stappen.
+    extra = [it for it in items if it["sym"] in look_only and all(a in look_only for a in it.get("alt") or [])]
+    items = [it for it in items if not any(it is x for x in extra)]
+    look_keep = {x["sym"] for x in (lookup_find(e, lookup_index(items + extra)) for e in look) if x}
 
     # Score 2.0: percentielen binnen de sector, vijf pijlers, samengestelde score, totaalscore = percentiel in de markt
     grp = lambda it: it.get("sector") or "?"  # noqa: E731
     for key, (_, higher) in METRICS.items():
-        pct_ranks(items, key, higher, grp)
-    pct_ranks(items, "rpe", True, grp)         # alleen voor de scorecard (talent), geen pijler
+        pct_ranks(items, key, higher, grp, extra)
+    pct_ranks(items, "rpe", True, grp, extra)  # alleen voor de scorecard (talent), geen pijler
     mean = lambda xs: sum(xs) / len(xs) if xs else None  # noqa: E731
-    for it in items:
+    for it in items + extra:
         mp = it["mp"]
         by = {pl: [mp[k] for k, (p2, _) in METRICS.items() if p2 == pl and k in mp] for pl in ("Q", "G", "V", "M")}
         qual_pct = it["kwal"] / 30 * 100
@@ -2326,7 +2436,7 @@ def main():
         for sec, vs in by.items():
             vs.sort()
             med[(key, sec)] = vs[len(vs) // 2]
-    for it in items:
+    for it in items + extra:
         try:
             twelve_steps(it, med)
         except Exception as e:  # noqa: BLE001
@@ -2339,7 +2449,7 @@ def main():
             it["gap"] = None
         it.pop("_card", None)
         it["koop"] = koopmoment(it)
-        if not it["own"] and ((it.get("card") or {}).get("s") or 0) < CARD_SELECT:
+        if not it["own"] and it["sym"] not in look_keep and ((it.get("card") or {}).get("s") or 0) < CARD_SELECT:
             it["s12"] = s12_brief(it["s12"])      # niet getoond in de lijst: alleen de status per stap (scheelt veel data)
         # relatieve sterkte t.o.v. de referentie-ETF van de branche (12 maanden, in euro)
         b = bench.get(it.get("branch") or "")
@@ -2353,14 +2463,14 @@ def main():
     for it in items:
         if it.get("chg12") is not None:
             by_sec.setdefault(it.get("sector"), []).append(it["chg12"])
-    for it in items:
+    for it in items + extra:
         xs = sorted(by_sec.get(it.get("sector")) or [])
         if it.get("gap") and len(xs) >= 10:
             it["gap"]["sec"] = rnd(xs[len(xs) // 2], 1)
     from bisect import bisect_left, bisect_right
     comps = sorted(it["composite"] for it in items)
     n = len(comps)
-    for it in items:
+    for it in items + extra:
         lo, hi = bisect_left(comps, it["composite"]), bisect_right(comps, it["composite"])
         it["score"] = round((lo + 0.5 * (hi - lo)) / n * 100, 1) if n else 0
     # Volgorde: scorecard (hoofdgetal, 0-125), dan marktrang (Score 2.0, percentiel), dan verwacht rendement
@@ -2368,16 +2478,20 @@ def main():
     refs = sorted([it for it in items if it["own"]], key=lambda x: (-cardv(x), -x["score"]))
     items = [it for it in items if not it["own"]]
     expo = lambda it: (it["exp"] or {}).get("pct") if (it["exp"] or {}).get("pct") is not None else -1e9  # noqa: E731
-    items.sort(key=lambda x: (-cardv(x), -x["score"], -expo(x), x["name"]))
+    order = lambda x: (-cardv(x), -x["score"], -expo(x), x["name"])  # noqa: E731
+    items.sort(key=order)
     for i, it in enumerate(items, 1):
         it["rank"] = i
+    for x in extra:                                  # opgezocht buiten het universum: op welke plek het zou staan
+        x["rank"] = 1 + sum(1 for it in items if order(it) < order(x))
     for key in bench:
         inb = [it for it in items if it.get("branch") == key]
         bench[key]["n85"] = sum(1 for it in inb if cardv(it) >= CARD_SELECT)     # aantal kansen (scorecard 75+)
 
     tried = lambda s: (cache.get(s) or {}).get("f") or (cache.get(s) or {}).get("err_at")
-    pending = sum(1 for s in uni if not tried(s))
-    failed = sum(1 for s in uni if not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
+    uni_reg = [s for s in uni if s not in look_only]      # tellers over het universum, zonder wat je alleen opzocht
+    pending = sum(1 for s in uni_reg if not tried(s))
+    failed = sum(1 for s in uni_reg if not (cache.get(s) or {}).get("f") and (cache.get(s) or {}).get("err_at"))
     # Find the gap (hoge score én een gap) valt nooit buiten de lijst, ook niet als die vol zit
     top = items[:TOP_N] + [it for it in items[TOP_N:] if (it.get("gap") or {}).get("ok") and cardv(it) >= GAP_CARD]
     out = {
@@ -2385,8 +2499,8 @@ def main():
         "fmt": 2,                                    # kansen licht, details in screener_det/ (refs blijven volledig)
         "det": {"n": DET_N, "path": "screener_det/"},
         "fx": rnd(fx, 4),
-        "universe": len(uni),
-        "scanned": sum(1 for s in uni if tried(s)),
+        "universe": len(uni_reg),
+        "scanned": sum(1 for s in uni_reg if tried(s)),
         "failed": failed,
         "scored": len(items),
         "pending": pending,
@@ -2435,6 +2549,13 @@ def main():
         print(f"Zoekindex: {write_search_index(cache, dyn)} namen")
     except Exception as e:  # noqa: BLE001
         print(f"  zoekindex niet bijgewerkt: {e}")
+    try:                                             # opzoeken; mag de Top 250 nooit laten vastlopen
+        res = write_lookups(look, items + refs + extra, cache, len(items) + len(refs),
+                            outside={x["sym"] for x in extra})["items"]
+        print(f"Opzoeken: {sum(1 for r in res.values() if r['status'] == 'ok')} van {len(res)} beoordeeld"
+              + "".join(f" · {k}: {r['status']}" for k, r in res.items() if r["status"] != "ok"))
+    except Exception as e:  # noqa: BLE001
+        print(f"  opzoeken.json niet bijgewerkt: {e}")
     print(f"Klaar: {len(items)} gescoord, top {min(TOP_N, len(items))} weggeschreven · "
           f"{done} ververst · nog {pending} nooit gescand · {time.time() - t0:.0f}s")
 

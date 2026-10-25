@@ -184,6 +184,63 @@ if hasattr(S, "SKIP_REFRESH_DAYS"):
     check(S.needs_refresh({"f": ago(S.SKIP_REFRESH_DAYS + 1), "skip": "rapporteert in JPY"}, "VS"), "overgeslagen aandeel wordt nooit opnieuw bekeken")
     check(S.needs_refresh({"f": ago(S.FUND_REFRESH_DAYS + 1), "ts": {}, "v": S.CACHE_V}, "EU"), "verouderde cijfers worden niet ververst")
 
+# Opzoeken (tab Opzoeken): lijst lezen (geldig, niet verlopen, nieuwste eerst), de notering die de scan kent,
+# het resultaat terugvinden onder een andere notering en de reden als het niet lukt
+if hasattr(S, "load_lookups"):
+    import tempfile
+    from datetime import datetime, timedelta, timezone
+    t0 = datetime(2026, 10, 25, 12, 0, tzinfo=timezone.utc)
+    stamp = lambda d: (t0 - timedelta(days=d)).isoformat().replace("+00:00", "Z")  # noqa: E731
+    with tempfile.TemporaryDirectory() as tmp:
+        lp = os.path.join(tmp, "opzoeklijst.json")
+        json.dump({"items": [
+            {"sym": "nvda", "alt": ["NVD.DE", "nvd.de", "<x>"], "name": "NVIDIA", "at": stamp(2)},
+            {"sym": "AMD.DE", "alt": ["AMD"], "at": stamp(0.1)},
+            {"sym": "OUD", "at": stamp(S.LOOK_DAYS + 1)},                 # verlopen
+            {"sym": "<script>", "at": stamp(1)},                          # geen ticker
+            {"sym": "TOEKOMST", "at": (t0 + timedelta(days=3)).isoformat()},
+            {"sym": "NVDA", "at": stamp(5)},                              # dubbel: de eerste telt
+            {"sym": "GEENDATUM"},
+        ]}, open(lp, "w"))
+        look = S.load_lookups(lp, at=t0)
+        check([e["sym"] for e in look] == ["AMD.DE", "NVDA"], f"opzoeklijst: verwacht AMD.DE, NVDA, kreeg {[e['sym'] for e in look]}")
+        check(look and look[1]["alt"] == ["NVD.DE"], f"opzoeklijst: andere noteringen niet opgeschoond: {look[1]['alt'] if len(look) > 1 else None}")
+        check(S.load_lookups(os.path.join(tmp, "bestaat-niet.json")) == [], "opzoeklijst: ontbrekend bestand moet een lege lijst geven")
+        uni_t = {"AMD": {}, "NVDA": {}}
+        check(S.lookup_pick(look[0], uni_t) == "AMD", "opzoeken: euro-notering moet de dollarnotering uit de scan kiezen")
+        check(S.lookup_pick({"sym": "XYZ.AS", "alt": []}, uni_t) == "XYZ.AS", "opzoeken: onbekend aandeel = de gevraagde notering")
+        # terugvinden onder een andere notering (euro-notering of weggelaten dubbele notering)
+        pool = [it for it in items if it.get("eu") and it["eu"] != it["sym"]][:2]     # VS-bedrijf met een euro-notering
+        check(bool(pool), "opzoeken: geen VS-bedrijf met euro-notering in de steekproef")
+        if pool:
+            idx = S.lookup_index(pool)
+            r = S.lookup_result({"sym": pool[0]["eu"], "alt": [], "at": stamp(0)}, idx, {})
+            check(r["status"] == "ok" and r["it"] is pool[0], f"opzoeken: {pool[0]['eu']} niet gevonden via de euro-notering")
+        cache_t = {"SKP": {"f": stamp(1), "skip": "rapporteert in DKK"}, "ERR": {"err": "HTTP Error 404: Not Found", "err_at": stamp(0)},
+                   "LEEG": {"f": stamp(1), "ts": {}}}
+        st = {k: S.lookup_result({"sym": k, "alt": [], "at": stamp(0)}, {}, cache_t) for k in ("SKP", "ERR", "LEEG", "NIEUW")}
+        check([st[k]["status"] for k in ("SKP", "ERR", "LEEG", "NIEUW")] == ["skip", "fout", "geen", "wacht"],
+              f"opzoeken: statussen kloppen niet: {[(k, v['status']) for k, v in st.items()]}")
+        check(st["ERR"]["why"] == "Yahoo kent deze ticker niet", f"opzoeken: onbekende ticker niet herkend: {st['ERR']['why']}")
+        out = S.write_lookups(look, items, {}, len(items), path=os.path.join(tmp, "opzoeken.json"), outside={look[1]["sym"]})
+        back = json.load(open(os.path.join(tmp, "opzoeken.json"), encoding="utf-8"), parse_constant=lambda c: check(False, c))
+        check(set(back["items"]) == {"AMD.DE", "NVDA"} and back["days"] == S.LOOK_DAYS, "opzoeken.json: onverwachte inhoud")
+        check(all(r["at"] for r in out["items"].values()), "opzoeken.json: resultaat zonder datum van het opzoeken")
+    # een opgezocht aandeel buiten het universum wordt tegen de rest afgezet, maar verandert hun percentielen niet
+    pool = [json.loads(json.dumps(it)) for it in items if it["m"].get("fcf_margin") is not None][:60]
+    if len(pool) >= 20:
+        for it in pool:
+            it["mp"] = {}
+        S.pct_ranks(pool, "fcf_margin", True, lambda it: "x")
+        before = [it["mp"].get("fcf_margin") for it in pool]
+        ext = json.loads(json.dumps(pool[0]))
+        ext["mp"], ext["m"]["fcf_margin"] = {}, 1e6
+        for it in pool:
+            it["mp"] = {}
+        S.pct_ranks(pool, "fcf_margin", True, lambda it: "x", [ext])
+        check([it["mp"].get("fcf_margin") for it in pool] == before, "opzoeken: extra aandeel verandert de percentielen van de rest")
+        check(ext["mp"].get("fcf_margin") == 100.0, f"opzoeken: extra aandeel met de hoogste marge moet percentiel 100 krijgen, kreeg {ext['mp']}")
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten, "
       f"{sum(1 for it in items if (it.get('gap') or {}).get('ok'))} gaps · "

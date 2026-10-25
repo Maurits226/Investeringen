@@ -417,12 +417,14 @@ const Shared = (() => {
       d.rows.forEach(([name, sym, eu, exch, sector, mcap]) => {
         const key = coKey(name) || sym;
         let g = groups.get(key);
-        if (!g) groups.set(key, g = { name, sector: null, mcap: 0, hay: fold(name), list: [] });
+        if (!g) groups.set(key, g = { name, sector: null, mcap: 0, hay: fold(name), list: [], scan: null, first: sym });
+        if (!g.scan && sector) g.scan = sym;        // de notering die de Top 250 scant (heeft cijfers en een sector)
         g.sector = g.sector || sector;
         g.mcap = Math.max(g.mcap, mcap || 0);
         [listing(sym, exch), eu && listing(eu)].forEach(l => { if (l && !g.list.some(x => x.sym === l.sym)) g.list.push(l); });
       });
       const out = [...groups.values()].filter(g => g.list.length);
+      out.forEach(g => { g.scan = g.scan || g.first; });
       out.forEach(g => g.list.sort((a, b) => a.rank - b.rank));
       return out;
     });
@@ -452,22 +454,26 @@ const Shared = (() => {
   const TICKER_OK = /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/;
   const txtSym = line => (line.trim().split(/[\s,;|#]/)[0] || '').toUpperCase();
   const plain = s => String(s || '').replace(/[,;|#\t\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-  async function editTickers(change, message) {
+  // Een openbaar tekstbestand in de repository wijzigen met je token: nieuwste versie lezen, change(oud) → nieuw (null = niets),
+  // terugschrijven. Tussendoor gewijzigd (409/422): opnieuw lezen en nog één keer. create: het bestand mag nog niet bestaan.
+  async function editRepoFile(file, change, message, create = false) {
     if (!token()) return 'no-token';
-    for (let i = 0; i < 2; i++) {                   // tussendoor gewijzigd (409/422): opnieuw lezen en nog één keer
+    for (let i = 0; i < 2; i++) {
       try {
-        const r = await fetch(`${api('tickers.txt')}?ref=${GH.branch}&t=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
-        if (!r.ok) return 'error';
-        const j = await r.json(), old = Vault.b64ToText(j.content), next = change(old);
+        const r = await fetch(`${api(file)}?ref=${GH.branch}&t=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
+        if (!r.ok && !(create && r.status === 404)) return 'error';
+        const j = r.ok ? await r.json() : null, old = j ? Vault.b64ToText(j.content) : '', next = change(old);
         if (next == null || next === old) return 'same';
-        const w = await fetch(api('tickers.txt'), { method: 'PUT', headers: Object.assign(ghHeaders(), { 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ message, content: Vault.textToB64(next), sha: j.sha, branch: GH.branch }) });
+        const body = { message, content: Vault.textToB64(next), branch: GH.branch };
+        if (j) body.sha = j.sha;
+        const w = await fetch(api(file), { method: 'PUT', headers: Object.assign(ghHeaders(), { 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
         if (w.ok) return 'ok';
         if (w.status !== 409 && w.status !== 422) return 'error';
       } catch (e) { return 'error'; }
     }
     return 'error';
   }
+  const editTickers = (change, message) => editRepoFile('tickers.txt', change, message);
   function addTicker(sym, name, section) {
     sym = String(sym || '').toUpperCase();
     if (!TICKER_OK.test(sym)) return Promise.resolve('error');
@@ -484,6 +490,35 @@ const Shared = (() => {
     }, `Ticker verwijderd via het dashboard: ${sym}`);
   }
 
+  // ── Opzoeken (tab Opzoeken): opzoeklijst.json is openbaar (alleen tickers, naam en datum, geen bedragen). Een wijziging
+  // start de Top 250-run, die elk aandeel uit de lijst scoort (opzoeken.json). Nieuwste bovenaan; na LOOK_DAYS dagen valt
+  // een aandeel er vanzelf uit (de run negeert het dan, en de volgende wijziging haalt het weg), verwijderen kan altijd.
+  const LOOK_DAYS = 30, LOOK_MAX = 50;
+  const lookFresh = e => !!e && TICKER_OK.test(e.sym) && Date.now() - Date.parse(e.at) < LOOK_DAYS * 864e5;
+  const lookName = s => String(s || '').replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 80) || null;
+  function lookEdit(fn, message) {
+    return editRepoFile('opzoeklijst.json', old => {
+      let d = null;
+      try { d = JSON.parse(old || 'null'); } catch (e) { d = null; }
+      const items = (d && Array.isArray(d.items) ? d.items : []).filter(lookFresh);
+      const next = fn(items).slice(0, LOOK_MAX);
+      return JSON.stringify({ v: 1, days: LOOK_DAYS, items: next }, null, 1) + '\n';
+    }, message, true);
+  }
+  // sym = de notering die je zoekt, alt = andere noteringen van hetzelfde bedrijf (de run kiest er een die de scan al kent)
+  function lookAdd(sym, alt, name) {
+    sym = String(sym || '').trim().toUpperCase();
+    if (!TICKER_OK.test(sym)) return Promise.resolve('error');
+    alt = [...new Set((alt || []).map(a => String(a || '').toUpperCase()))].filter(a => a !== sym && TICKER_OK.test(a)).slice(0, 8);
+    const at = new Date().toISOString().slice(0, 19) + 'Z';
+    return lookEdit(items => [{ sym, alt, name: lookName(name), at }].concat(items.filter(e => e.sym !== sym)), `Opzoeken: ${sym}`);
+  }
+  function lookRemove(sym) {
+    sym = String(sym || '').trim().toUpperCase();
+    return lookEdit(items => items.filter(e => e.sym !== sym), `Opzoeken: ${sym} verwijderd`);
+  }
+  const lookClean = () => lookEdit(items => items, 'Opzoeken: aandelen ouder dan 30 dagen weggehaald');
+
   // ── Opnieuw tonen als een andere pagina iets wijzigt, of als dit tabblad weer zichtbaar wordt
   const WATCH = ['portfolio_state', 'portfolio_positions', 'radar_trades', 'buy_mode', 'gh_token'];
   function onRefresh(fn) {
@@ -495,5 +530,6 @@ const Shared = (() => {
   }
 
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
-           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, onRefresh, searchIndex, searchStocks, addTicker, removeTicker };
+           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
+           editRepoFile, TICKER_OK, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
 })();

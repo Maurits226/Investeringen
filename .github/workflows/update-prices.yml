@@ -21,6 +21,8 @@ on:
       - 'state.json'
       - 'data.json'
       - 'signals.json'
+      - 'opzoeklijst.json'   # tab Opzoeken: daar gaat de Top 250-run over, niet de koersen
+      - 'opzoeken.json'
 
 permissions:
   contents: write

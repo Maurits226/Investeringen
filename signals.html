@@ -1161,7 +1161,7 @@ function detail(it) {
       ${stop}
       <div class="d-k">Gevonden patronen</div>
       <ul class="pat">${pats.map(p => p.off ? `<li class="off" title="Uitgeschakeld: dit patroon leverde in de backtest niets op en telt niet mee in de score"><span>○</span><span><s>${esc(p.label)}</s><small>uitgeschakeld</small></span></li>`
-        : `<li class="${p.ctx ? 'ctx' : ''}"${p.ctx ? ' title="Achtergrond: niet terug te testen, telt niet mee in de score"' : ''}><span class="${p.ctx ? '' : 'c-' + p.dir}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span style="color:var(--muted)">Geen patronen gevonden</span></li>'}</ul>
+        : `<li class="${p.ctx ? 'ctx' : ''}"${p.ctx ? ' title="Achtergrond: niet terug te testen, telt niet mee in de score"' : ''}><span class="${p.ctx ? '' : 'c-' + tok(p.dir)}">${p.dir === 'up' ? '▲' : '▼'}</span><span>${esc(p.label)}${p.detail ? `<small>${esc(p.detail)}</small>` : ''}</span></li>`).join('') || '<li><span></span><span style="color:var(--muted)">Geen patronen gevonden</span></li>'}</ul>
       <div class="facts">
         <div class="p-block"><div class="k" title="Som van de patronen, van −100 (sterk omlaag) tot +100 (sterk omhoog); los van de scorecard">Patroonscore</div><div class="v ${it.score > 0 ? 'up' : it.score < 0 ? 'down' : ''}">${it.score > 0 ? '+' : ''}${it.score}</div></div>
         <div class="p-block"><div class="k">RSI</div><div class="v">${it.rsi == null ? '–' : Math.round(it.rsi)}</div></div>

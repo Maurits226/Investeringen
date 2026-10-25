@@ -136,6 +136,22 @@ const Steps = (() => {
       text: `Scorecard ${sc(c.s)}${c.s >= 100 ? ' (uitzonderlijk)' : ' (watchlist-niveau)'} en geen afvaller in de bedrijfsstappen.${val && val.s === 'fail' ? ' Wel duur: bijkopen pas bij een betere prijs, maar dat is geen reden om te verkopen.' : ''} Check elk kwartaal, herhaal de scorecard jaarlijks.` };
   }
 
+  // Oordeel als nieuwe aankoop (Survivors, Opzoeken): de 12 stappen zijn een koopfilter, elke afvaller telt.
+  function buyVerdict(it) {
+    const s = it && it.s12, c = it && it.card;
+    if (!s || !c || c.s == null) return { cls: 'v-na', label: 'Niet te beoordelen', text: 'Te weinig cijfers voor de scorecard en de 12 stappen.' };
+    const val = s.list.find(x => x.n === 12) || {};
+    if (s.survivor && val.s === 'pass') return { cls: 'v-good', label: 'Survivor · koopwaardig', text: 'Overleeft alle 12 stappen en zelfs de bear-case DCF ligt boven de koers. Volgens de gids: koop langzaam (vast bedrag, vaste data) en schrijf je exit op vóór je koopt.' };
+    if (s.survivor) return { cls: 'v-good', label: 'Survivor', text: 'Overleeft alle 12 stappen; de waardering is redelijk maar niet ruim (bear-case DCF onder de koers). Koop langzaam en schrijf je exit vooraf op.' };
+    if (s.nfail === 1 && s.fail === 12) return { cls: 'v-mid', label: 'Bijna · te duur', text: 'Overleeft stap 1-11, maar de koers ligt boven de basis-DCF. Wacht op een betere prijs (zie Koopmoment); de kwaliteit is er al.' };
+    if (!s.nfail) return { cls: 'v-mid', label: 'Geen afvaller · zelf beoordelen', text: 'Geen stap valt automatisch af, maar bij banken, brokers en verzekeraars zijn de balans (stap 8) en de waardering (stap 12) niet uit de cijfers te halen: beoordeel die zelf.' };
+    const f = s.list.find(x => x.n === s.fail), why = f && f.note ? `: ${f.note.replace(/^[^:]+:\s*/, '')}` : '';
+    const where = `stap ${failNames([s.fail])}${why}${s.nfail > 1 ? `; in totaal ${s.nfail} afvallers` : ''}`;
+    return c.s < 75
+      ? { cls: 'v-bad', label: 'Absoluut niet', text: `Scorecard ${sc(c.s)}: onder 75, volgens de gids 'absoluut niet'. Eerste afvaller: ${where}.` }
+      : { cls: 'v-bad', label: `Valt af bij stap ${+s.fail}`, text: `Eerste afvaller: ${where}. Volgens de gids: zakt een bedrijf voor één stap, dan valt het af, hoe mooi het verhaal ook klinkt.` };
+  }
+
   // Volledige 12 stappen. opts.ticks = {n: [index, ...]} en opts.tickable = true geven afvinkbare punten
   function panel(s12, opts = {}) {
     if (!s12) return '<div class="s12-note">De 12 stappen worden berekend bij de volgende run van de Top 250.</div>';
@@ -240,5 +256,5 @@ const Steps = (() => {
     document.head.appendChild(st);
   }
 
-  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, MANUAL, ring, esc, dots, failText, verdict, cardTable, panel, css };
+  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, MANUAL, ring, esc, dots, failText, verdict, buyVerdict, cardTable, panel, css };
 })();

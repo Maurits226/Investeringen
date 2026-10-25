@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
+const lookupFixture = require('./fixture_opzoeken');
 
 const ROOT = path.resolve(__dirname, '..');
 const PAY = `"'><i data-xss="1"></i>`;
@@ -19,7 +20,7 @@ const LINK = new Set(['link', 'url', 'href']);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 const PAGES = ['vandaag.html', 'portfolio.html', 'beoordeling.html', 'beoordeling.html?set=top', 'signals.html', 'signals.html?set=top250',
-  'archief.html', 'archief.html?set=top250', 'screener.html', 'koopmoment.html', 'koopmoment.html?set=own'];
+  'archief.html', 'archief.html?set=top250', 'screener.html', 'koopmoment.html', 'koopmoment.html?set=own', 'opzoeken.html'];
 
 function taint(x, keys, k) {
   if (Array.isArray(x)) {
@@ -35,14 +36,14 @@ function taint(x, keys, k) {
 }
 
 function serve(keys) {
-  const cache = {};
+  const cache = {}, fixture = lookupFixture(ROOT) || {};     // lege opzoeklijst: testdata, ook besmet
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
       if (path.extname(file) === '.json') {
-        try { cache[rel] = cache[rel] || JSON.stringify(taint(JSON.parse(fs.readFileSync(file, 'utf8')), keys)); }
+        try { cache[rel] = cache[rel] || JSON.stringify(taint(fixture[rel] || JSON.parse(fs.readFileSync(file, 'utf8')), keys)); }
         catch (e) { cache[rel] = fs.readFileSync(file, 'utf8'); }
         res.writeHead(200, { 'Content-Type': TYPES['.json'] }); res.end(cache[rel]); return;
       }
@@ -77,20 +78,23 @@ function serve(keys) {
       await page.route('**/*', r => r.request().url().startsWith(base) ? r.continue() : r.abort());
       await page.goto(base + pg);
       await page.waitForTimeout(2000);
-      // details openklappen (alleen weergave: knoppen die iets opslaan blijven dicht)
+      // details openklappen (alleen weergave: knoppen die iets opslaan blijven dicht). Na elke ronde controleren:
+      // een tweede klik op dezelfde knop klapt een kaart weer dicht.
+      const r = { injected: [], js: [], ran: false, shown: 0 };
       for (let i = 0; i < 2; i++) {
         await page.evaluate(() => {
           document.querySelectorAll('details:not([open]) > summary').forEach(s => s.click());
           document.querySelectorAll('button.toggle, [data-view]').forEach(e => { try { e.click(); } catch (x) {} });
         });
         await page.waitForTimeout(700);
+        const x = await page.evaluate(() => ({
+          injected: [...document.querySelectorAll('[data-xss]')].map(e => (e.parentElement ? e.parentElement.outerHTML : '?').slice(0, 160)),
+          js: [...document.querySelectorAll('[href^="javascript:" i], [src^="javascript:" i], [action^="javascript:" i]')].map(e => e.outerHTML.slice(0, 160)),
+          ran: !!window.__xss,
+          shown: (document.body.innerText.match(/data-xss/g) || []).length
+        }));
+        r.injected.push(...x.injected); r.js.push(...x.js); r.ran = r.ran || x.ran; r.shown = Math.max(r.shown, x.shown);
       }
-      const r = await page.evaluate(() => ({
-        injected: [...document.querySelectorAll('[data-xss]')].map(e => (e.parentElement ? e.parentElement.outerHTML : '?').slice(0, 160)),
-        js: [...document.querySelectorAll('[href^="javascript:" i], [src^="javascript:" i], [action^="javascript:" i]')].map(e => e.outerHTML.slice(0, 160)),
-        ran: !!window.__xss,
-        shown: (document.body.innerText.match(/data-xss/g) || []).length
-      }));
       shown += r.shown;
       r.injected.slice(0, 3).forEach(h => problems.push(`${pg} (${ronde}): ingevoegde HTML: ${h}`));
       r.js.slice(0, 3).forEach(h => problems.push(`${pg} (${ronde}): javascript-link: ${h}`));

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<style id="af">html{display:none}</style>
+<script src="antiframe.js"></script>
+<link rel="stylesheet" href="fonts.css">
+<link rel="preload" href="fonts/SpaceGrotesk-var.woff2" as="font" type="font/woff2" crossorigin>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Opzoeken</title>
+<style>
+  :root {
+    --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
+    --muted: #83888d; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
+    --warn: #f5b544; --accent: #4f8ff0; --gold: #c9a45c;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1e2430 0%, transparent 60%), var(--ink);
+    color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100vh; padding: 28px 18px 60px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header.top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 18px; }
+  .title-block h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px; }
+  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .title-block p { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.5; max-width: 720px; }
+  .updated { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  /* zoeken (zelfde opmaak als 'positie toevoegen' op Investeringen) */
+  .search { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 16px; }
+  .search label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+  .search input { width: 100%; background: var(--ink); border: 1px solid var(--line); border-radius: 10px; color: var(--text);
+                  font: inherit; font-size: 15px; padding: 11px 12px; min-height: 44px; }
+  .search input:focus { outline: none; border-color: var(--accent); }
+  .z-res { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .z-res:empty { display: none; }
+  .z-co { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left;
+          border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--ink); color: var(--text); font: inherit; cursor: pointer; min-height: 48px; }
+  .z-co:hover, .z-co:focus-visible { border-color: var(--accent); outline: none; }
+  .z-name { font-size: 13.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .z-name small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; font-family: var(--mono); margin-top: 2px; }
+  .z-go { font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .z-co.have .z-go { color: var(--muted); }
+  .z-more { font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .z-more a { color: var(--accent); }
+  .z-more button { background: none; border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 8px; cursor: pointer; min-height: 36px; margin: 4px 6px 0 0; }
+  .z-more button:hover { border-color: var(--accent); }
+  .note { font-size: 12.5px; line-height: 1.5; margin-top: 10px; color: var(--muted); }
+  .note:empty { display: none; }
+  .note.ok { color: var(--up); } .note.err { color: var(--warn); }
+  .note a { color: var(--accent); cursor: pointer; }
+
+  .list-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+  .list-h h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 500; }
+  .list-h span { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .b-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; position: relative; overflow: hidden; }
+  .b-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+  .b-card.vc-good::before { background: var(--up); } .b-card.vc-mid::before { background: var(--warn); } .b-card.vc-bad::before { background: var(--down); }
+  .b-card.vc-wait::before { background: var(--accent); }
+  .b-card.fresh { animation: fresh 2.4s ease-out; }
+  @keyframes fresh { from { box-shadow: 0 0 0 2px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
+  .b-head { display: grid; grid-template-columns: minmax(0, 1.6fr) 92px minmax(0, 1.4fr) auto; gap: 16px; align-items: center; padding: 14px 16px 14px 20px; cursor: pointer; }
+  .b-name { min-width: 0; }
+  .b-title { font-size: 16.5px; font-weight: 700; letter-spacing: -.2px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis;
+             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .b-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 3px; line-height: 1.45; }
+  .b-sub span { white-space: nowrap; }
+  .b-verdict { font-size: 11px; font-weight: 600; margin-top: 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
+  .b-gap { font-size: 11px; font-weight: 600; margin: 6px 0 0 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(62,207,142,.55); color: var(--up); background: rgba(62,207,142,.08); }
+  .b-gap.warn { color: var(--warn); border-color: rgba(245,181,68,.45); background: none; }
+  .b-gap.low { color: var(--muted); border-color: var(--line); background: none; }
+  .b-own { font-size: 11px; font-weight: 600; margin: 6px 0 0 6px; display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(79,143,240,.5); color: var(--accent); }
+  .b-score { text-align: center; }
+  .b-score small { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .b-steps { min-width: 0; }
+  .b-steps .why { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .b-act { display: flex; gap: 6px; align-items: center; }
+  .toggle, .rm { background: none; border: 1px solid var(--line); color: var(--muted); font: inherit; font-size: 11.5px; padding: 7px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; min-height: 36px; }
+  .toggle:hover { border-color: var(--accent); color: var(--text); }
+  .rm { padding: 7px 10px; }
+  .rm:hover { border-color: var(--down); color: var(--down); }
+  .b-wait { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .b-wait.err { color: var(--warn); }
+  .b-spin { width: 14px; height: 14px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .b-spin, .b-card.fresh { animation: none; } }
+  .b-body { border-top: 1px solid var(--line); padding: 16px 16px 16px 20px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 22px; }
+  .d-k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .d-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
+  .advice { font-size: 13px; line-height: 1.55; margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid var(--line); }
+  .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .fact { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .fact small { display: block; font-size: 11px; color: var(--muted); }
+  .fact b { font-family: var(--mono); font-size: 13.5px; font-weight: 600; }
+  .fact em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .c-up { color: var(--up); } .c-down { color: var(--down); }
+  .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
+  .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 900px) {
+    .b-head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; gap: 8px 16px; }
+    .b-name { grid-area: 1 / 1 / 3 / 2; }
+    .b-steps { grid-area: 1 / 2 / 3 / 3; }
+    .b-score { grid-area: 1 / 3; align-self: end; }
+    .b-act { grid-area: 2 / 3; align-self: start; justify-self: stretch; flex-direction: column; align-items: stretch; }
+    .b-body { grid-template-columns: 1fr; }
+  }
+  @media (pointer: coarse), (max-width: 900px) {
+    .toggle, .rm { min-height: 40px; }
+    .search input { font-size: 16px; }
+  }
+  @media (max-width: 560px) {
+    body { padding: 18px 12px calc(40px + env(safe-area-inset-bottom)); }
+    .title-block h1 { font-size: 22px; }
+    .search { padding: 12px; }
+    .b-head, .b-body { padding-left: 16px; padding-right: 12px; }
+    /* telefoon: naam | score, vakjes | knoppen, toelichting over de hele breedte */
+    .b-head { grid-template-columns: minmax(0, 1fr) 60px; gap: 10px 12px; }
+    .b-name { grid-area: 1 / 1; } .b-score { grid-area: 1 / 2; align-self: start; }
+    .b-steps { display: contents; }
+    .b-steps .s12-dots { grid-area: 2 / 1; align-self: center; }
+    .b-steps .why { grid-area: 3 / 1 / 4 / 3; margin-top: 0; }
+    .b-steps .b-wait { grid-area: 4 / 1 / 5 / 3; }
+    .b-act { grid-area: 2 / 2; flex-direction: row; justify-self: end; align-self: center; }
+    .b-act .toggle { width: 40px; height: 40px; padding: 0; font-size: 14px; }
+    .b-act .rm { width: 40px; height: 40px; padding: 0; }
+    .b-act .tg-l { display: none; }
+    .b-head.nodots .b-act { grid-area: 2 / 1 / 3 / 3; }
+    .facts { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="pulse"></span>Opzoeken</h1>
+      <p>Zoek een aandeel en krijg de volledige scorecard en de 12 stappen van <i>How to Find the Best Stocks</i>, afgezet tegen alle bedrijven uit de scan.
+        Het nieuwste staat bovenaan; verwijderen doe je zelf, en na 30 dagen verdwijnt een aandeel vanzelf.</p>
+    </div>
+    <div class="updated" id="updated"></div>
+  </header>
+
+  <div class="search">
+    <label for="q">Zoek op bedrijfsnaam of ticker</label>
+    <input id="q" type="search" placeholder="bv. Adobe, Novo Nordisk, ASML of NVDA" autocomplete="off" spellcheck="false" enterkeyhint="search">
+    <div id="results" class="z-res"></div>
+    <div id="note" class="note" role="status"></div>
+  </div>
+
+  <div class="list-h"><h2>Opgezocht</h2><span id="count"></span></div>
+  <div class="list" id="list"><div class="empty">Laden…</div></div>
+
+  <p class="foot">
+    De beoordeling gebeurt in de Top 250-run op GitHub (meestal binnen 2 à 3 minuten na het toevoegen), met dezelfde scorecard en 12 stappen als op Beoordeling
+    en Kansen portefeuille. Een aandeel buiten de scan wordt tegen alle bedrijven uit de scan afgezet, maar telt zelf niet mee in de lijsten.
+    Alleen noteringen en cijfers in euro of dollar. Je opzoeklijst staat, net als tickers.txt, openbaar in je repository (alleen tickers en datum, geen bedragen). Dit is geen beleggingsadvies.
+  </p>
+</div>
+
+<script src="vault.js"></script>
+<script src="shared.js"></script>
+<script src="steps.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = Steps.esc;
+const SECTOR_NL = Steps.SECTOR_NL;
+const DAY = 864e5;
+const nf = (v, d = 0) => v == null || !isFinite(v) ? '—' : Number(v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const money = (v, cur) => v == null || !isFinite(v) ? '—' : (cur === 'USD' ? '$ ' : '€ ') + nf(v, 2);
+const pctS = v => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '') + nf(v, 1) + '%';
+const hasToken = () => { try { return !!localStorage.getItem('gh_token'); } catch (e) { return false; } };
+const keyOf = sym => 'z_' + String(sym).replace(/[^A-Za-z0-9]/g, '_');
+function go(hash) {
+  try { if (window.top !== window) { window.top.location.hash = hash; return; } } catch (e) {}
+  location.href = 'index.html#' + hash;
+}
+Steps.css();
+
+let list = [], res = { items: {} }, openSet = new Set(), fresh = new Set(), prev = {}, scrP = null;
+
+// Lijst en resultaten: met je token rechtstreeks van GitHub (meteen na een run), anders van de site (loopt even achter)
+async function getFile(file) {
+  if (hasToken()) {
+    const r = await Shared.ghReadFull(file);
+    if (r.status === 'ok' || r.status === 'missing') return r.data;
+  }
+  try { const r = await fetch(file, { cache: 'no-cache' }); return r.ok ? await r.json() : null; } catch (e) { return null; }
+}
+const fresh30 = e => Shared.lookFresh(e);
+async function loadList() {
+  const d = await getFile('opzoeklijst.json');
+  const all = d && Array.isArray(d.items) ? d.items.filter(e => e && typeof e.sym === 'string') : [];
+  return { items: all.filter(fresh30).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)), expired: all.some(e => !fresh30(e)) };
+}
+async function loadResults() {
+  const d = await getFile('opzoeken.json');
+  return d && d.items && typeof d.items === 'object' ? d : null;
+}
+
+// Wacht het aandeel nog op (een nieuwe) beoordeling? Ook na opnieuw toevoegen: het resultaat is dan van vóór je toevoeging.
+const resultOf = e => res.items[e.sym] || null;
+const waiting = e => { const r = resultOf(e); return !r || r.status === 'wacht' || Date.parse(r.at) < Date.parse(e.at); };
+
+// Voorproefje uit de laatste scan (als het bedrijf daar al volledig in staat) zolang de nieuwe beoordeling loopt
+async function scan() {
+  if (!scrP) scrP = fetch('screener.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null);
+  return scrP;
+}
+async function preview(e) {
+  if (prev[e.sym] !== undefined) return;
+  prev[e.sym] = null;
+  const scr = await scan();
+  if (!scr) return;
+  const names = [e.sym, ...(e.alt || [])];
+  const pool = (scr.refs || []).concat(scr.items || []);
+  const hit = pool.find(x => names.includes(x.sym)) || pool.find(x => names.includes(x.eu) || (x.alt || []).some(a => names.includes(a)));
+  const full = hit ? await Shared.fullItem(hit, scr) : null;
+  if (full) { prev[e.sym] = { it: full, at: scr.updated }; draw(e); }
+}
+
+// Find the gap (zelfde regel als Beoordeling): groen alleen bij hoge score én een gap
+function gapPill(it) {
+  const g = it && it.gap;
+  if (!g) return '';
+  const hit = g.ok && ((it.card || {}).s || 0) >= 90;
+  const gr = v => v > 300 ? '>+300%' : (v > 0 ? '+' : '') + Math.round(v) + '%';
+  const t = `Find the gap: omzet ${gr(g.rev)}, winst ${gr(g.eps)}, koers ${g.px > 0 ? '+' : ''}${Math.round(g.px)}% in 12 maanden → `
+    + `${Math.round(g.pct)}% goedkoper t.o.v. omzet en winst` + (g.warn && g.warn.length ? `. Let op: ${g.warn.join(', ')}` : '')
+    + (g.ok && !hit ? '. Scorecard onder 90: geen Find the gap-kans' : '');
+  return `<span class="b-gap ${hit ? '' : g.ok ? 'low' : 'warn'}" title="${esc(t)}">gap ${Math.round(g.pct)}%${g.ok ? '' : ' · let op'}</span>`;
+}
+const dShort = iso => new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+const tShort = iso => new Date(iso).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function ageText(e) {
+  const days = (Date.now() - Date.parse(e.at)) / DAY, left = Math.max(1, Math.ceil(30 - days));
+  const when = days < 1 / 24 ? 'zojuist' : days < 1 ? `${Math.floor(days * 24)} uur geleden` : dShort(e.at);
+  return `opgezocht ${when}&nbsp;· <span title="Na 30 dagen verdwijnt een aandeel vanzelf uit je lijst">nog ${left} d</span>`;
+}
+const SKIP = s => /^valuta /.test(s) ? `koers in ${s.slice(7)}: de scan rekent alleen met noteringen in euro of dollar. Zoek de euro- of dollarnotering van dit bedrijf.`
+  : /^rapporteert in /.test(s) ? `${s}: de scan rekent alleen met cijfers in euro of dollar, dus geen scorecard.` : s;
+
+function cardHTML(e) {
+  const r = resultOf(e), wait = waiting(e), k = keyOf(e.sym), open = openSet.has(e.sym);
+  const okRes = r && r.status === 'ok' ? r : null;
+  const pv = !okRes && prev[e.sym] ? prev[e.sym] : null;
+  const it = okRes ? okRes.it : pv ? pv.it : null;
+  const v = it ? Steps.buyVerdict(it) : null;
+  const name = (it && it.name) || (r && r.name) || e.name || e.sym;
+  const tick = it ? (it.region === 'VS' ? it.sym : (it.eu || it.sym)) : e.sym;
+  const c = it && it.card;
+  const status = wait
+    ? `<div class="b-wait" role="status"><span class="b-spin"></span><span>${Date.now() - Date.parse(e.at) > 12 * 60e3
+        ? 'Duurt langer dan normaal: de Top 250-run staat waarschijnlijk in de wachtrij. Kijk straks nog eens.'
+        : `${pv ? `Uit de scan van ${esc(tShort(pv.at))}; de nieuwe beoordeling loopt` : okRes ? 'Wordt opnieuw beoordeeld' : 'Wordt beoordeeld in de Top 250-run'} (meestal 2 à 3 minuten)…`}</span></div>`
+    : r && r.status !== 'ok'
+      ? `<div class="b-wait err">${esc(r.status === 'skip' ? SKIP(r.why || '') : r.status === 'fout' ? `${r.why || 'Ophalen mislukt'}. Controleer de ticker (Yahoo-symbool, bv. ASML.AS of NVDA); de volgende runs proberen het opnieuw.` : r.why || 'Niet te beoordelen.')}</div>`
+      : '';
+  const cls = it ? 'vc-' + v.cls.slice(2) : wait ? 'vc-wait' : 'vc-bad';
+  const head = `<div class="b-head${it && it.s12 ? '' : ' nodots'}">
+      <div class="b-name"><div class="b-title" title="${esc(name)}">${esc(name)}</div>
+        <div class="b-sub"><span>${esc(tick)}</span>${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}&nbsp;· ${ageText(e)}</div>
+        ${v ? `<span class="b-verdict ${v.cls}">${esc(v.label)}</span>` : ''}${it ? gapPill(it) : ''}${it && it.own ? '<span class="b-own" title="Staat in je portefeuille: zie Beoordeling voor behouden of herzien">in portefeuille</span>' : ''}</div>
+      <div class="b-score" title="${c && c.s != null ? `Scorecard ${c.s} van 125` : 'Nog geen scorecard'}">${Steps.ring(c && c.s, 52)}<small>${c && c.s != null ? 'van 125' : wait ? 'bezig' : 'geen data'}</small></div>
+      <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) + `<div class="why">${esc(Steps.failText(it.s12))}</div>` : ''}${status}</div>
+      <div class="b-act">${it ? `<button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>` : ''}
+        <button class="rm" data-rm="${esc(e.sym)}" title="Uit je opzoeklijst verwijderen" aria-label="${esc(name)} verwijderen">✕</button></div>
+    </div>`;
+  return `<div class="b-card ${cls}${fresh.has(e.sym) ? ' fresh' : ''}" id="${k}">${head}${it && open ? bodyHTML(it, v, okRes) : ''}</div>`;
+}
+
+function bodyHTML(it, v, r) {
+  const k = it.koop, e = it.exp || {};
+  const facts = [
+    ['Koers', money(it.price, 'EUR'), it.region === 'VS' ? `${money(it.native, 'USD')} op ${esc(it.us_exch || 'de VS-beurs')}${it.approx ? ' · euro omgerekend' : it.eu ? ' · in euro als ' + esc(it.eu) : ''}` : esc(it.exch || '')],
+    ['Plek in de scan', it.own ? 'eigen positie' : it.rank ? `#${nf(it.rank)}` : '—',
+      it.own ? 'zie Beoordeling' : r && r.buiten ? `zou op deze plek staan van ${nf(res.n)} (buiten de scan, ter vergelijking)` : `van ${nf((res && res.n) || 0)} op scorecard`],
+    ['Marktrang (Score 2.0)', it.score != null ? nf(it.score, 0) : '—', 'beter dan zoveel % van de markt'],
+    ['Verwacht 12 mnd', pctS(e.pct), e.src === 'analisten' ? `koersdoel van ${nf(e.n)} analisten${e.div ? ' + dividend' : ''}` : e.src === 'schatting' ? 'schatting uit de omzetgroei' : e.src === 'dividend' ? 'alleen dividend' : 'geen verwachting'],
+    ['12 maanden', pctS(it.chg12), it.hi52 ? `${nf((1 - it.price / it.hi52) * 100, 0)}% onder de 52-weekse top` : ''],
+    ['Koopmoment', k ? (k.status === 'zone' ? 'in de zone' : 'bijna') : 'nee', k ? `${nf(k.dd, 0)}% onder de top · stop ${money(k.stop, 'EUR')}` : 'niet 10-25% onder de top met intacte trend']
+  ];
+  return `<div class="b-body">
+      <div>
+        <div class="advice"><b class="${v.cls}">${esc(v.label)}.</b> ${esc(v.text)}${it.own ? ' Je hebt dit aandeel al: op Beoordeling staat of je het houdt.' : ''}</div>
+        <div class="facts">${facts.map(([l, val, sub]) => `<div class="fact"><small>${esc(l)}</small><b>${esc(val)}</b>${sub ? `<em>${sub}</em>` : ''}</div>`).join('')}</div>
+        <div class="d-k">Scorecard <span>stap 6</span></div>
+        ${Steps.cardTable(it.card)}
+      </div>
+      <div><div class="d-k">De 12 stappen <span>${it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : ''}</span></div>
+        ${Steps.panel(it.s12, {})}</div>
+    </div>`;
+}
+
+function draw(e) {
+  const el = $(keyOf(e.sym));
+  if (!el) return render();
+  el.outerHTML = cardHTML(e);
+}
+function render() {
+  $('count').textContent = list.length ? `${list.length} ${list.length === 1 ? 'aandeel' : 'aandelen'}` : '';
+  $('updated').textContent = res && res.updated ? 'beoordeeld ' + tShort(res.updated) : '';
+  $('list').innerHTML = list.length ? list.map(cardHTML).join('')
+    : '<div class="empty">Nog niets opgezocht. Zoek hierboven een aandeel: het komt bovenaan deze lijst met de volledige scorecard en de 12 stappen.</div>';
+  list.filter(e => waiting(e) && !(resultOf(e) || {}).it).forEach(preview);
+  if (fresh.size) { const done = [...fresh]; setTimeout(() => done.forEach(s => fresh.delete(s)), 2500); }   // oplichten: één keer
+}
+$('list').addEventListener('click', async ev => {
+  const rm = ev.target.closest('[data-rm]');
+  if (rm) { ev.stopPropagation(); return remove(rm.dataset.rm); }
+  const head = ev.target.closest('.b-head');
+  if (!head || !head.querySelector('.toggle')) return;
+  const sym = (list.find(e => keyOf(e.sym) === head.parentElement.id) || {}).sym;
+  if (!sym) return;
+  openSet.has(sym) ? openSet.delete(sym) : openSet.add(sym);
+  fresh.delete(sym);
+  draw(list.find(e => e.sym === sym));
+});
+
+// Volgen tot alles beoordeeld is (met token elke 15 s rechtstreeks van GitHub, anders elke 30 s van de site), max. 20 min
+let pollT = null, pollUntil = 0;
+function follow() {
+  pollUntil = Date.now() + 20 * 60e3;
+  clearTimeout(pollT);
+  pollT = setTimeout(poll, hasToken() ? 15000 : 30000);
+}
+async function poll() {
+  clearTimeout(pollT);
+  if (!list.some(waiting)) return;
+  const r = await loadResults();
+  if (r) {
+    list.filter(e => waiting(e) && r.items[e.sym] && !(Date.parse(r.items[e.sym].at) < Date.parse(e.at)) && r.items[e.sym].status === 'ok').forEach(e => { fresh.add(e.sym); openSet.add(e.sym); });
+    res = r;
+  }
+  render();
+  if (list.some(waiting) && Date.now() < pollUntil) pollT = setTimeout(poll, hasToken() ? 15000 : 30000);
+}
+
+const note = (html, cls = '') => { $('note').className = 'note ' + cls; $('note').innerHTML = html; };
+const noToken = () => note('Om een aandeel op te zoeken is je GitHub-token nodig: zet eerst <a data-go="investeringen">Sync aan op Investeringen</a>. Daarmee zet het dashboard het aandeel in je opzoeklijst en beoordeelt de Top 250-run het.', 'err');
+$('note').addEventListener('click', ev => { const a = ev.target.closest('[data-go]'); if (a) go(a.dataset.go); });
+
+async function add(sym, alt, name) {
+  sym = String(sym || '').trim().toUpperCase();
+  if (!Shared.TICKER_OK.test(sym)) { note('Ongeldige ticker. Gebruik het Yahoo-symbool, bv. ASML.AS, NVD.DE of NVDA.', 'err'); return; }
+  if (!hasToken()) { noToken(); return; }
+  const was = list.slice();
+  const e = { sym, alt: alt || [], name: name || null, at: new Date().toISOString().slice(0, 19) + 'Z' };
+  list = [e].concat(list.filter(x => x.sym !== sym));
+  openSet.add(sym); fresh.add(sym);
+  $('q').value = ''; $('results').innerHTML = '';
+  render();
+  window.scrollTo({ top: $('list').getBoundingClientRect().top + window.scrollY - 12, behavior: 'smooth' });
+  note(`${esc(name || sym)} wordt in je opzoeklijst gezet…`);
+  const out = await Shared.lookAdd(sym, alt, name);
+  if (out === 'ok' || out === 'same') {
+    note(`✓ ${esc(name || sym)} staat bovenaan. De Top 250-run beoordeelt het nu; het resultaat verschijnt hieronder vanzelf.`, 'ok');
+    follow();
+  } else {
+    list = was; render();
+    note(out === 'no-token' ? 'Geen GitHub-token gevonden.' : `${esc(name || sym)} kon niet worden toegevoegd (GitHub gaf een fout). Probeer het zo opnieuw.`, 'err');
+  }
+}
+async function remove(sym) {
+  const e = list.find(x => x.sym === sym);
+  if (!e) return;
+  const r = resultOf(e), name = (r && r.it && r.it.name) || (r && r.name) || e.name || sym;
+  if (!confirm(`${name} uit je opzoeklijst verwijderen?`)) return;
+  if (!hasToken()) { noToken(); return; }
+  const was = list.slice();
+  list = list.filter(x => x.sym !== sym);
+  render();
+  const out = await Shared.lookRemove(sym);
+  if (out === 'ok' || out === 'same') note(`${esc(name)} is uit je opzoeklijst verwijderd.`);
+  else { list = was; render(); note(`${esc(name)} kon niet worden verwijderd (GitHub gaf een fout). Probeer het zo opnieuw.`, 'err'); }
+}
+
+// ── Zoeken: zelfde zoeklijst en volgorde als 'positie toevoegen' op Investeringen (zoek.json uit de Top 250-run)
+let searchT = null, hits = [];
+async function runSearch() {
+  const q = $('q').value.trim();
+  if (q.length < 2) { $('results').innerHTML = ''; return; }
+  const groups = await Shared.searchIndex();
+  if ($('q').value.trim() !== q) return;            // intussen verder getypt
+  hits = Shared.searchStocks(groups, q, 6);
+  const up = q.toUpperCase(), asTicker = Shared.TICKER_OK.test(up) && !hits.some(g => g.list.some(l => l.sym === up));
+  const inList = g => list.some(e => e.sym === g.scan || g.list.some(l => l.sym === e.sym));
+  $('results').innerHTML = hits.map((g, i) => `<button type="button" class="z-co${inList(g) ? ' have' : ''}" data-i="${i}">
+      <span class="z-name">${esc(g.name)}<small>${[g.list.slice(0, 3).map(l => l.sym + ' ' + l.cur).join(', '), SECTOR_NL[g.sector] || g.sector, g.mcap ? '±' + nf(g.mcap) + ' mld' : ''].filter(Boolean).map(esc).join(' · ')}</small></span>
+      <span class="z-go">${inList(g) ? 'opnieuw ↻' : 'opzoeken →'}</span></button>`).join('')
+    + `<div class="z-more">${hits.length ? 'Er niet bij?' : groups.length ? `Niets gevonden in de lijst van ${nf(groups.length)} bedrijven.` : 'De zoeklijst is (nog) niet beschikbaar.'}
+      ${asTicker ? `<button type="button" data-ticker="${esc(up)}">‘${esc(up)}’ opzoeken als Yahoo-ticker</button>` : ''}
+      <a href="https://finance.yahoo.com/lookup?s=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">Zoek het symbool op Yahoo Finance ↗</a> en typ het hier in (in euro of dollar).</div>`;
+}
+$('q').addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(runSearch, 120); });
+$('q').addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  const b = $('results').querySelector('.z-co, [data-ticker]');
+  if (b) b.click();
+});
+$('results').addEventListener('click', ev => {
+  const t = ev.target.closest('[data-ticker]');
+  if (t) return add(t.dataset.ticker, [], null);
+  const b = ev.target.closest('.z-co');
+  const g = b && hits[+b.dataset.i];
+  if (g) add(g.scan || g.list[0].sym, g.list.map(l => l.sym), g.name);
+});
+
+async function load() {
+  const [l, r] = await Promise.all([loadList(), loadResults()]);
+  // Het lokale beeld gaat voor zolang een eigen wijziging nog niet op GitHub zichtbaar is (de site loopt even achter)
+  const mine = new Map(list.map(e => [e.sym, e]));
+  list = l.items.map(e => mine.has(e.sym) && Date.parse(mine.get(e.sym).at) > Date.parse(e.at) ? mine.get(e.sym) : e);
+  list = list.concat([...mine.values()].filter(e => !list.some(x => x.sym === e.sym) && Date.now() - Date.parse(e.at) < 5 * 60e3));
+  list.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  if (r) res = r;
+  render();
+  if (list.some(waiting)) follow();
+  // Verlopen aandelen (ouder dan 30 dagen) ook uit het bestand halen
+  if (l.expired && hasToken()) Shared.lookClean();
+}
+if (!hasToken()) note('Zonder GitHub-token kun je de lijst bekijken, maar niets toevoegen of verwijderen: zet <a data-go="investeringen">Sync aan op Investeringen</a>.');
+Shared.onRefresh(load);
+load();
+</script>
+</body>
+</html>

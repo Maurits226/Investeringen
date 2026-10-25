@@ -6,16 +6,19 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
+const lookupFixture = require('./fixture_opzoeken');
 
 const ROOT = path.resolve(__dirname, '..');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 
-// Eenvoudige webserver op de repository (zoals GitHub Pages, zonder caching)
+// Eenvoudige webserver op de repository (zoals GitHub Pages, zonder caching); lege opzoeklijst: testdata (fixture_opzoeken.js)
 function serve() {
+  const fixture = lookupFixture(ROOT) || {};
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
+      if (fixture[rel]) { res.writeHead(200, { 'Content-Type': TYPES['.json'] }); res.end(JSON.stringify(fixture[rel])); return; }
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -27,7 +30,7 @@ function serve() {
 
 const PAGES = ['index.html', 'vandaag.html', 'portfolio.html', 'beoordeling.html', 'beoordeling.html?set=top',
   'signals.html', 'signals.html?set=top250', 'archief.html', 'archief.html?set=top250', 'screener.html',
-  'koopmoment.html', 'koopmoment.html?set=own'];
+  'koopmoment.html', 'koopmoment.html?set=own', 'opzoeken.html'];
 const WIDTHS = [390, 1280];
 
 (async () => {
@@ -80,8 +83,18 @@ const WIDTHS = [390, 1280];
           if (!(await page.inputValue('#f-ticker'))) errs.push('zoeken: tikken op een notering vult de ticker niet in');
           await page.click('#f-cancel');
         }
+        if (pg === 'opzoeken.html') {                      // zoeken op naam, zonder token: uitleg in plaats van toevoegen; kaart openklappen
+          await page.fill('#q', 'nvidia');
+          await page.waitForSelector('#results .z-co', { timeout: 8000 });
+          await page.click('#results .z-co');
+          if (!/token/.test(await page.textContent('#note'))) errs.push('opzoeken zonder token: geen uitleg');
+          await page.click('.b-card .b-head .toggle');
+          await page.waitForSelector('.b-card .b-body .s12-step', { timeout: 8000 });
+        }
         if (pg === 'index.html') {
           for (const v of ['overzicht', 'score', 'radar', 'archief', 'koop']) await page.click(`.seg.view button[data-view="${v}"]`);
+          await page.click('.seg.world button[data-world="zoek"]');
+          if (!(await page.$('iframe#zoek.active'))) errs.push('tab Opzoeken opent niet');
         }
       } catch (e) { errs.push('interactie: ' + e.message.split('\n')[0]); }
       await page.waitForTimeout(300);

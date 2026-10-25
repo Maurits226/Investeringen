@@ -403,13 +403,8 @@ async function load() {
     $('pageTitle').textContent = 'Survivors';
     $('pageSub').innerHTML = 'Bedrijven uit de Top 250 die alle 12 stappen van <i>How to Find the Best Stocks</i> overleven';
     const pool = (scr.items || []).filter(it => it.s12 && it.card && it.card.s != null);
-    // Survivors zijn (nog) niet van jou: geen 'behouden', maar hoe dicht ze bij een aankoop volgens de gids zitten
-    const topVerdict = it => {
-      const val = it.s12.list.find(x => x.n === 12) || {};
-      if (!it.s12.survivor) return { cls: 'v-mid', label: 'Bijna · te duur', text: 'Overleeft stap 1-11, maar de koers ligt boven de basis-DCF. Wacht op een betere prijs (zie Koopmoment); de kwaliteit is er al.' };
-      if (val.s === 'pass') return { cls: 'v-good', label: 'Survivor · koopwaardig', text: 'Overleeft alle 12 stappen en zelfs de bear-case DCF ligt boven de koers. Volgens de gids: koop langzaam (vast bedrag, vaste data) en schrijf je exit op vóór je koopt.' };
-      return { cls: 'v-good', label: 'Survivor', text: 'Overleeft alle 12 stappen; de waardering is redelijk maar niet ruim (bear-case DCF onder de koers). Koop langzaam en schrijf je exit vooraf op.' };
-    };
+    // Survivors zijn (nog) niet van jou: geen 'behouden', maar hoe dicht ze bij een aankoop volgens de gids zitten (steps.js)
+    const topVerdict = Steps.buyVerdict;
     const mk = it => ({ key: it.sym.replace(/[^A-Za-z0-9]/g, '_'), name: it.name, ticker: it.eu || it.sym, it, v: topVerdict(it) });
     rows = pool.filter(it => it.s12.survivor).map(mk);
     extraRows = pool.filter(it => !it.s12.survivor && it.s12.nfail === 1 && it.s12.fail === 12).map(mk);

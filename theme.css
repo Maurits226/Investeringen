@@ -1,0 +1,74 @@
+/* Gedeelde uitstraling van het dashboard, dezelfde als Vandaag: glas-kaarten, zachte gloed, verlooptitels en een
+   pictogram in de kop. Elke pagina laadt dit bestand na zijn eigen stijl. Het verandert alleen het uiterlijk (kleur,
+   rand, schaduw, rondingen), nooit de indeling: kolommen en afstanden blijven van de pagina zelf. Kaarten met een
+   signaal (alarm, verkoop, koop) houden hun eigen gekleurde rand en gloed, want die regels zijn specifieker. */
+:root {
+  --ink: #111214; --edge: rgba(255,255,255,.07); --edge-2: rgba(255,255,255,.12);
+  --glass: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008)), #17181b;
+  --lift: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -28px rgba(0,0,0,.95);
+}
+body {
+  background:
+    radial-gradient(900px 480px at 92% -10%, rgba(79,143,240,.13), transparent 60%),
+    radial-gradient(700px 420px at -10% 8%, rgba(167,139,250,.08), transparent 60%),
+    var(--ink);
+}
+.wrap { animation: th-rise .5s cubic-bezier(.2,.75,.25,1) both; }
+@keyframes th-rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .wrap { animation: none; } }
+
+/* kop: titel in een zacht verloop, met een pictogram per pagina in plaats van de stip */
+.title-block h1 { align-items: center; background: linear-gradient(90deg, #fff, #b9c6dc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.title-block h1 .pulse { width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; position: relative; animation: none; margin-top: 0;
+  background: color-mix(in srgb, var(--ic, #4f8ff0) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ic, #4f8ff0) 32%, transparent), 0 8px 22px -12px var(--ic, #4f8ff0); }
+.title-block h1 .pulse::after { content: ''; position: absolute; inset: 8px; background: var(--ic, #4f8ff0);
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; }
+.pulse.i-invest { --ic: #4f8ff0; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='6.5' width='17' height='13' rx='2.5'/%3E%3Cpath d='M3.5 10.5h17'/%3E%3Cpath d='M8 6.5V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v1.5'/%3E%3Ccircle cx='16.5' cy='14.5' r='1.2' fill='black'/%3E%3C/svg%3E"); }
+.pulse.i-score { --ic: #d4ae6a; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5.5' y='4.5' width='13' height='16' rx='2.2'/%3E%3Cpath d='M9.5 3.5h5v3h-5z'/%3E%3Cpath d='m9 13 2.2 2.2L15.5 11'/%3E%3C/svg%3E"); }
+.pulse.i-radar { --ic: #2dd4bf; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 12 18.4 5.6'/%3E%3Cpath d='M19.8 12a7.8 7.8 0 1 1-2.3-5.5'/%3E%3Cpath d='M15.6 12a3.6 3.6 0 1 1-1-2.5'/%3E%3Ccircle cx='12' cy='12' r='1' fill='black'/%3E%3C/svg%3E"); }
+.pulse.i-archief { --ic: #a78bfa; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='4' width='17' height='4.5' rx='1.5'/%3E%3Cpath d='M5 8.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5'/%3E%3Cpath d='M10 12.5h4'/%3E%3C/svg%3E"); }
+.pulse.i-kansen { --ic: #3ecf8e; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 17 9 11.5l3.5 3.5 8-8'/%3E%3Cpath d='M15 7h5.5v5.5'/%3E%3C/svg%3E"); }
+.pulse.i-koop { --ic: #f5b544; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3'/%3E%3C/svg%3E"); }
+.pulse.i-zoek { --ic: #4f8ff0; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='m15.5 15.5 5 5'/%3E%3C/svg%3E"); }
+.updated { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--edge); background: rgba(255,255,255,.03); }
+.updated:empty { display: none; }
+
+/* glas: tegels, panelen en kaarten */
+.stat, .howto, .toolbar, .pcheck, .mkt, .world, .cc, .an-c, .kpi, .sb-dir, .search, .br, .daynav, .viewnav,
+.position, .b-card, .stock, .k-card, .pos, .h-row, .sb-row, .trade, .etf div, dialog {
+  background: var(--glass); border-color: var(--edge); box-shadow: var(--lift);
+}
+.stat, .howto, .toolbar, .pcheck, .world, .cc, .search, .an-c, .sb-dir { border-radius: 16px; }
+.position, .b-card, .stock, .k-card, .pos { border-radius: 18px; }
+/* tegels met een zachte gloed linksboven */
+.stat { background: radial-gradient(240px 110px at 0% 0%, rgba(79,143,240,.10), transparent 70%), var(--glass); }
+.stat .value { letter-spacing: -.5px; }
+/* kaarten iets optillen met een muis (niet op een touchscreen, daar blijft :hover hangen) */
+@media (hover: hover) {
+  .position, .b-card, .k-card, .pos { transition: border-color .2s, transform .2s, box-shadow .2s; }
+  .position:hover, .b-card:hover, .k-card:hover, .pos:hover { transform: translateY(-2px); border-color: var(--edge-2); }
+}
+
+/* koppen boven een lijst: gloeiend streepje */
+.section-header::before { background: linear-gradient(180deg, #6ea2ff, #a78bfa) !important; box-shadow: 0 0 12px rgba(79,143,240,.55); }
+.section-h { letter-spacing: 1.2px; }
+
+/* knoppen, schakelaars en keuzelijsten */
+button.primary { background: linear-gradient(135deg, #4f8ff0, #7c6cf0); border-color: transparent; color: #fff;
+  box-shadow: 0 8px 22px -10px rgba(79,143,240,.9); }
+.toggle { border-radius: 999px; background: rgba(255,255,255,.04); border-color: var(--edge); }
+.seg { border-radius: 12px; background: rgba(255,255,255,.03); border-color: var(--edge); }
+.seg button { border-radius: 9px; }
+.toolbar select, .toolbar input, .tb-search, #interval, select {
+  background-color: rgba(255,255,255,.04); border-color: var(--edge); border-radius: 10px; }
+.toolbar select:focus, .toolbar input:focus, select:focus { outline: none; border-color: rgba(79,143,240,.6); box-shadow: 0 0 0 3px rgba(79,143,240,.15); }
+.howto .h-btn { border-radius: 999px; }
+/* beurstegels: naam, open/dicht en wanneer; de vaste openingstijden laten we weg (minder tekst) */
+.mkt-hours { display: none; }
+.mkt-foot { border-top-color: var(--edge); }
+.mkt.open .mkt-dot, .exch-dot.open { box-shadow: 0 0 0 3px rgba(62,207,142,.18), 0 0 10px rgba(62,207,142,.6); }
+.mkt.closed .mkt-dot, .exch-dot.closed { box-shadow: 0 0 8px rgba(240,89,95,.45); }
+.empty { border-color: var(--edge-2); background: rgba(255,255,255,.015); border-radius: 16px; }
+dialog { border-radius: 18px; }
+dialog::backdrop { background: rgba(5,6,8,.65); backdrop-filter: blur(4px); }

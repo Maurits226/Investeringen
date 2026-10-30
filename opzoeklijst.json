@@ -1,5 +1,14 @@
 {
  "v": 1,
  "days": 30,
- "items": []
+ "items": [
+  {
+   "sym": "APP",
+   "alt": [
+    "6RV.F"
+   ],
+   "name": "AppLovin Corporation",
+   "at": "2026-10-30T21:20:52Z"
+  }
+ ]
 }

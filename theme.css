@@ -3,6 +3,8 @@
    rand, schaduw, rondingen), nooit de indeling: kolommen en afstanden blijven van de pagina zelf. Kaarten met een
    signaal (alarm, verkoop, koop) houden hun eigen gekleurde rand en gloed, want die regels zijn specifieker. */
 :root {
+  /* ingebouwde onderdelen (schuifbalk, uitklaplijsten) in de donkere stand; schuifbalk rustig grijs in plaats van een lichte balk */
+  color-scheme: dark; scrollbar-color: #353b46 transparent;
   --ink: #111214; --edge: rgba(255,255,255,.07); --edge-2: rgba(255,255,255,.12);
   --glass: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008)), #17181b;
   --lift: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -28px rgba(0,0,0,.95);
@@ -60,8 +62,10 @@ button.primary { background: linear-gradient(135deg, #4f8ff0, #7c6cf0); border-c
 .toggle { border-radius: 999px; background: rgba(255,255,255,.04); border-color: var(--edge); }
 .seg { border-radius: 12px; background: rgba(255,255,255,.03); border-color: var(--edge); }
 .seg button { border-radius: 9px; }
-.toolbar select, .toolbar input, .tb-search, #interval, select {
-  background-color: rgba(255,255,255,.04); border-color: var(--edge); border-radius: 10px; }
+.toolbar select, .toolbar input, .tb-search, #interval, select { border-color: var(--edge); border-radius: 10px; }
+.toolbar input, .tb-search { background-color: rgba(255,255,255,.04); }
+/* keuzelijsten dicht: de uitklaplijst neemt deze kleur over, en doorschijnend wordt die wit met lichte (onleesbare) tekst */
+.toolbar select, #interval, select, select option { background-color: #24262a; }
 .toolbar select:focus, .toolbar input:focus, select:focus { outline: none; border-color: rgba(79,143,240,.6); box-shadow: 0 0 0 3px rgba(79,143,240,.15); }
 .howto .h-btn { border-radius: 999px; }
 /* beurstegels: naam, open/dicht en wanneer; de vaste openingstijden laten we weg (minder tekst) */

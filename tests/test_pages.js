@@ -56,14 +56,24 @@ const WIDTHS = [390, 1280];
       await page.route('**/*', r => r.request().url().startsWith(base) ? r.continue() : r.abort());
       await page.goto(base + pg);
       await page.waitForTimeout(2500);
-      const info = await page.evaluate(() => ({
-        shown: getComputedStyle(document.documentElement).display !== 'none',
-        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        text: (document.body.innerText || '').trim().length
-      }));
+      const info = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        const alpha = c => { const m = c.match(/rgba\([^)]*,\s*([\d.]+)\)/); return m ? parseFloat(m[1]) : 1; };
+        return {
+          shown: root.display !== 'none',
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          text: (document.body.innerText || '').trim().length,
+          dark: /dark/.test(root.colorScheme) && root.scrollbarColor !== 'auto',
+          seeThrough: [...document.querySelectorAll('select')].filter(s => alpha(getComputedStyle(s).backgroundColor) < 1).map(s => s.id || 'select')
+        };
+      });
       if (!info.shown) errs.push('pagina blijft verborgen (antiframe)');
       if (info.overflow > 1) errs.push(`zijwaarts scrollen: ${info.overflow}px te breed`);
       if (info.text < 40) errs.push('pagina lijkt leeg');
+      // schuifbalk en uitklaplijsten donker (anders een lichte balk naast de pagina); index scrolt zelf niet
+      if (pg !== 'index.html' && !info.dark) errs.push('schuifbalk en uitklaplijsten niet donker (color-scheme / scrollbar-color)');
+      // een doorschijnende keuzelijst geeft een witte uitklaplijst met lichte, onleesbare tekst
+      if (info.seeThrough.length) errs.push('keuzelijst met doorschijnende achtergrond: ' + info.seeThrough.join(', '));
       // belangrijkste interactie per pagina
       try {
         if (pg === 'screener.html' && !(await page.$('.stat[data-q="gap"]'))) errs.push('tegel Find the gap ontbreekt');

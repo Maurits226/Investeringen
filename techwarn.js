@@ -182,17 +182,29 @@ const TechWarn = (() => {
     if (exposure && num(exposure.pct) != null && exposure.pct >= 50 && tips.length < 4) tips.push('Zit je zwaar in tech, stuur nieuwe inleg dan liever naar andere sectoren dan te verkopen.');
     const sxOud = d.sox && d.sox.oud ? ' · verouderd' : '';
     if (opts.compact) {
-      // één regel: niveau en hoeveel van je portefeuille het raakt; de uitleg en wat je kunt doen pas na openklappen
-      const short = inDal ? `Tech in een ${S[1]}` : L[2] >= 1 ? `Techradar ${L[1].toLowerCase()}` : 'Tech zakt terug';
-      const raakt = exposure && num(exposure.pct) > 0 ? `${pc(exposure.pct)} van je portefeuille in tech` : `${nf(lv.n_on, 0)} van ${nf(lv.n_max, 0)} signalen`;
-      return `<details class="tw-ban tw-mini ${tone}" data-tw="banner"${opts.open ? ' open' : ''}>
-        <summary><i></i><b>${esc(short)}</b><span class="tw-mi">${esc(raakt)}</span><span class="tw-mb">Wat te doen</span></summary>
-        <div class="tw-pills"><span class="tw-pill ${L[0].split(' ')[0]}">radar ${esc(L[1].toLowerCase())} · ${esc(nf(lv.n_on, 0))}/${esc(nf(lv.n_max, 0))} signalen</span>
-          <span class="tw-pill ${S[0]}">Nasdaq-100 ${under(nd.dd52)} · ${esc(S[1])}</span>${d.sox ? `<span class="tw-pill ${stOf(d.sox.status)[0]}">chips ${under(d.sox.dd52)} · ${esc(stOf(d.sox.status)[1])}${sxOud}</span>` : ''}</div>
-        ${text ? `<div class="tw-bt">${esc(text)}</div>` : ''}
-        ${exp ? `<div class="tw-bt">${exp}</div>` : ''}
-        <ul class="tw-bl">${tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-        <div class="tw-bf">Techradar · data t/m ${esc(dag(d.asof))}${stale(d) ? ' (verouderd)' : ''} · hulpmiddel, geen beleggingsadvies</div>
+      // kaart voor Vandaag: niveau, signalen als stippen en een ring voor je deel in tech; uitleg en tips na 'Wat te doen'
+      const word = inDal ? S[1] : L[1].toLowerCase();
+      const nOn = Math.max(0, num(lv.n_on) || 0), nMax = Math.max(nOn, num(lv.n_max) || 6);
+      const dots = Array.from({ length: nMax }, (_, i) => `<i${i < nOn ? ' class="on"' : ''}></i>`).join('');
+      const ex = exposure && num(exposure.pct) > 0 ? Math.min(100, num(exposure.pct)) : null;
+      return `<details class="tw2 ${tone}" data-tw="banner"${opts.open ? ' open' : ''}>
+        <summary>
+          <span class="tw2-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 12 18.4 5.6"/><path d="M19.8 12a7.8 7.8 0 1 1-2.3-5.5"/><path d="M15.6 12a3.6 3.6 0 1 1-1-2.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span>
+          <span class="tw2-m"><span class="tw2-k">${inDal ? 'Tech' : 'Techradar'}</span><b class="tw2-v">${esc(word.charAt(0).toUpperCase() + word.slice(1))}</b>
+            <span class="tw2-dots" role="img" aria-label="${nOn} van ${nMax} signalen">${dots}</span></span>
+          ${ex == null ? '' : `<span class="tw2-ex"><span class="tw2-ring" style="--p:${Math.round(ex)}" role="img" aria-label="${esc(pc(ex))} van je portefeuille in tech"><b>${esc(pc(ex))}</b></span><small>van je portefeuille in tech</small></span>`}
+          <span class="tw2-more">Wat te doen</span>
+        </summary>
+        <div class="tw2-body">
+          <ul class="tw-bl">${tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+          <div class="tw2-why">
+            <div class="tw-pills"><span class="tw-pill ${L[0].split(' ')[0]}">radar ${esc(L[1].toLowerCase())} · ${esc(nf(lv.n_on, 0))}/${esc(nf(lv.n_max, 0))} signalen</span>
+              <span class="tw-pill ${S[0]}">Nasdaq-100 ${under(nd.dd52)} · ${esc(S[1])}</span>${d.sox ? `<span class="tw-pill ${stOf(d.sox.status)[0]}">chips ${under(d.sox.dd52)} · ${esc(stOf(d.sox.status)[1])}${sxOud}</span>` : ''}</div>
+            ${text ? `<div class="tw-bt">${esc(text)}</div>` : ''}
+            ${exp ? `<div class="tw-bt">${exp}</div>` : ''}
+            <div class="tw-bf">Techradar · data t/m ${esc(dag(d.asof))}${stale(d) ? ' (verouderd)' : ''} · hulpmiddel, geen beleggingsadvies</div>
+          </div>
+        </div>
       </details>`;
     }
     return `<div class="tw-ban ${tone}" role="status" data-tw="banner">
@@ -295,20 +307,42 @@ const TechWarn = (() => {
       .tw-bl { margin: 0 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.5; color: var(--text, #eceef0); }
       .tw-bl li::marker { color: var(--tone); }
       .tw-bf { font-size: 11px; color: var(--muted, #83888d); font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); }
-      /* compact (Vandaag): één regel, de rest na openklappen */
-      .tw-mini { padding: 0; gap: 0; background: var(--panel, #1a1c1e); }
-      .tw-mini > summary { list-style: none; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 10px 14px; min-height: 44px; }
-      .tw-mini > summary::-webkit-details-marker { display: none; }
-      .tw-mini > summary i { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex-shrink: 0; }
-      .tw-mini > summary b { font-size: 13.5px; font-weight: 700; color: var(--tone); }
-      .tw-mi { font-size: 12.5px; color: var(--muted, #83888d); }
-      .tw-mb { margin-left: auto; font-size: 12px; color: var(--muted, #83888d); white-space: nowrap; }
-      .tw-mb::after { content: ' ▾'; } .tw-mini[open] .tw-mb::after { content: ' ▴'; }
-      .tw-mini > summary:hover .tw-mb { color: var(--text, #eceef0); }
-      .tw-mini[open] > summary { border-bottom: 1px solid var(--line, #2a2c2f); }
-      .tw-mini > :not(summary) { margin: 0 14px; }
-      .tw-mini > .tw-pills { margin-top: 10px; } .tw-mini > .tw-bt, .tw-mini > .tw-bl { margin-top: 8px; }
-      .tw-mini > .tw-bl { margin-left: 32px; } .tw-mini > .tw-bf { margin: 8px 14px 12px; }
+      /* compacte kaart (Vandaag): niveau, signaal-stippen en een ring; de uitleg pas na openklappen */
+      .tw2 { --tone: var(--warn, #f5b544); position: relative; border-radius: 16px; border: 1px solid rgba(255,255,255,.07); overflow: hidden; height: 100%;
+        background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--tone) 16%, transparent), transparent 55%), linear-gradient(180deg, #1d1f22, #17181a);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 14px 30px -22px rgba(0,0,0,.9); color: var(--text, #eceef0); }
+      .tw2.bad { --tone: var(--down, #f0595f); } .tw2.mid { --tone: var(--warn, #f5b544); } .tw2.good { --tone: var(--up, #3ecf8e); }
+      .tw2 > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "ic m ex" "more more more";
+        align-items: center; gap: 10px 12px; padding: 14px 16px 12px; min-height: 44px; }
+      .tw2 > summary::-webkit-details-marker { display: none; }
+      .tw2-ic { grid-area: ic; width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: var(--tone);
+        background: color-mix(in srgb, var(--tone) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 30%, transparent); }
+      .tw2-ic svg { width: 20px; height: 20px; }
+      .tw2.bad .tw2-ic svg, .tw2.mid .tw2-ic svg { animation: tw2-spin 6s linear infinite; transform-origin: 50% 50%; }
+      @keyframes tw2-spin { to { transform: rotate(360deg); } }
+      .tw2-m { grid-area: m; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+      .tw2-k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted, #83888d); width: 100%; }
+      .tw2-v { font-size: 20px; font-weight: 700; letter-spacing: -.3px; color: var(--tone); }
+      .tw2-dots { display: inline-flex; gap: 4px; align-self: center; }
+      .tw2-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.12); }
+      .tw2-dots i.on { background: var(--tone); box-shadow: 0 0 8px color-mix(in srgb, var(--tone) 70%, transparent); }
+      .tw2-ex { grid-area: ex; display: flex; align-items: center; gap: 8px; }
+      .tw2-ex small { font-size: 11px; color: var(--muted, #83888d); line-height: 1.25; max-width: 78px; }
+      .tw2-ring { position: relative; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
+        background: conic-gradient(var(--tone) calc(var(--p) * 1%), rgba(255,255,255,.08) 0); }
+      .tw2-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #191a1d; }
+      .tw2-ring b { position: relative; font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); font-size: 11.5px; font-weight: 600; }
+      .tw2-more { grid-area: more; font-size: 12px; color: var(--muted, #83888d); display: inline-flex; align-items: center; gap: 6px;
+        border-top: 1px solid rgba(255,255,255,.06); padding-top: 10px; }
+      .tw2-more::after { content: '▾'; font-size: 11px; transition: transform .2s; } .tw2[open] .tw2-more::after { transform: rotate(180deg); }
+      .tw2 > summary:hover .tw2-more { color: var(--text, #eceef0); }
+      .tw2-body { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+      .tw2-body .tw-bl { margin-left: 18px; font-size: 13px; }
+      .tw2-body .tw-bl li + li { margin-top: 3px; }
+      /* waarom (cijfers en uitleg) onder de tips, kleiner en rustiger */
+      .tw2-why { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+      .tw2-why .tw-bt { font-size: 11.5px; color: var(--muted, #83888d); line-height: 1.5; } .tw2-why .tw-bt b { color: #c8cbcf; }
+      @media (prefers-reduced-motion: reduce) { .tw2-ic svg { animation: none !important; } }
       @media (max-width: 480px) {
         .tw-cc { padding: 14px 13px 12px; } .tw-verdict, .tw-num { font-size: 20px; }
         .tw-ms2 { gap: 8px; } .tw-m { padding: 7px 8px; }

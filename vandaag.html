@@ -13,81 +13,144 @@
 <title>Vandaag</title>
 <style>
   :root {
-    --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
-    --muted: #83888d; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
-    --warn: #f5b544; --accent: #4f8ff0; --violet: #a78bfa; --gold: #c9a45c;
+    --ink: #111214; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f; --edge: rgba(255,255,255,.07);
+    --muted: #868b91; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
+    --warn: #f5b544; --accent: #4f8ff0; --violet: #a78bfa; --gold: #d4ae6a; --teal: #2dd4bf;
     --mono: 'IBM Plex Mono', ui-monospace, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: radial-gradient(1100px 520px at 85% -12%, #1e2430 0%, transparent 60%), var(--ink);
+    background:
+      radial-gradient(900px 480px at 92% -10%, rgba(79,143,240,.13), transparent 60%),
+      radial-gradient(700px 420px at -10% 8%, rgba(167,139,250,.08), transparent 60%),
+      var(--ink);
     color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif; min-height: 100vh; padding: 28px 18px 60px;
   }
-  /* één kolom: rustig lezen van boven naar beneden */
-  .wrap { max-width: 860px; margin: 0 auto; }
-  header.top { margin-bottom: 18px; }
-  h1 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; }
-  .date { color: var(--muted); font-size: 13px; margin-top: 5px; line-height: 1.4; }
-  .date .old { color: var(--warn); }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  /* glas: lichte rand bovenaan, zachte schaduw */
+  .glass { position: relative; border-radius: 18px; border: 1px solid var(--edge);
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008)), #17181b;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -28px rgba(0,0,0,.95); }
+  .rise { animation: rise .55s cubic-bezier(.2,.75,.25,1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
-  /* drie kerngetallen */
-  .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0;
-         text-align: left; color: inherit; font: inherit; cursor: pointer; transition: border-color .15s;
-         display: flex; flex-direction: column; justify-content: flex-start; }   /* knop: inhoud bovenaan, labels op één lijn */
-  @media (hover: hover) { .kpi:hover { border-color: #3d4045; } }
-  .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-  .kpi .v { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 5px; line-height: 1.15; }
-  .kpi .v.w { font-family: inherit; font-size: 20px; font-weight: 700; letter-spacing: -.2px; }
-  .kpi .s { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
-  .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
+  /* kop */
+  header.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -.6px;
+       background: linear-gradient(90deg, #fff, #b9c6dc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .date { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); font-family: var(--mono);
+          padding: 6px 11px; border-radius: 999px; border: 1px solid var(--edge); background: rgba(255,255,255,.03); }
+  .live:empty { display: none; }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(62,207,142,.6); animation: pulse 2.2s infinite; }
+  .live.old { color: var(--warn); } .live.old i { background: var(--warn); animation: none; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 7px rgba(62,207,142,0); } 100% { box-shadow: 0 0 0 0 rgba(62,207,142,0); } }
+
+  /* portefeuille */
+  .hero { padding: 18px 20px 16px; cursor: pointer; overflow: hidden; --glow: rgba(79,143,240,.18); }
+  .hero.neg { --glow: rgba(240,89,95,.2); } .hero.pos { --glow: rgba(62,207,142,.2); }
+  .hero::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(520px 220px at 0% 0%, var(--glow), transparent 70%); }
+  .h-row { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .big { font-family: var(--mono); font-size: 40px; font-weight: 600; letter-spacing: -1.5px; line-height: 1.05; margin-top: 6px; }
+  .big.sm { font-size: 30px; letter-spacing: -1px; }
+  .heat { position: relative; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
+  /* blokjes schalen mee zodat ze op één rij passen (bij heel veel posities lopen ze door op een tweede rij) */
+  .heat i { flex: 1 1 8px; min-width: 8px; max-width: 16px; aspect-ratio: 1; border-radius: 28%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+  .h-foot { position: relative; display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+  .h-foot b { color: var(--text); font-weight: 600; font-family: var(--mono); }
+  .h-foot .u b { color: var(--up); } .h-foot .d b { color: var(--down); }
+
+  /* beursklimaat en techradar naast elkaar */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; align-items: stretch; }
+  .duo > :only-child, .duo.solo > #clim { grid-column: 1 / -1; }
   #techwarn:empty { display: none; }
-  #techwarn .tw-ban { margin-bottom: 0; }
+  .clim { padding: 14px 16px; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; align-items: center; height: 100%; }
+  .ico { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: var(--tone, var(--accent));
+         background: color-mix(in srgb, var(--tone, var(--accent)) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone, var(--accent)) 30%, transparent); }
+  .ico svg { width: 20px; height: 20px; }
+  .clim .v { font-size: 20px; font-weight: 700; letter-spacing: -.3px; color: var(--tone, var(--text)); margin-top: 1px; }
+  .meter { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .meter i { height: 7px; border-radius: 4px; background: rgba(255,255,255,.08); }
+  .meter i.on.r { background: var(--down); box-shadow: 0 0 10px rgba(240,89,95,.5); }
+  .meter i.on.n { background: var(--warn); box-shadow: 0 0 10px rgba(245,181,68,.45); }
+  .meter i.on.g { background: var(--up); box-shadow: 0 0 10px rgba(62,207,142,.45); }
+  .meter-l { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); font-size: 10.5px; color: var(--muted); margin-top: -4px; }
+  .meter-l span:nth-child(2) { text-align: center; } .meter-l span:nth-child(3) { text-align: right; }
+  .wk { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); border-top: 1px solid rgba(255,255,255,.06); padding-top: 10px; display: flex; align-items: center; gap: 6px; }
+  .wk b { font-family: var(--mono); font-weight: 600; }
 
-  /* te doen: per groep een blok, regels zonder poespas */
-  .todo-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 24px 2px 10px; }
-  .todo-h h2 { font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
-  .todo-h span { font-size: 12.5px; color: var(--muted); }
-  .grp { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; --mark: var(--accent); }
-  .grp-h { display: flex; align-items: center; gap: 8px; padding: 10px 14px 9px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-  .grp-h i { width: 8px; height: 8px; border-radius: 50%; background: var(--mark); flex-shrink: 0; }
-  .grp-h em { font-style: normal; margin-left: auto; text-transform: none; letter-spacing: 0; }
-  .g-kopen { --mark: var(--up); } .g-winst { --mark: var(--warn); } .g-beoordelen { --mark: var(--gold); }
-  .g-radar { --mark: var(--accent); } .g-opgevolgd { --mark: var(--violet); } .g-agenda { --mark: var(--muted); }
-  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 14px; align-items: center; padding: 10px 14px;
-         border-top: 1px solid var(--line); cursor: pointer; min-height: 52px; }
-  @media (hover: hover) { .row:hover { background: var(--panel-2); } }
-  .r-t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .r-s { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
-  .r-v { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-  .more { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); color: var(--accent);
-          font: inherit; font-size: 12.5px; padding: 10px 14px; min-height: 42px; cursor: pointer; }
-  @media (hover: hover) { .more:hover { background: var(--panel-2); } }
-  .none { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px 16px; text-align: center; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
-  .none b { color: var(--text); font-weight: 600; }
-  .row:focus-visible, .kpi:focus-visible, .more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .foot { font-size: 11.5px; color: var(--muted); margin-top: 16px; line-height: 1.5; }
-  @media (max-width: 560px) {
+  /* te doen */
+  .todo-h { display: flex; align-items: center; gap: 10px; margin: 28px 2px 12px; }
+  .todo-h h2 { font-size: 21px; font-weight: 700; letter-spacing: -.4px; }
+  .cnt { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; color: var(--text);
+         background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--edge); }
+  .grid { columns: 2 340px; column-gap: 12px; }
+  .grp { break-inside: avoid; margin-bottom: 12px; overflow: hidden; --tone: var(--accent); }
+  .grp::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 80px; pointer-events: none; border-radius: 18px 18px 0 0;
+    background: radial-gradient(260px 80px at 0% 0%, color-mix(in srgb, var(--tone) 16%, transparent), transparent 75%); }
+  .g-kopen { --tone: var(--up); } .g-winst { --tone: var(--warn); } .g-beoordelen { --tone: var(--gold); }
+  .g-radar { --tone: var(--accent); } .g-opgevolgd { --tone: var(--violet); } .g-agenda { --tone: var(--teal); }
+  .grp-h { position: relative; display: flex; align-items: center; gap: 10px; padding: 13px 14px 10px; }
+  .grp-h .ico { width: 32px; height: 32px; border-radius: 10px; } .grp-h .ico svg { width: 17px; height: 17px; }
+  .grp-h b { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+  .grp-h .cnt { margin-left: auto; color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); box-shadow: none; }
+  .row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 11px 14px;
+         border-top: 1px solid rgba(255,255,255,.05); cursor: pointer; transition: background .15s; }
+  @media (hover: hover) { .row:hover { background: rgba(255,255,255,.035); } }
+  .r-t { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r-x { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--muted); margin-top: -2px; }
+  .r-x .m { font-family: var(--mono); color: var(--text); }
+  .pill { font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 999px; white-space: nowrap; color: var(--pc, var(--tone));
+          background: color-mix(in srgb, var(--pc, var(--tone)) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc, var(--tone)) 30%, transparent); }
+  .pill.red { --pc: var(--down); } .pill.green { --pc: var(--up); } .pill.amber { --pc: var(--warn); } .pill.blue { --pc: var(--accent); } .pill.grey { --pc: var(--muted); }
+  .bar { width: 76px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, color-mix(in srgb, var(--up) 55%, transparent), var(--up)); }
+  .trend { display: inline-flex; align-items: center; gap: 3px; } .trend svg { width: 14px; height: 14px; }
+  .trend.up { color: var(--up); } .trend.down { color: var(--warn); }
+  .steps { display: inline-flex; gap: 3px; } .steps i { width: 14px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
+  .steps i.on { background: var(--warn); box-shadow: 0 0 8px rgba(245,181,68,.45); }
+  .chip { font-size: 11.5px; color: var(--text); padding: 3px 8px; border-radius: 7px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--edge); white-space: nowrap; }
+  .chip.rest { color: var(--muted); }
+  .cal { display: inline-flex; align-items: center; gap: 7px; padding: 3px 9px 3px 3px; border-radius: 9px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--edge); }
+  .cal .d { display: grid; place-items: center; width: 30px; border-radius: 6px; background: color-mix(in srgb, var(--teal) 15%, transparent); color: var(--teal); line-height: 1.05; padding: 3px 0; }
+  .cal .d b { font-family: var(--mono); font-size: 13px; } .cal .d small { font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; }
+  .cal span { font-size: 12px; color: var(--text); white-space: nowrap; }
+  .more { display: block; width: calc(100% - 28px); margin: 4px 14px 12px; text-align: center; background: rgba(255,255,255,.04); border: 0; border-radius: 10px;
+          color: var(--muted); font: inherit; font-size: 12.5px; padding: 9px 12px; min-height: 40px; cursor: pointer; box-shadow: inset 0 0 0 1px var(--edge); }
+  .more:hover { color: var(--text); background: rgba(255,255,255,.07); }
+  .none { padding: 30px 18px; text-align: center; }
+  .none .ok { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center; color: var(--up);
+              background: radial-gradient(circle, rgba(62,207,142,.25), rgba(62,207,142,.06) 70%); box-shadow: 0 0 30px rgba(62,207,142,.25); }
+  .none .ok svg { width: 26px; height: 26px; }
+  .none b { display: block; font-size: 16px; } .none span { font-size: 12.5px; color: var(--muted); }
+  .row:focus-visible, .hero:focus-visible, .clim:focus-visible, .more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .foot { font-size: 11.5px; color: var(--muted); margin-top: 18px; text-align: center; }
+  .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
+  @media (prefers-reduced-motion: reduce) { .rise, .live i { animation: none; } }
+  @media (max-width: 640px) {
     body { padding: 18px 12px 40px; }
-    h1 { font-size: 22px; }
-    .kpis { gap: 8px; }
-    .kpi { padding: 10px 10px 9px; }
-    .kpi .l { font-size: 10.5px; letter-spacing: .5px; }
-    .kpi .v { font-size: 19px; } .kpi .v.w { font-size: 16px; }
-    .kpi .s { font-size: 11.5px; }
-    .row { padding: 10px 12px; } .grp-h { padding-left: 12px; padding-right: 12px; } .more { padding-left: 12px; }
+    h1 { font-size: 23px; }
+    .hero { padding: 16px 16px 14px; }
+    .big { font-size: 32px; } .big.sm { font-size: 24px; }
+    .heat { gap: 3px; }
+    .duo { grid-template-columns: 1fr; }
     .r-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="top"><h1 id="hello">Vandaag</h1><div class="date" id="date"></div></header>
-  <div class="kpis" id="kpis"></div>
-  <div id="techwarn"></div>
-  <div class="todo-h"><h2>Te doen vandaag</h2><span id="todoCount"></span></div>
-  <div id="todo"><div class="none">Laden…</div></div>
-  <p class="foot">Tik op een regel om naar het bijbehorende scherm te gaan. Hulpmiddel, geen beleggingsadvies.</p>
+  <header class="top">
+    <div><h1 id="hello">Vandaag</h1><div class="date" id="date"></div></div>
+    <span class="live" id="live"></span>
+  </header>
+  <div id="hero"></div>
+  <div class="duo" id="duo"><div id="clim"></div><div id="techwarn"></div></div>
+  <div class="todo-h"><h2>Te doen vandaag</h2><span class="cnt" id="todoCount" hidden></span></div>
+  <div id="todo"><div class="glass none"><span>Laden…</span></div></div>
+  <p class="foot">Tik op een onderdeel om naar het scherm te gaan · geen beleggingsadvies</p>
 </div>
 
 <script src="vault.js"></script>
@@ -130,26 +193,65 @@ function ageTxt(iso) {
 // Bedrijfsnaam zonder rechtsvorm: 'Advanced Micro Devices, Inc.' → 'Advanced Micro Devices'
 const LEGAL = /[,\s]+(inc\.?|incorporated|corp\.?|corporation|co\.?|company|n\.?v\.?|s\.?a\.?|se|ag|plc|ltd\.?|limited|holdings?|group)$/i;
 function short(n) { let s = String(n || '').trim(); for (let i = 0; i < 3 && LEGAL.test(s); i++) s = s.replace(LEGAL, '').trim(); return s || String(n || ''); }
-const dShort = iso => new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
-const list = (xs, n = 3) => xs.slice(0, n).join(', ') + (xs.length > n ? ` +${xs.length - n}` : '');
+const dParts = iso => { const d = new Date(String(iso).slice(0, 10) + 'T12:00:00'); return { d: d.getDate(), m: d.toLocaleDateString('nl-NL', { month: 'short' }).replace('.', '') }; };
 
-// Te doen: per groep een blok met hooguit 3 regels; de rest klap je hier open (blijft open bij verversen)
+// Pictogrammen (lijntekeningen, kleur volgt de groep)
+const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON = {
+  kopen: svg('<path d="M6 8h12l-1.2 12H7.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>'),
+  winst: svg('<ellipse cx="12" cy="6.5" rx="6.5" ry="2.8"/><path d="M5.5 6.5v5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-5"/><path d="M5.5 11.5v5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-5"/>'),
+  beoordelen: svg('<rect x="5.5" y="4.5" width="13" height="16" rx="2.2"/><path d="M9.5 3.5h5v3h-5z"/><path d="m9 13 2.2 2.2L15.5 11"/>'),
+  radar: svg('<path d="M12 12 18.4 5.6"/><path d="M19.8 12a7.8 7.8 0 1 1-2.3-5.5"/><path d="M15.6 12a3.6 3.6 0 1 1-1-2.5"/>'),
+  opgevolgd: svg('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
+  agenda: svg('<rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3.5v4M15 3.5v4"/>'),
+  klimaat: svg('<path d="M3 12.5h3.5l2.5-6 4 12 3-8.5 1.5 2.5H21"/>'),
+  ok: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>')
+};
+const ARROW = { up: svg('<path d="M7 17 17 7M9 7h8v8"/>'), down: svg('<path d="M7 7l10 10M17 9v8H9"/>') };
+
+// Te doen: per groep een kaart met hooguit 3 regels; de rest klap je hier open (blijft open bij verversen)
 const GROUPS = [['Kopen', 'kopen'], ['Winst nemen', 'winst'], ['Beoordelen', 'beoordelen'], ['Radar', 'radar'], ['Opgevolgd', 'opgevolgd'], ['Agenda', 'agenda']];
 const SHOW = 3;
 const opened = new Set();
-let twOpen = false, todo = [];
-const row = t => `<div class="row" role="button" tabindex="0" data-go="${esc(t.go)}"${t.tip ? ` title="${esc(t.tip)}"` : ''}>
-    <div class="r-m"><div class="r-t">${esc(t.title)}</div><div class="r-s">${t.subHTML ? t.sub : esc(t.sub)}</div></div><div class="r-v">${t.val}</div></div>`;
+let twOpen = false, todo = [], first = true;
+
+// Eén regel per soort: liever een balkje, stippen of tegels dan een zin
+const chips = (xs, n = 3) => xs.slice(0, n).map(x => `<span class="chip">${esc(x)}</span>`).join('') + (xs.length > n ? `<span class="chip rest">+${xs.length - n}</span>` : '');
+function rowHTML(t) {
+  let x = '', v = '';
+  if (t.kind === 'koop') {
+    x = `<span class="bar" aria-hidden="true"><i style="width:${Math.min(100, Math.round(t.drop / 50 * 100))}%"></i></span><span><span class="m">${nf(t.drop, 0)}%</span> onder de top</span>`
+      + (t.trend == null ? '' : `<span class="trend ${t.trend ? 'up' : 'down'}" title="${t.trend ? 'boven' : 'onder'} het 200-daags gemiddelde">${ARROW[t.trend ? 'up' : 'down']}${t.trend ? 'stijgende' : 'dalende'} trend</span>`);
+    v = `<span class="pill ${t.watch ? 'blue' : 'green'}">${t.watch ? 'watchlist' : 'bijkopen'}</span>`;
+  } else if (t.kind === 'winst') {
+    const n = ((t.step - 1) % 3) + 1;
+    x = `<span class="steps" title="trede ${t.step}: ${t.sellPct}% verkopen" aria-hidden="true">${[1, 2, 3].map(i => `<i${i <= n ? ' class="on"' : ''}></i>`).join('')}</span>`
+      + `<span><span class="m">+${t.target}%</span> ${t.heropend ? 'opnieuw bereikt' : 'bereikt'}</span><span>winst <span class="m ${cls(t.pl)}">${pct(t.pl, 0)}</span></span>`;
+    v = `<span class="pill amber">${t.sellPct}% verkopen</span>`;
+  } else if (t.kind === 'chips') {
+    x = chips(t.items);
+    v = t.pill ? `<span class="pill ${t.pillCls || ''}">${esc(t.pill)}</span>` : '';
+  } else if (t.kind === 'cal') {
+    x = t.items.slice(0, 5).map(e => `<span class="cal"><span class="d"><b>${e.d}</b><small>${esc(e.m)}</small></span><span>${esc(e.n)}</span></span>`).join('');
+  } else {
+    x = t.sub ? `<span>${esc(t.sub)}</span>` : '';
+    v = t.pill ? `<span class="pill ${t.pillCls || ''}">${esc(t.pill)}</span>` : '';
+  }
+  return `<div class="row" role="button" tabindex="0" data-go="${esc(t.go)}"><div class="r-t">${esc(t.title)}</div><div>${v}</div>${x ? `<div class="r-x">${x}</div>` : ''}</div>`;
+}
 function drawTodo() {
-  $('todoCount').textContent = todo.length ? `${todo.length} ${todo.length === 1 ? 'punt' : 'punten'}` : '';
+  const c = $('todoCount');
+  c.hidden = !todo.length; c.textContent = todo.length;
+  $('todo').className = todo.length ? 'grid' : '';
+  let i = 2;
   $('todo').innerHTML = todo.length ? GROUPS.map(([g, key]) => {
     const xs = todo.filter(t => t.g === g).sort((a, b) => a.prio - b.prio || (a.ord || 0) - (b.ord || 0));
     if (!xs.length) return '';
     const all = opened.has(g) || xs.length <= SHOW + 1;             // één verborgen regel tonen we gewoon
-    return `<section class="grp g-${key}"><div class="grp-h"><i></i>${esc(g)}<em>${xs.length}</em></div>
-      ${(all ? xs : xs.slice(0, SHOW)).map(row).join('')}
+    return `<section class="glass grp g-${key}${first ? ' rise' : ''}" style="--i:${i++}"><div class="grp-h"><span class="ico">${ICON[key]}</span><b>${esc(g)}</b><span class="cnt">${xs.length}</span></div>
+      ${(all ? xs : xs.slice(0, SHOW)).map(rowHTML).join('')}
       ${xs.length > SHOW + 1 ? `<button type="button" class="more" data-grp="${esc(g)}">${opened.has(g) ? 'minder tonen' : `nog ${xs.length - SHOW} tonen`}</button>` : ''}</section>`;
-  }).join('') : '<div class="none"><b>Niets te doen vandaag.</b><br>Geen koopsignalen, winstnemingen, beoordelingen, nieuwe adviezen of cijfers.</div>';
+  }).join('') : `<div class="glass none${first ? ' rise' : ''}"><div class="ok">${ICON.ok}</div><b>Niets te doen vandaag</b><span>Geen signalen, winstnemingen of beoordelingen.</span></div>`;
 }
 
 async function render() {
@@ -162,12 +264,14 @@ async function render() {
   const now = new Date();
   const h = now.getHours();
   $('hello').textContent = (h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond') + ', Maurits';
-  // Datum en versheid in één regel; alleen als iets echt achterloopt (een halve dag) valt het op
+  $('date').textContent = now.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Versheid: een pulserende stip; oranje als iets een halve dag achterloopt
   const fresh = ageTxt(data && data.updated);
   const old = [['koersen', data && data.updated], ['radar', sig && sig.generated], ['kansen', scr && scr.updated]]
     .map(([k, iso]) => [k, ageTxt(iso)]).filter(([, a]) => a.min > 12 * 60).map(([k, a]) => a.min === Infinity ? `${k} ontbreekt` : `${k} ${a.t} oud`);
-  $('date').innerHTML = esc(now.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }))
-    + ` · bijgewerkt ${esc(fresh.t)} geleden` + (old.length ? ` · <span class="old">${esc(old.join(', '))}</span>` : '');
+  $('live').className = 'live' + (old.length ? ' old' : '');
+  $('live').title = old.length ? old.join(', ') : 'Laatst bijgewerkt';
+  $('live').innerHTML = `<i></i>${old.length ? esc(old[0]) : `${esc(fresh.t)} geleden`}`;
 
   // Posities met koers
   const held = pos.filter(p => !p.watch && p.cost != null).map(p => ({ p, q: q(p.ticker) })).filter(x => x.q && x.q.price);
@@ -180,9 +284,20 @@ async function render() {
   const upN = held.filter(x => dayOf(x) > 0).length, downN = held.filter(x => dayOf(x) < 0).length;
   const nm = x => short(x.q.name || x.p.ticker);
 
-  // Beursklimaat vandaag en deze week (zelfde regels als de Patroonradar)
+  // Portefeuille: vandaag en sinds aankoop groot, daaronder één blokje per positie in de kleur van de dag
+  const heatC = d => d > 0 ? `rgba(62,207,142,${(0.25 + 0.75 * Math.min(1, d / 4)).toFixed(2)})` : d < 0 ? `rgba(240,89,95,${(0.25 + 0.75 * Math.min(1, -d / 4)).toFixed(2)})` : 'rgba(255,255,255,.12)';
+  const heat = held.slice().sort((a, b) => dayOf(b) - dayOf(a)).map(x => `<i style="--c:${heatC(dayOf(x))}" title="${esc(nm(x))} ${esc(pct(dayOf(x)))}"></i>`).join('');
+  $('hero').innerHTML = `<section class="glass hero ${dayPct > 0 ? 'pos' : dayPct < 0 ? 'neg' : ''}${first ? ' rise' : ''}" style="--i:0" role="button" tabindex="0" data-go="investeringen">
+      <div class="h-row"><div><div class="k">Vandaag</div><div class="big ${cls(dayPct)}">${pct(dayPct, 2)}</div></div>
+        <div><div class="k">Sinds aankoop</div><div class="big sm ${cls(plPct)}">${pct(plPct)}</div></div></div>
+      ${held.length ? `<div class="heat" role="img" aria-label="Per positie vandaag: ${upN} omhoog, ${downN} omlaag">${heat}</div>
+      <div class="h-foot"><span class="u"><b>${upN}</b> omhoog</span><span class="d"><b>${downN}</b> omlaag</span><span><b>${held.length}</b> posities</span></div>`
+        : '<div class="h-foot">Geen aankoopprijzen op dit apparaat: zet Sync aan op Investeringen</div>'}
+    </section>`;
+
+  // Beursklimaat vandaag (meter: risico-uit · neutraal · rustig) en deze week (zelfde regels als de Patroonradar)
   const reg = (sig && sig.world && sig.world.regime) || {};
-  const REG = { calm: ['c-up', 'Rustig & stijgend'], neutral: ['c-warn', 'Neutraal'], off: ['c-down', 'Risico-uit'] }[reg.state] || ['', '—'];
+  const REG = { off: ['var(--down)', 'Risico-uit', 'r'], neutral: ['var(--warn)', 'Neutraal', 'n'], calm: ['var(--up)', 'Rustig & stijgend', 'g'] }[reg.state] || ['var(--muted)', '—', ''];
   const horizon = (sig && sig.config && sig.config.horizon) || 10;
   let sw = 0, sm = 0;
   ((sig && sig.items) || []).forEach(it => {
@@ -192,27 +307,25 @@ async function render() {
     sw += w; sm += w * (it.projected_pct != null ? it.projected_pct * 5 / horizon : 0);
   });
   const wk = sw ? sm / sw : null;
-  const week = wk == null ? '—' : wk >= 0.5 ? 'positief' : wk <= -0.5 ? 'negatief' : 'neutraal';
+  $('clim').innerHTML = `<section class="glass clim${first ? ' rise' : ''}" style="--i:1;--tone:${REG[0]}" role="button" tabindex="0" data-go="patroonradar">
+      <span class="ico">${ICON.klimaat}</span><div><div class="k">Beursklimaat</div><div class="v">${esc(REG[1])}</div></div>
+      <div class="meter" role="img" aria-label="Beursklimaat: ${esc(REG[1])}"><i class="r${REG[2] === 'r' ? ' on' : ''}"></i><i class="n${REG[2] === 'n' ? ' on' : ''}"></i><i class="g${REG[2] === 'g' ? ' on' : ''}"></i></div>
+      <div class="meter-l"><span>risico-uit</span><span>neutraal</span><span>rustig</span></div>
+      <div class="wk">deze week ${wk == null ? '—' : `<span class="trend ${wk >= 0 ? 'up' : 'down'}">${ARROW[wk >= 0 ? 'up' : 'down']}</span><b class="${cls(wk)}">${pct(wk)}</b> verwacht`}</div>
+    </section>`;
 
-  $('kpis').innerHTML = `
-    <button class="kpi" onclick="go('investeringen')"><div class="l">Vandaag</div>
-      <div class="v ${cls(dayPct)}">${pct(dayPct, 2)}</div>
-      <div class="s">${held.length ? `${upN}&nbsp;omhoog · ${downN}&nbsp;omlaag` : 'geen aankoopprijzen op dit apparaat'}</div></button>
-    <button class="kpi" onclick="go('investeringen')"><div class="l">Sinds aankoop</div>
-      <div class="v ${cls(plPct)}">${pct(plPct)}</div>
-      <div class="s">${held.length} posities</div></button>
-    <button class="kpi" onclick="go('patroonradar')"><div class="l">Beursklimaat</div>
-      <div class="v w ${REG[0]}">${esc(REG[1])}</div>
-      <div class="s">deze&nbsp;week ${esc(week)}${wk == null ? '' : `&nbsp;(${pct(wk)})`}</div></button>`;
-
-  // Techradar: één regel (niveau en hoeveel van je portefeuille in tech zit); uitleg en tips pas na openklappen
+  // Techradar: kaart met niveau, signalen en je deel in tech; uitleg en tips pas na 'Wat te doen'
   if (typeof TechWarn !== 'undefined') {
     TechWarn.css();
     const exposure = Shared.techExposure(held.map(x => ({ p: x.p, value: val(x) })), idx.find);
     $('techwarn').innerHTML = tech ? TechWarn.banner(tech, exposure, { compact: true, open: twOpen }) : '';
     const d = $('techwarn').querySelector('details');
-    if (d) d.addEventListener('toggle', () => { twOpen = d.open; });
+    if (d) {
+      if (first) { d.classList.add('rise'); d.style.setProperty('--i', 1); }
+      d.addEventListener('toggle', () => { twOpen = d.open; });
+    }
   }
+  $('duo').classList.toggle('solo', !$('techwarn').innerHTML.trim());
 
   // ── Te doen
   todo = [];
@@ -222,9 +335,8 @@ async function render() {
     const drop = (qq.high52 - qq.price) / qq.high52 * 100, thr = thresholdFor(p, qq);
     if (drop >= thr) {
       const trend = qq.sma200 ? qq.price > qq.sma200 : null;
-      todo.push({ g: 'Kopen', title: short(qq.name || p.ticker), tip: `drempel ${thr}% onder de top`,
-        sub: `${nf(drop, 0)}% onder de top${trend === false ? ' · <span class="c-warn">dalende trend</span>' : trend ? ' · stijgende trend' : ''}`, subHTML: true,
-        val: `<span class="c-up">${p.watch ? 'watchlist' : 'bijkopen'}</span>`, go: 'investeringen', prio: trend === false ? 2 : 1, ord: -drop });
+      todo.push({ g: 'Kopen', kind: 'koop', title: short(qq.name || p.ticker), drop, trend, watch: !!p.watch,
+        go: 'investeringen', prio: trend === false ? 2 : 1, ord: -drop });
     }
   });
   // 2. Winstnemingstrap (zelfde regel als de knop "Realiseer" op het tabblad Investeringen)
@@ -232,14 +344,13 @@ async function render() {
     const pl = (x.q.price / x.p.cost - 1) * 100;
     const s = Shared.sellStatus(x.p.sells, pl, x.q.price, x.q.wk);
     if (!s.canRealise) return;
-    todo.push({ g: 'Winst nemen', title: nm(x),
-      sub: `+${s.nextTargetPct}% ${s.isHeropend ? 'opnieuw bereikt na een daling van 25%' : 'bereikt'} · resultaat ${pct(pl, 0)}`,
-      val: `<span class="c-warn">${s.nextSellPct}% verkopen</span>`, go: 'investeringen', prio: 1 });
+    todo.push({ g: 'Winst nemen', kind: 'winst', title: nm(x), step: s.nextStep, target: s.nextTargetPct, sellPct: s.nextSellPct,
+      heropend: s.isHeropend, pl, go: 'investeringen', prio: 1, ord: -pl });
   });
   // Oude verkopen zonder vastgelegde verkoopkoers: zonder koers kan die trede niet weer opengaan na een daling van 25%
   const noPrice = held.filter(x => (x.p.sells || []).some(v => v && !(v.price > 0)));
-  if (noPrice.length) todo.push({ g: 'Winst nemen', title: 'Verkoopkoers invullen', sub: `${list(noPrice.map(nm))} · nodig voor de 25%-regel`,
-    val: '<span class="c-warn">invullen</span>', go: 'investeringen', prio: 3 });
+  if (noPrice.length) todo.push({ g: 'Winst nemen', kind: 'chips', title: 'Verkoopkoers invullen', items: noPrice.map(nm),
+    pill: 'invullen', pillCls: 'amber', go: 'investeringen', prio: 3 });
   // 3. Beoordeling (12 stappen): these-alarm en these herzien per aandeel; nieuwe kwartaalcijfers en de kwartaalcheck
   //    elk samen in één regel (these.json, zelfde regels als Beoordeling via shared.js)
   const stocks = pos.filter(p => !p.watch && p.section === 'Stocks');
@@ -249,59 +360,59 @@ async function render() {
     const it = idx.find(p.ticker), v = Steps.verdict(it), name = short((it && it.name) || p.label || p.ticker);
     const al = Shared.theseAlerts(it, (these && it && these.stocks[it.sym]) || null, p.review, today);
     const alarm = al.filter(a => a.kind === 'drop' || a.kind === 'newfail');
-    if (alarm.length) todo.push({ g: 'Beoordelen', title: `These-alarm: ${name}`, sub: alarm.map(a => a.text).join(' · '),
-      val: `<span class="${alarm[0].sev >= 3 ? 'c-down' : 'c-warn'}">alarm</span>`, go: 'beoordeling', prio: 0 });
-    if (v.cls === 'v-bad') todo.push({ g: 'Beoordelen', title: `These herzien: ${name}`, sub: v.text.split('. ')[0] + '.',
-      val: '<span class="c-down">herzien</span>', go: 'beoordeling', prio: 2 });
+    if (alarm.length) todo.push({ g: 'Beoordelen', title: name, sub: alarm.map(a => a.text).join(' · '),
+      pill: 'these-alarm', pillCls: alarm[0].sev >= 3 ? 'red' : 'amber', go: 'beoordeling', prio: 0 });
+    if (v.cls === 'v-bad') {                     // de reden uit het oordeel (Beoordeling), kort: scorecard onder 75 of de harde afvaller
+      const why = v.text.split('. ')[0], sc = /^Scorecard ([\d,.]+): onder 75/.exec(why);
+      todo.push({ g: 'Beoordelen', title: name, sub: sc ? `scorecard ${sc[1]} van 125 · onder 75` : why.replace(/^Valt/, 'valt'),
+        pill: 'herzien', pillCls: 'red', go: 'beoordeling', prio: 2 });
+    }
     const earn = al.find(a => a.kind === 'earn');
     if (earn) earned.push({ name, since: earn.since });
     if (al.some(a => a.kind === 'due')) due.push(name);
   });
   if (earned.length) {
     earned.sort((a, b) => String(b.since).localeCompare(String(a.since)));
-    todo.push({ g: 'Beoordelen', title: `Kwartaalcijfers lezen (${earned.length})`, sub: list(earned.map(e => `${e.name} (${dShort(e.since)})`)),
-      val: '', go: 'beoordeling', prio: 1 });
+    todo.push({ g: 'Beoordelen', kind: 'chips', title: 'Kwartaalcijfers lezen', items: earned.map(e => e.name), pill: `${earned.length}`, pillCls: 'grey', go: 'beoordeling', prio: 1 });
   }
-  if (due.length) todo.push({ g: 'Beoordelen', title: `Kwartaalcheck (${due.length})`, sub: `${list(due)} · al 100 dagen niet gecheckt`,
-    val: '', go: 'beoordeling', prio: 3 });
+  if (due.length) todo.push({ g: 'Beoordelen', kind: 'chips', title: 'Kwartaalcheck', items: due, pill: `${due.length}`, pillCls: 'grey', go: 'beoordeling', prio: 3 });
   // 4. Nieuwe radaradviezen (afgelopen handelsdag)
   const cut = newCutoff();
   ((sig && sig.history) || []).filter(e => e.dir === 'up' && !e.end && !e.bootstrap && e.start && new Date(e.start) >= cut).forEach(e => {
-    todo.push({ g: 'Radar', title: `Koopadvies ${short(e.name || e.symbol)}`, sub: `nieuw signaal · verwacht ${pct(e.projected_pct)} in ${horizon} dagen`,
-      val: '<span class="c-up">kopen</span>', go: 'patroonradar', prio: 1 });
+    todo.push({ g: 'Radar', title: short(e.name || e.symbol), sub: `nieuw koopadvies · ${horizon} dagen`, pill: pct(e.projected_pct), pillCls: 'blue', go: 'patroonradar', prio: 1 });
   });
   // 5. Opgevolgde adviezen
   (trades || []).filter(t => t && !t.deleted && t.status === 'open').forEach(t => {
     const it = ((sig && sig.items) || []).concat((sigTop && sigTop.items) || []).find(i => i.symbol === t.symbol);
     const px = it && it.price, res = px && t.price ? (t.dir === 'up' ? px / t.price - 1 : 1 - px / t.price) * 100 : null;
     todo.push({ g: 'Opgevolgd', title: short(t.name || t.symbol), sub: `${t.dir === 'up' ? 'koopadvies' : 'verkoopadvies'}${t.plan && t.plan.target ? ' · doel ' + nf(t.plan.target, 2) : ''}`,
-      val: `<span class="${cls(res)}">${pct(res)}</span>`, go: (t.set === 'top250' ? 'top250-radar' : 'patroonradar'), prio: 3 });
+      pill: pct(res), pillCls: res == null ? 'grey' : res >= 0 ? 'green' : 'red', go: (t.set === 'top250' ? 'top250-radar' : 'patroonradar'), prio: 3 });
   });
-  // 6. Kwartaalcijfers binnen 7 dagen: één regel, de eerstvolgende voorop
+  // 6. Kwartaalcijfers binnen 7 dagen: één regel met datumtegels, de eerstvolgende voorop
   const soon = [];
   ((sig && sig.items) || []).forEach(it => {
     const e = it.context && it.context.earnings;
-    if (e && e.days != null && e.days >= 0 && e.days <= 7) soon.push({ n: short(it.label || it.name || it.symbol), d: e.days, date: e.date });
+    if (e && e.days != null && e.days >= 0 && e.days <= 7) {
+      const dt = dParts(e.date || new Date(Date.now() + e.days * 864e5).toISOString());
+      soon.push({ n: short(it.label || it.name || it.symbol), days: e.days, d: dt.d, m: dt.m });
+    }
   });
   if (soon.length) {
-    soon.sort((a, b) => a.d - b.d || a.n.localeCompare(b.n));
-    const when = x => x.d === 0 ? 'vandaag' : x.d === 1 ? 'morgen' : x.date ? dShort(x.date) : `over ${x.d} d`;
-    todo.push({ g: 'Agenda', title: `Kwartaalcijfers deze week (${soon.length})`, sub: list(soon.map(x => `${x.n} (${when(x)})`), 4),
-      val: '', go: 'patroonradar', prio: 4 });
+    soon.sort((a, b) => a.days - b.days || a.n.localeCompare(b.n));
+    todo.push({ g: 'Agenda', kind: 'cal', title: 'Kwartaalcijfers deze week', items: soon, go: 'patroonradar', prio: 4 });
   }
-
   drawTodo();
+  first = false;
 }
 
-// Een regel opent het bijbehorende scherm; 'nog N tonen' klapt de groep hier open
-$('todo').addEventListener('click', e => {
-  const m = e.target.closest('.more');
+// Een regel of kaart opent het bijbehorende scherm; 'nog N tonen' klapt de groep hier open
+document.addEventListener('click', e => {
+  const m = e.target.closest('button.more');
   if (m) { const g = m.dataset.grp; opened.has(g) ? opened.delete(g) : opened.add(g); drawTodo(); return; }
-  const r = e.target.closest('.row');
+  const r = e.target.closest('[data-go]');
   if (r) go(r.dataset.go);
 });
-
-// Rijen zijn div's met role="button": Enter en spatie werken zoals een klik
+// Regels en kaarten zijn knoppen: Enter en spatie werken zoals een klik
 document.addEventListener('keydown', e => {
   const el = e.target;
   if ((e.key === 'Enter' || e.key === ' ') && el.getAttribute && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); }

@@ -15,7 +15,7 @@
   :root {
     --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
     --muted: #83888d; --text: #eceef0; --up: #3ecf8e; --down: #f0595f;
-    --warn: #f5b544; --accent: #4f8ff0; --violet: #a78bfa;
+    --warn: #f5b544; --accent: #4f8ff0; --violet: #a78bfa; --gold: #c9a45c;
     --mono: 'IBM Plex Mono', ui-monospace, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,93 +23,71 @@
     background: radial-gradient(1100px 520px at 85% -12%, #1e2430 0%, transparent 60%), var(--ink);
     color: var(--text); font-family: 'Space Grotesk', system-ui, sans-serif; min-height: 100vh; padding: 28px 18px 60px;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; }
-  header.top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
-  h1 { font-size: 28px; font-weight: 700; letter-spacing: -.6px; }
-  .date { color: var(--muted); font-size: 13px; margin-top: 6px; }
-  .status { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { font-size: 11px; font-family: var(--mono); color: var(--muted); border: 1px solid var(--line); background: var(--panel);
-          padding: 5px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
-  .chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--up); }
-  .chip.warn i { background: var(--warn); } .chip.bad i { background: var(--down); }
+  /* één kolom: rustig lezen van boven naar beneden */
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header.top { margin-bottom: 18px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; }
+  .date { color: var(--muted); font-size: 13px; margin-top: 5px; line-height: 1.4; }
+  .date .old { color: var(--warn); }
 
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-  .card {
-    position: relative; overflow: hidden; border-radius: 14px; padding: 15px 17px 13px;
-    background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--line);
-    --mark: var(--accent); --tone: var(--muted); cursor: pointer; transition: border-color .15s, transform .15s; text-align: left; color: inherit; font: inherit;
-  }
-  .card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
-  .card::after { content: ''; position: absolute; right: -60px; top: -60px; width: 190px; height: 190px; border-radius: 50%;
-                 background: radial-gradient(circle, color-mix(in srgb, var(--tone) 15%, transparent), transparent 70%); pointer-events: none; }
-  @media (hover: hover) { .card:hover { border-color: var(--mark); transform: translateY(-2px); } }   /* op touch blijft :hover hangen na een tik */
-  .card.good { --tone: var(--up); } .card.bad { --tone: var(--down); } .card.mid { --tone: var(--warn); }
-  .card.v { --mark: var(--violet); } .card.g { --mark: var(--up); } .card.o { --mark: var(--warn); }
-  .k { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); display: flex; align-items: flex-start; gap: 7px; }
-  .k i { width: 7px; height: 7px; border-radius: 50%; background: var(--mark); flex: none; margin-top: .3em; }
-  .big { font-family: var(--mono); font-size: 26px; font-weight: 600; margin-top: 8px; color: var(--tone); }
-  .word { font-size: 21px; font-weight: 700; letter-spacing: -.3px; margin-top: 8px; color: var(--tone); }
-  .sub { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); line-height: 1.45; }
-  .sub b { color: var(--text); font-weight: 500; }
-
-  .cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; margin-bottom: 16px; align-items: start; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-  .p-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; margin-bottom: 10px; }
-  .p-head h2 { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
-  .p-head span { font-size: 11.5px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
-  .todo { display: flex; flex-direction: column; gap: 6px; }
-  .t { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 10px;
-       background: var(--panel-2); border: 1px solid transparent; cursor: pointer; transition: border-color .15s; }
-  @media (hover: hover) { .t:hover { border-color: var(--line); } }
-  .card:focus-visible, .t:focus-visible, .kans:focus-visible, .brc:focus-visible, .t-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .t .ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(79,143,240,.12); }
-  .t.buy .ic { background: rgba(62,207,142,.14); } .t.sell .ic { background: rgba(245,181,68,.14); }
-  .t.sig .ic { background: rgba(79,143,240,.14); } .t.earn .ic { background: rgba(167,139,250,.16); } .t.trade .ic { background: rgba(240,89,95,.12); }
-  .t.rev .ic { background: rgba(201,164,92,.16); }
-  .t-main { min-width: 0; }
-  .t-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .t-sub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }   /* mag afbreken: anders valt de uitleg weg */
-  .t-val { font-family: var(--mono); font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .empty { font-size: 13px; color: var(--muted); padding: 18px 8px; text-align: center; }
-  .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted); margin: 8px 2px 2px; }
-  .kans-h { display: flex; justify-content: space-between; gap: 10px; padding: 0 4px 6px; border-bottom: 1px dashed #26282b;
-            font-size: 11px; color: var(--muted); font-family: var(--mono); }   /* zegt op touch wat de getallen zijn (title werkt daar niet) */
-  .kans { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 7px 4px; border-bottom: 1px dashed #26282b; cursor: pointer; }
-  .kans:last-child { border-bottom: 0; }
-  .sc { display: flex; }   /* scorecard-ring uit steps.js, dezelfde als in Kansen portefeuille */
-  .brs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-  .brc { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; cursor: pointer; background: var(--panel-2); }
-  .brc b { display: block; font-size: 12.5px; }
-  .brc small { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  /* drie kerngetallen */
+  .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0;
+         text-align: left; color: inherit; font: inherit; cursor: pointer; transition: border-color .15s;
+         display: flex; flex-direction: column; justify-content: flex-start; }   /* knop: inhoud bovenaan, labels op één lijn */
+  @media (hover: hover) { .kpi:hover { border-color: #3d4045; } }
+  .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .kpi .v { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 5px; line-height: 1.15; }
+  .kpi .v.w { font-family: inherit; font-size: 20px; font-weight: 700; letter-spacing: -.2px; }
+  .kpi .s { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
   .c-up { color: var(--up); } .c-down { color: var(--down); } .c-warn { color: var(--warn); }
-  .foot { font-size: 11px; color: var(--muted); margin-top: 18px; }
-  @media (max-width: 900px) { .kpis { grid-template-columns: 1fr 1fr; } .cols { grid-template-columns: 1fr; } }
-  /* kaarten zijn knoppen: inhoud bovenaan, zodat labels en getallen in een rij gelijk staan */
-  .kpis > .card { display: flex; flex-direction: column; justify-content: flex-start; }
-  .t-more { font-size: 12px; color: var(--accent); padding: 8px 10px; cursor: pointer; min-height: 40px; display: flex; align-items: center; }
-  @media (max-width: 480px) {
-    .t-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
-    .t { gap: 8px; padding: 9px 8px; } .t-val { font-size: 12px; }
-    .status { gap: 6px; } .chip { padding: 5px 8px; gap: 5px; }
+  #techwarn:empty { display: none; }
+  #techwarn .tw-ban { margin-bottom: 0; }
+
+  /* te doen: per groep een blok, regels zonder poespas */
+  .todo-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 24px 2px 10px; }
+  .todo-h h2 { font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
+  .todo-h span { font-size: 12.5px; color: var(--muted); }
+  .grp { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; --mark: var(--accent); }
+  .grp-h { display: flex; align-items: center; gap: 8px; padding: 10px 14px 9px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+  .grp-h i { width: 8px; height: 8px; border-radius: 50%; background: var(--mark); flex-shrink: 0; }
+  .grp-h em { font-style: normal; margin-left: auto; text-transform: none; letter-spacing: 0; }
+  .g-kopen { --mark: var(--up); } .g-winst { --mark: var(--warn); } .g-beoordelen { --mark: var(--gold); }
+  .g-radar { --mark: var(--accent); } .g-opgevolgd { --mark: var(--violet); } .g-agenda { --mark: var(--muted); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 14px; align-items: center; padding: 10px 14px;
+         border-top: 1px solid var(--line); cursor: pointer; min-height: 52px; }
+  @media (hover: hover) { .row:hover { background: var(--panel-2); } }
+  .r-t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .r-s { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .r-v { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .more { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); color: var(--accent);
+          font: inherit; font-size: 12.5px; padding: 10px 14px; min-height: 42px; cursor: pointer; }
+  @media (hover: hover) { .more:hover { background: var(--panel-2); } }
+  .none { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px 16px; text-align: center; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+  .none b { color: var(--text); font-weight: 600; }
+  .row:focus-visible, .kpi:focus-visible, .more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .foot { font-size: 11.5px; color: var(--muted); margin-top: 16px; line-height: 1.5; }
+  @media (max-width: 560px) {
+    body { padding: 18px 12px 40px; }
+    h1 { font-size: 22px; }
+    .kpis { gap: 8px; }
+    .kpi { padding: 10px 10px 9px; }
+    .kpi .l { font-size: 10.5px; letter-spacing: .5px; }
+    .kpi .v { font-size: 19px; } .kpi .v.w { font-size: 16px; }
+    .kpi .s { font-size: 11.5px; }
+    .row { padding: 10px 12px; } .grp-h { padding-left: 12px; padding-right: 12px; } .more { padding-left: 12px; }
+    .r-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
   }
-  @media (max-width: 480px) { body { padding: 18px 12px 40px; } h1 { font-size: 23px; } .big { font-size: 22px; } .word { font-size: 18px; } }
-  /* smalle telefoon: 2 kaarten naast elkaar houden labels op 2 regels en sublines korter */
-  @media (max-width: 360px) { .card { padding: 13px 12px 11px; } .k { letter-spacing: .5px; } .sub { font-size: 11px; } .t-title { -webkit-line-clamp: 3; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="top">
-    <div><h1 id="hello">Vandaag</h1><div class="date" id="date"></div></div>
-    <div class="status" id="status"></div>
-  </header>
-  <div id="techwarn"></div>
+  <header class="top"><h1 id="hello">Vandaag</h1><div class="date" id="date"></div></header>
   <div class="kpis" id="kpis"></div>
-  <div class="cols">
-    <div class="panel"><div class="p-head"><h2>Te doen vandaag</h2><span id="todoCount"></span></div><div class="todo" id="todo"><div class="empty">Laden…</div></div></div>
-    <div class="panel"><div class="p-head"><h2>Kansen van de dag</h2><span>Kansen portefeuille</span></div><div id="kansen"><div class="empty">Laden…</div></div></div>
-  </div>
-  <p class="foot">Klik op een onderdeel om naar het bijbehorende scherm te gaan. Dit overzicht is een hulpmiddel, geen beleggingsadvies.</p>
+  <div id="techwarn"></div>
+  <div class="todo-h"><h2>Te doen vandaag</h2><span id="todoCount"></span></div>
+  <div id="todo"><div class="none">Laden…</div></div>
+  <p class="foot">Tik op een regel om naar het bijbehorende scherm te gaan. Hulpmiddel, geen beleggingsadvies.</p>
 </div>
 
 <script src="vault.js"></script>
@@ -122,9 +100,6 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const nf = (v, d = 1) => v == null || v === '' || !isFinite(+v) ? '—' : (+v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (v, d = 1) => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
-Steps.css();
-const tone = v => v == null ? '' : v >= 0.5 ? 'good' : v <= -0.5 ? 'bad' : 'mid';
-const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
 
 // Naar een ander scherm van het dashboard (de pagina staat in een iframe van index.html)
 function go(hash) {
@@ -148,10 +123,33 @@ function newCutoff() {
   return c;
 }
 function ageTxt(iso) {
-  if (!iso) return { t: 'onbekend', cls: 'bad' };
+  if (!iso) return { t: 'onbekend', min: Infinity };
   const m = (Date.now() - new Date(iso).getTime()) / 60000;
-  const t = m < 60 ? Math.round(m) + ' min' : m < 48 * 60 ? Math.round(m / 60) + ' uur' : Math.round(m / 1440) + ' dagen';
-  return { t, cls: m > 6 * 60 ? 'bad' : m > 60 ? 'warn' : '' };
+  return { t: m < 60 ? Math.round(m) + ' min' : m < 48 * 60 ? Math.round(m / 60) + ' uur' : Math.round(m / 1440) + ' dagen', min: m };
+}
+// Bedrijfsnaam zonder rechtsvorm: 'Advanced Micro Devices, Inc.' → 'Advanced Micro Devices'
+const LEGAL = /[,\s]+(inc\.?|incorporated|corp\.?|corporation|co\.?|company|n\.?v\.?|s\.?a\.?|se|ag|plc|ltd\.?|limited|holdings?|group)$/i;
+function short(n) { let s = String(n || '').trim(); for (let i = 0; i < 3 && LEGAL.test(s); i++) s = s.replace(LEGAL, '').trim(); return s || String(n || ''); }
+const dShort = iso => new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+const list = (xs, n = 3) => xs.slice(0, n).join(', ') + (xs.length > n ? ` +${xs.length - n}` : '');
+
+// Te doen: per groep een blok met hooguit 3 regels; de rest klap je hier open (blijft open bij verversen)
+const GROUPS = [['Kopen', 'kopen'], ['Winst nemen', 'winst'], ['Beoordelen', 'beoordelen'], ['Radar', 'radar'], ['Opgevolgd', 'opgevolgd'], ['Agenda', 'agenda']];
+const SHOW = 3;
+const opened = new Set();
+let twOpen = false, todo = [];
+const row = t => `<div class="row" role="button" tabindex="0" data-go="${esc(t.go)}"${t.tip ? ` title="${esc(t.tip)}"` : ''}>
+    <div class="r-m"><div class="r-t">${esc(t.title)}</div><div class="r-s">${t.subHTML ? t.sub : esc(t.sub)}</div></div><div class="r-v">${t.val}</div></div>`;
+function drawTodo() {
+  $('todoCount').textContent = todo.length ? `${todo.length} ${todo.length === 1 ? 'punt' : 'punten'}` : '';
+  $('todo').innerHTML = todo.length ? GROUPS.map(([g, key]) => {
+    const xs = todo.filter(t => t.g === g).sort((a, b) => a.prio - b.prio || (a.ord || 0) - (b.ord || 0));
+    if (!xs.length) return '';
+    const all = opened.has(g) || xs.length <= SHOW + 1;             // één verborgen regel tonen we gewoon
+    return `<section class="grp g-${key}"><div class="grp-h"><i></i>${esc(g)}<em>${xs.length}</em></div>
+      ${(all ? xs : xs.slice(0, SHOW)).map(row).join('')}
+      ${xs.length > SHOW + 1 ? `<button type="button" class="more" data-grp="${esc(g)}">${opened.has(g) ? 'minder tonen' : `nog ${xs.length - SHOW} tonen`}</button>` : ''}</section>`;
+  }).join('') : '<div class="none"><b>Niets te doen vandaag.</b><br>Geen koopsignalen, winstnemingen, beoordelingen, nieuwe adviezen of cijfers.</div>';
 }
 
 async function render() {
@@ -164,13 +162,12 @@ async function render() {
   const now = new Date();
   const h = now.getHours();
   $('hello').textContent = (h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond') + ', Maurits';
-  $('date').textContent = now.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-
-  // Versheid van de data
-  const st = [['koersen', data && data.updated], ['radar', sig && sig.generated], ['kansen', scr && scr.updated]].map(([k, iso]) => {
-    const a = ageTxt(iso); return `<span class="chip ${a.cls}" title="Laatst bijgewerkt"><i></i>${k} ${a.t}</span>`;
-  });
-  $('status').innerHTML = st.join('');
+  // Datum en versheid in één regel; alleen als iets echt achterloopt (een halve dag) valt het op
+  const fresh = ageTxt(data && data.updated);
+  const old = [['koersen', data && data.updated], ['radar', sig && sig.generated], ['kansen', scr && scr.updated]]
+    .map(([k, iso]) => [k, ageTxt(iso)]).filter(([, a]) => a.min > 12 * 60).map(([k, a]) => a.min === Infinity ? `${k} ontbreekt` : `${k} ${a.t} oud`);
+  $('date').innerHTML = esc(now.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }))
+    + ` · bijgewerkt ${esc(fresh.t)} geleden` + (old.length ? ` · <span class="old">${esc(old.join(', '))}</span>` : '');
 
   // Posities met koers
   const held = pos.filter(p => !p.watch && p.cost != null).map(p => ({ p, q: q(p.ticker) })).filter(x => x.q && x.q.price);
@@ -180,20 +177,12 @@ async function render() {
   const dayPct = totV ? held.reduce((a, x) => a + val(x) * dayOf(x), 0) / totV : null;
   const costSum = held.reduce((a, x) => a + x.p.cost * (x.p.qty || 1), 0);
   const plPct = costSum ? (held.reduce((a, x) => a + (x.q.price - x.p.cost) * (x.p.qty || 1), 0) / costSum) * 100 : null;
-  const sorted = held.slice().sort((a, b) => dayOf(b) - dayOf(a));
-  const upN = held.filter(x => dayOf(x) > 0).length;
-  const nm = x => x.q.name || x.p.ticker;
-
-  // Techradar: dreigt er een terugval in tech en chips? Met hoeveel van je portefeuille daarin zit.
-  if (typeof TechWarn !== 'undefined') {
-    TechWarn.css();
-    const exposure = Shared.techExposure(held.map(x => ({ p: x.p, value: val(x) })), idx.find);
-    $('techwarn').innerHTML = tech ? TechWarn.banner(tech, exposure) : '';
-  }
+  const upN = held.filter(x => dayOf(x) > 0).length, downN = held.filter(x => dayOf(x) < 0).length;
+  const nm = x => short(x.q.name || x.p.ticker);
 
   // Beursklimaat vandaag en deze week (zelfde regels als de Patroonradar)
   const reg = (sig && sig.world && sig.world.regime) || {};
-  const REG = { calm: ['good', 'Rustig & stijgend'], neutral: ['mid', 'Neutraal'], off: ['bad', 'Risico-uit'] }[reg.state] || ['', '—'];
+  const REG = { calm: ['c-up', 'Rustig & stijgend'], neutral: ['c-warn', 'Neutraal'], off: ['c-down', 'Risico-uit'] }[reg.state] || ['', '—'];
   const horizon = (sig && sig.config && sig.config.horizon) || 10;
   let sw = 0, sm = 0;
   ((sig && sig.items) || []).forEach(it => {
@@ -203,31 +192,39 @@ async function render() {
     sw += w; sm += w * (it.projected_pct != null ? it.projected_pct * 5 / horizon : 0);
   });
   const wk = sw ? sm / sw : null;
+  const week = wk == null ? '—' : wk >= 0.5 ? 'positief' : wk <= -0.5 ? 'negatief' : 'neutraal';
 
   $('kpis').innerHTML = `
-    <button class="card ${tone(dayPct)}" onclick="go('investeringen')"><div class="k"><i></i>Portefeuille vandaag</div>
-      <div class="big">${pct(dayPct, 2)}</div>
-      <div class="sub">${held.length ? `${upN} omhoog, ${held.length - upN} omlaag${sorted.length ? `<br>beste <b>${esc(nm(sorted[0]))}</b> ${pct(dayOf(sorted[0]))}` : ''}` : 'geen koersen of aankoopprijzen op dit apparaat'}</div></button>
-    <button class="card g ${tone(plPct)}" onclick="go('investeringen')"><div class="k"><i></i>Resultaat t.o.v. aankoop</div>
-      <div class="big">${pct(plPct)}</div>
-      <div class="sub">${held.length} posities${sorted.length ? `<br>zwakste vandaag <b>${esc(nm(sorted[sorted.length - 1]))}</b> ${pct(dayOf(sorted[sorted.length - 1]))}` : ''}</div></button>
-    <button class="card ${REG[0]}" onclick="go('patroonradar')"><div class="k"><i></i>Beursklimaat vandaag</div>
-      <div class="word">${REG[1]}</div><div class="sub">${esc((reg.text || 'nog geen radardata').replace(/^[^:]*:\s*/, ''))}</div></button>
-    <button class="card v ${tone(wk)}" onclick="go('patroonradar')"><div class="k"><i></i>Beursklimaat deze week</div>
-      <div class="word">${wk == null ? '—' : wk >= 0.5 ? 'Positief' : wk <= -0.5 ? 'Negatief' : 'Neutraal'}</div>
-      <div class="sub">verwacht gemiddeld <b>${pct(wk)}</b> voor je stocks</div></button>`;
+    <button class="kpi" onclick="go('investeringen')"><div class="l">Vandaag</div>
+      <div class="v ${cls(dayPct)}">${pct(dayPct, 2)}</div>
+      <div class="s">${held.length ? `${upN}&nbsp;omhoog · ${downN}&nbsp;omlaag` : 'geen aankoopprijzen op dit apparaat'}</div></button>
+    <button class="kpi" onclick="go('investeringen')"><div class="l">Sinds aankoop</div>
+      <div class="v ${cls(plPct)}">${pct(plPct)}</div>
+      <div class="s">${held.length} posities</div></button>
+    <button class="kpi" onclick="go('patroonradar')"><div class="l">Beursklimaat</div>
+      <div class="v w ${REG[0]}">${esc(REG[1])}</div>
+      <div class="s">deze&nbsp;week ${esc(week)}${wk == null ? '' : `&nbsp;(${pct(wk)})`}</div></button>`;
 
-  // Te doen vandaag
-  const todo = [];
-  // 1. Koopsignalen (incl. watchlist)
+  // Techradar: één regel (niveau en hoeveel van je portefeuille in tech zit); uitleg en tips pas na openklappen
+  if (typeof TechWarn !== 'undefined') {
+    TechWarn.css();
+    const exposure = Shared.techExposure(held.map(x => ({ p: x.p, value: val(x) })), idx.find);
+    $('techwarn').innerHTML = tech ? TechWarn.banner(tech, exposure, { compact: true, open: twOpen }) : '';
+    const d = $('techwarn').querySelector('details');
+    if (d) d.addEventListener('toggle', () => { twOpen = d.open; });
+  }
+
+  // ── Te doen
+  todo = [];
+  // 1. Koopsignalen (incl. watchlist); met een dalende trend achteraan
   pos.forEach(p => {
     const qq = q(p.ticker); if (!qq || !qq.high52 || !qq.price) return;
     const drop = (qq.high52 - qq.price) / qq.high52 * 100, thr = thresholdFor(p, qq);
     if (drop >= thr) {
       const trend = qq.sma200 ? qq.price > qq.sma200 : null;
-      todo.push({ g: 'Kopen', cls: 'buy', ic: '🟢', title: `Koopsignaal ${qq.name || p.ticker}`,
-        sub: `${nf(drop)}% onder de top (drempel ${thr}%)${trend == null ? '' : trend ? ' · in stijgende trend' : ' · ⚠ dalende trend'}`,
-        val: `<span class="c-up">${p.watch ? 'watchlist' : 'bijkopen'}</span>`, go: 'investeringen', prio: trend === false ? 2 : 1 });
+      todo.push({ g: 'Kopen', title: short(qq.name || p.ticker), tip: `drempel ${thr}% onder de top`,
+        sub: `${nf(drop, 0)}% onder de top${trend === false ? ' · <span class="c-warn">dalende trend</span>' : trend ? ' · stijgende trend' : ''}`, subHTML: true,
+        val: `<span class="c-up">${p.watch ? 'watchlist' : 'bijkopen'}</span>`, go: 'investeringen', prio: trend === false ? 2 : 1, ord: -drop });
     }
   });
   // 2. Winstnemingstrap (zelfde regel als de knop "Realiseer" op het tabblad Investeringen)
@@ -235,88 +232,74 @@ async function render() {
     const pl = (x.q.price / x.p.cost - 1) * 100;
     const s = Shared.sellStatus(x.p.sells, pl, x.q.price, x.q.wk);
     if (!s.canRealise) return;
-    todo.push({ g: 'Winst nemen', cls: 'sell', ic: '💰', title: `Winstneming ${nm(x)}`,
-      sub: `trede ${s.nextStep} (+${s.nextTargetPct}%) ${s.isHeropend ? 'opnieuw bereikt na een daling van 25%' : 'bereikt'} · resultaat ${pct(pl, 0)}`,
+    todo.push({ g: 'Winst nemen', title: nm(x),
+      sub: `+${s.nextTargetPct}% ${s.isHeropend ? 'opnieuw bereikt na een daling van 25%' : 'bereikt'} · resultaat ${pct(pl, 0)}`,
       val: `<span class="c-warn">${s.nextSellPct}% verkopen</span>`, go: 'investeringen', prio: 1 });
   });
   // Oude verkopen zonder vastgelegde verkoopkoers: zonder koers kan die trede niet weer opengaan na een daling van 25%
   const noPrice = held.filter(x => (x.p.sells || []).some(v => v && !(v.price > 0)));
-  if (noPrice.length) todo.push({ g: 'Winst nemen', cls: 'sell', ic: '✏️', title: `Verkoopkoers invullen: ${noPrice.map(nm).slice(0, 3).join(', ')}${noPrice.length > 3 ? ' …' : ''}`,
-    sub: 'bij oude verkopen ontbreekt de koers; nodig om een trede na 25% daling weer te openen (tik op “koers?” bij die verkoop)',
+  if (noPrice.length) todo.push({ g: 'Winst nemen', title: 'Verkoopkoers invullen', sub: `${list(noPrice.map(nm))} · nodig voor de 25%-regel`,
     val: '<span class="c-warn">invullen</span>', go: 'investeringen', prio: 3 });
-  // 3. Beoordeling (12 stappen): these herzien, these-alarm (these.json, zelfde regels als Beoordeling via shared.js)
-  //    en de kwartaalcheck: na nieuwe kwartaalcijfers per aandeel, zonder bekende cijferdatum elke 100 dagen (samen).
-  //    Volgorde: eerst wat nieuw is (alarm, net gepubliceerde cijfers), dan wat al langer speelt.
+  // 3. Beoordeling (12 stappen): these-alarm en these herzien per aandeel; nieuwe kwartaalcijfers en de kwartaalcheck
+  //    elk samen in één regel (these.json, zelfde regels als Beoordeling via shared.js)
   const stocks = pos.filter(p => !p.watch && p.section === 'Stocks');
-  const due = [];
+  const earned = [], due = [];
   const today = new Date().toISOString().slice(0, 10);
   stocks.forEach(p => {
-    const it = idx.find(p.ticker), v = Steps.verdict(it), name = (it && it.name) || p.label || p.ticker;
-    if (v.cls === 'v-bad') todo.push({ g: 'Beoordelen', cls: 'rev', ic: '🧭', title: `These herzien: ${name}`,
-      sub: v.text.split('. ')[0] + '.', val: '<span class="c-down">herzien</span>', go: 'beoordeling', prio: 2 });
+    const it = idx.find(p.ticker), v = Steps.verdict(it), name = short((it && it.name) || p.label || p.ticker);
     const al = Shared.theseAlerts(it, (these && it && these.stocks[it.sym]) || null, p.review, today);
     const alarm = al.filter(a => a.kind === 'drop' || a.kind === 'newfail');
-    if (alarm.length) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '⚠️', title: `These-alarm: ${name}`,
-      sub: alarm.map(a => a.text).join(' · '), val: `<span class="${alarm[0].sev >= 3 ? 'c-down' : 'c-warn'}">alarm</span>`, go: 'beoordeling', prio: 0 });
+    if (alarm.length) todo.push({ g: 'Beoordelen', title: `These-alarm: ${name}`, sub: alarm.map(a => a.text).join(' · '),
+      val: `<span class="${alarm[0].sev >= 3 ? 'c-down' : 'c-warn'}">alarm</span>`, go: 'beoordeling', prio: 0 });
+    if (v.cls === 'v-bad') todo.push({ g: 'Beoordelen', title: `These herzien: ${name}`, sub: v.text.split('. ')[0] + '.',
+      val: '<span class="c-down">herzien</span>', go: 'beoordeling', prio: 2 });
     const earn = al.find(a => a.kind === 'earn');
-    if (earn) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '📋', title: earn.title,
-      sub: 'Lees de cijfers: is er iets wezenlijks veranderd aan het bedrijf? Vink af op Beoordeling.', val: '', go: 'beoordeling', prio: 1 });
-    if (al.some(a => a.kind === 'due')) due.push(p);
+    if (earn) earned.push({ name, since: earn.since });
+    if (al.some(a => a.kind === 'due')) due.push(name);
   });
-  if (due.length) todo.push({ g: 'Beoordelen', cls: 'rev', ic: '📋', title: `Kwartaalcheck: ${due.length} ${due.length === 1 ? 'aandeel' : 'aandelen'}`,
-    sub: 'Na de kwartaalcijfers: is er iets wezenlijks veranderd aan het bedrijf? Vink af op Beoordeling.', val: '', go: 'beoordeling', prio: 3 });
+  if (earned.length) {
+    earned.sort((a, b) => String(b.since).localeCompare(String(a.since)));
+    todo.push({ g: 'Beoordelen', title: `Kwartaalcijfers lezen (${earned.length})`, sub: list(earned.map(e => `${e.name} (${dShort(e.since)})`)),
+      val: '', go: 'beoordeling', prio: 1 });
+  }
+  if (due.length) todo.push({ g: 'Beoordelen', title: `Kwartaalcheck (${due.length})`, sub: `${list(due)} · al 100 dagen niet gecheckt`,
+    val: '', go: 'beoordeling', prio: 3 });
   // 4. Nieuwe radaradviezen (afgelopen handelsdag)
   const cut = newCutoff();
   ((sig && sig.history) || []).filter(e => e.dir === 'up' && !e.end && !e.bootstrap && e.start && new Date(e.start) >= cut).forEach(e => {
-    const it = ((sig && sig.items) || []).find(i => i.symbol === e.symbol) || {};
-    todo.push({ g: 'Radar', cls: 'sig', ic: '📡', title: `Koopadvies ${e.name || e.symbol}`,
-      sub: `nieuw signaal · verwacht ${pct(e.projected_pct)} in ${horizon} dagen`, val: '<span class="c-up">kopen</span>',
-      go: 'patroonradar', prio: 1 });
+    todo.push({ g: 'Radar', title: `Koopadvies ${short(e.name || e.symbol)}`, sub: `nieuw signaal · verwacht ${pct(e.projected_pct)} in ${horizon} dagen`,
+      val: '<span class="c-up">kopen</span>', go: 'patroonradar', prio: 1 });
   });
   // 5. Opgevolgde adviezen
   (trades || []).filter(t => t && !t.deleted && t.status === 'open').forEach(t => {
     const it = ((sig && sig.items) || []).concat((sigTop && sigTop.items) || []).find(i => i.symbol === t.symbol);
     const px = it && it.price, res = px && t.price ? (t.dir === 'up' ? px / t.price - 1 : 1 - px / t.price) * 100 : null;
-    todo.push({ g: 'Opgevolgd', cls: 'trade', ic: '🎯', title: `${t.name || t.symbol}`, sub: `opgevolgd ${t.dir === 'up' ? 'koopadvies' : 'verkoopadvies'}${t.plan && t.plan.target ? ' · doel ' + nf(t.plan.target, 2) : ''}`,
+    todo.push({ g: 'Opgevolgd', title: short(t.name || t.symbol), sub: `${t.dir === 'up' ? 'koopadvies' : 'verkoopadvies'}${t.plan && t.plan.target ? ' · doel ' + nf(t.plan.target, 2) : ''}`,
       val: `<span class="${cls(res)}">${pct(res)}</span>`, go: (t.set === 'top250' ? 'top250-radar' : 'patroonradar'), prio: 3 });
   });
-  // 6. Kwartaalcijfers binnen 7 dagen
+  // 6. Kwartaalcijfers binnen 7 dagen: één regel, de eerstvolgende voorop
+  const soon = [];
   ((sig && sig.items) || []).forEach(it => {
     const e = it.context && it.context.earnings;
-    if (e && e.days != null && e.days >= 0 && e.days <= 7)
-      todo.push({ g: 'Agenda', cls: 'earn', ic: '📅', title: `Kwartaalcijfers ${it.label || it.name || it.symbol}`,
-        sub: e.days === 0 ? 'vandaag' : `over ${e.days} ${e.days === 1 ? 'dag' : 'dagen'}${e.date ? ' · ' + new Date(e.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}`,
-        val: '', go: 'patroonradar', prio: 4 });
+    if (e && e.days != null && e.days >= 0 && e.days <= 7) soon.push({ n: short(it.label || it.name || it.symbol), d: e.days, date: e.date });
   });
-  const groups = ['Kopen', 'Winst nemen', 'Beoordelen', 'Radar', 'Opgevolgd', 'Agenda'];
-  $('todoCount').textContent = todo.length ? `${todo.length} ${todo.length === 1 ? 'punt' : 'punten'}` : '';
-  $('todo').innerHTML = todo.length ? groups.map(g => {
-    const xs = todo.filter(t => t.g === g).sort((a, b) => a.prio - b.prio);
-    const MAX = matchMedia('(max-width: 480px)').matches ? 3 : 6;
-    return xs.length ? `<div class="grp">${g}</div>` + xs.slice(0, MAX).map(t => `<div class="t ${t.cls}" role="button" tabindex="0" onclick="go('${t.go}')">
-      <div class="ic">${t.ic}</div><div class="t-main"><div class="t-title">${esc(t.title)}</div><div class="t-sub">${esc(t.sub)}</div></div><div class="t-val">${t.val}</div></div>`).join('')
-      + (xs.length > MAX ? `<div class="t-more" role="button" tabindex="0" onclick="go('${xs[0].go}')">en nog ${xs.length - MAX} →</div>` : '') : '';
-  }).join('') : '<div class="empty">Niets dringends vandaag 🎉<br>Geen koopsignalen, winstnemingen, beoordelingen, nieuwe adviezen of cijfers.</div>';
+  if (soon.length) {
+    soon.sort((a, b) => a.d - b.d || a.n.localeCompare(b.n));
+    const when = x => x.d === 0 ? 'vandaag' : x.d === 1 ? 'morgen' : x.date ? dShort(x.date) : `over ${x.d} d`;
+    todo.push({ g: 'Agenda', title: `Kwartaalcijfers deze week (${soon.length})`, sub: list(soon.map(x => `${x.n} (${when(x)})`), 4),
+      val: '', go: 'patroonradar', prio: 4 });
+  }
 
-  // Kansen van de dag
-  const own = new Set(pos.filter(p => !p.watch).map(p => p.ticker.toUpperCase()));
-  const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;   // scorecard (van 125), het hoofdgetal
-  // Find the gap (hoge score én een gap: cijfers omhoog, aandeel omlaag) eerst, zoals op Kansen portefeuille:
-  // scorecard 100+ met gap, dan 90+ met gap, daarbinnen de grootste gap; daarna de hoogste scorecard
-  const isGap = it => !!(it.gap && it.gap.ok && cardOf(it) >= ((scr && scr.gap_card) || 90));
-  const tier = it => isGap(it) ? (cardOf(it) >= 100 ? 2 : 1) : 0;
-  const kansen = ((scr && scr.items) || []).filter(it => cardOf(it) >= 75 && !own.has((it.eu || '').toUpperCase()) && !own.has(it.sym))
-    .sort((a, b) => tier(b) - tier(a) || (tier(a) ? b.gap.pct - a.gap.pct : 0) || cardOf(b) - cardOf(a) || b.score - a.score);
-  const money = it => it.region === 'VS' ? '$\u00a0' + nf(it.native, 2) : '€\u00a0' + nf(it.price, 2);   // valuta en bedrag niet los van elkaar
-  const brs = Object.entries((scr && scr.branches) || {});
-  $('kansen').innerHTML = kansen.length ? '<div class="kans-h"><span>scorecard van 125</span><span>verwacht 12 mnd</span></div>' + kansen.slice(0, 5).map(it => `<div class="kans" role="button" tabindex="0" onclick="go('top250')">
-      <div class="sc" title="Scorecard ${Math.round(cardOf(it))} van 125">${Steps.ring(cardOf(it), 38)}</div>
-      <div class="t-main"><div class="t-title">${esc(it.name)}</div><div class="t-sub">${esc(it.region === 'VS' ? it.sym : (it.eu || it.sym))}&nbsp;· ${esc(SECTOR_NL[it.sector] || it.sector || '')}&nbsp;· ${money(it)}${isGap(it) ? `&nbsp;· <span class="c-up" title="Find the gap: hoge score én een gap (omzet en winst omhoog, aandeel omlaag)">gap ${Math.round(it.gap.pct)}%</span>` : ''}</div></div>
-      <div class="t-val ${cls(it.exp && it.exp.pct)}" title="Verwacht rendement 12 maanden">${pct(it.exp && it.exp.pct)}</div></div>`).join('')
-    + (brs.length ? `<div class="brs">${brs.map(([k, b]) => `<div class="brc" role="button" tabindex="0" onclick="go('top250')"><b>${esc(b.label)}</b><small>${kansen.filter(i => i.branch === k).length} kansen · ${esc((b.etf || '').split('.')[0])}&nbsp;${pct(b.ret12)}</small></div>`).join('')}</div>` : '')
-    : '<div class="empty">Nog geen kansenlijst. Draai de workflow Top 250.</div>';
-
+  drawTodo();
 }
+
+// Een regel opent het bijbehorende scherm; 'nog N tonen' klapt de groep hier open
+$('todo').addEventListener('click', e => {
+  const m = e.target.closest('.more');
+  if (m) { const g = m.dataset.grp; opened.has(g) ? opened.delete(g) : opened.add(g); drawTodo(); return; }
+  const r = e.target.closest('.row');
+  if (r) go(r.dataset.go);
+});
 
 // Rijen zijn div's met role="button": Enter en spatie werken zoals een klik
 document.addEventListener('keydown', e => {

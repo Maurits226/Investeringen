@@ -65,7 +65,7 @@
   .seg.view button.active { background: rgba(79,143,240,.16); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(79,143,240,.55); }
   .seg button .n { font-size: 11px; font-weight: 600; opacity: .75; margin-left: 4px; }
   .seg button .short { display: none; }
-  /* tablet en computer: één rij, iets compacter zodat alle labels passen (ook met Opzoeken erbij) */
+  /* tablet en computer: één rij, iets compacter zodat alle labels passen (ook met Stock opzoeken erbij) */
   @media (min-width: 721px) {
     .seg button { font-size: 14px; padding-left: 8px; padding-right: 8px; }
     .seg button.ico { padding-left: 10px; padding-right: 12px; }
@@ -74,8 +74,8 @@
     .seg.view button .full { display: none; }
     .seg.view button .short { display: inline; }
   }
-  @media (max-width: 860px) and (min-width: 721px) {
-    .seg button.ico .lbl { display: none; }   /* smalle tablet: Vandaag en Opzoeken als pictogram, anders past de rij niet */
+  @media (max-width: 1099px) and (min-width: 721px) {
+    .seg button.ico .lbl { display: none; }   /* tablet: Vandaag en Stock opzoeken als pictogram, anders past de rij niet */
   }
   @media (max-width: 860px) and (min-width: 721px), (max-width: 520px) {
     .seg.world button .full { display: none; }
@@ -127,8 +127,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg><span class="lbl">Vandaag</span></button>
         <button role="tab" data-world="inv"><span class="full">Mijn investeringen</span><span class="short">Investeringen</span></button>
         <button role="tab" data-world="top"><span class="full">Kansen portefeuille</span><span class="short">Kansen</span></button>
-        <button role="tab" data-world="zoek" class="ico" title="Opzoeken: scorecard en 12 stappen van elk aandeel" aria-label="Opzoeken">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><span class="lbl">Opzoeken</span></button>
+        <button role="tab" data-world="zoek" class="ico" title="Stock opzoeken: scorecard en 12 stappen van elk aandeel" aria-label="Stock opzoeken">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><span class="lbl">Stock opzoeken</span></button>
       </div>
       <div class="seg view" role="tablist" aria-label="Scherm">
         <button role="tab" data-view="overzicht">Overzicht</button>
@@ -151,12 +151,12 @@
     <iframe id="top-radar" title="Patroonradar · Kansen portefeuille" data-src="signals.html?set=top250"></iframe>
     <iframe id="top-archief" title="Archief · Kansen portefeuille" data-src="archief.html?set=top250"></iframe>
     <iframe id="top-koop" title="Koopmoment · Kansen portefeuille" data-src="koopmoment.html"></iframe>
-    <iframe id="zoek" title="Opzoeken" data-src="opzoeken.html"></iframe>
+    <iframe id="zoek" title="Stock opzoeken" data-src="opzoeken.html"></iframe>
   </main>
 <script>
   // Twee niveaus: wereld (je eigen investeringen of de Top 250) × scherm (overzicht, beoordeling, radar, archief, koopmoment)
   const WORLDS = ['inv', 'top'], VIEWS = ['overzicht', 'score', 'radar', 'archief', 'koop'];
-  const SINGLE = ['home', 'zoek'];          // schermen zonder tweede niveau: Vandaag en Opzoeken
+  const SINGLE = ['home', 'zoek'];          // schermen zonder tweede niveau: Vandaag en Stock opzoeken
   const HASH = {            // mooie adressen, ook de oude (#patroonradar, #archief, #top250) blijven werken
     'home': 'vandaag', 'zoek': 'opzoeken',
     'inv-overzicht': 'investeringen', 'inv-radar': 'patroonradar', 'inv-archief': 'archief',
@@ -166,7 +166,7 @@
   const FROM_HASH = Object.fromEntries(Object.entries(HASH).map(([k, v]) => [v, k]));
   FROM_HASH.signalen = 'inv-radar';
   const TITLE = {
-    'home': 'Vandaag', 'zoek': 'Opzoeken',
+    'home': 'Vandaag', 'zoek': 'Stock opzoeken',
     'inv-overzicht': 'Investeringen', 'inv-radar': 'Patroonradar · Investeringen', 'inv-archief': 'Archief · Investeringen',
     'top-overzicht': 'Kansen portefeuille', 'top-radar': 'Patroonradar · Kansen portefeuille', 'top-archief': 'Archief · Kansen portefeuille',
     'inv-koop': 'Bijkopen · Investeringen', 'top-koop': 'Koopmoment · Kansen portefeuille',
@@ -209,7 +209,7 @@
 
   // Wissel je van wereld, dan blijf je op hetzelfde scherm (radar → radar)
   document.querySelectorAll('.seg.world button').forEach(b => b.addEventListener('click', () => show(b.dataset.world, view)));
-  // Vanaf Vandaag of Opzoeken een scherm kiezen: dat scherm van de laatst gebruikte lijst
+  // Vanaf Vandaag of Stock opzoeken een scherm kiezen: dat scherm van de laatst gebruikte lijst
   document.querySelectorAll('.seg.view button').forEach(b => b.addEventListener('click', () => show(world, b.dataset.view)));
   window.addEventListener('hashchange', () => show(...fromKey(location.hash.slice(1))));
   // iOS toont de ingedrukte knop (:active) alleen als er een touchstart-luisteraar is

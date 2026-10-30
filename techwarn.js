@@ -1,7 +1,8 @@
 // Techradar: tegel en waarschuwingsbanner voor een terugval in Amerikaanse tech en chips. De cijfers komen uit
 // tech.json (scripts/tech.py): signalen per dag, het niveau (rustig/opletten/verhoogd/hoog), de huidige stand onder
 // de 52-weekse top en de nagerekende historie. TechWarn.tile(data) is de tegel naast de crashradar,
-// TechWarn.banner(data, exposure) de compacte waarschuwing op Vandaag. Elke pagina gebruikt TechWarn.css() eenmalig.
+// TechWarn.banner(data, exposure) de waarschuwing; met { compact: true } één regel die je openklapt voor de uitleg
+// (Vandaag). Elke pagina gebruikt TechWarn.css() eenmalig.
 const TechWarn = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = v => v == null || v === '' || !isFinite(v) ? null : Number(v);
@@ -142,7 +143,7 @@ const TechWarn = (() => {
 
   // Compacte waarschuwing voor Vandaag; leeg zolang het rustig is en tech niet onder de top zakt. Zit de Nasdaq-100 al in
   // een correctie of berenmarkt, dan gaat die stand voor (de daling is er al) en is de radar een tweede zin.
-  function banner(d, exposure) {
+  function banner(d, exposure, opts = {}) {
     if (!d || !d.level || !d.state) return '';
     const lk = LV[d.level.k] ? d.level.k : 'rustig', sk = ST[d.state.status] ? d.state.status : 'normaal';
     if (lk === 'rustig' && sk === 'normaal') return '';
@@ -180,6 +181,20 @@ const TechWarn = (() => {
     tips.push('Check per positie je these (en je stop): is er iets aan het bedrijf veranderd? Een koersdaling alleen is nooit een reden om een goed bedrijf te verkopen.');
     if (exposure && num(exposure.pct) != null && exposure.pct >= 50 && tips.length < 4) tips.push('Zit je zwaar in tech, stuur nieuwe inleg dan liever naar andere sectoren dan te verkopen.');
     const sxOud = d.sox && d.sox.oud ? ' · verouderd' : '';
+    if (opts.compact) {
+      // één regel: niveau en hoeveel van je portefeuille het raakt; de uitleg en wat je kunt doen pas na openklappen
+      const short = inDal ? `Tech in een ${S[1]}` : L[2] >= 1 ? `Techradar ${L[1].toLowerCase()}` : 'Tech zakt terug';
+      const raakt = exposure && num(exposure.pct) > 0 ? `${pc(exposure.pct)} van je portefeuille in tech` : `${nf(lv.n_on, 0)} van ${nf(lv.n_max, 0)} signalen`;
+      return `<details class="tw-ban tw-mini ${tone}" data-tw="banner"${opts.open ? ' open' : ''}>
+        <summary><i></i><b>${esc(short)}</b><span class="tw-mi">${esc(raakt)}</span><span class="tw-mb">Wat te doen</span></summary>
+        <div class="tw-pills"><span class="tw-pill ${L[0].split(' ')[0]}">radar ${esc(L[1].toLowerCase())} · ${esc(nf(lv.n_on, 0))}/${esc(nf(lv.n_max, 0))} signalen</span>
+          <span class="tw-pill ${S[0]}">Nasdaq-100 ${under(nd.dd52)} · ${esc(S[1])}</span>${d.sox ? `<span class="tw-pill ${stOf(d.sox.status)[0]}">chips ${under(d.sox.dd52)} · ${esc(stOf(d.sox.status)[1])}${sxOud}</span>` : ''}</div>
+        ${text ? `<div class="tw-bt">${esc(text)}</div>` : ''}
+        ${exp ? `<div class="tw-bt">${exp}</div>` : ''}
+        <ul class="tw-bl">${tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+        <div class="tw-bf">Techradar · data t/m ${esc(dag(d.asof))}${stale(d) ? ' (verouderd)' : ''} · hulpmiddel, geen beleggingsadvies</div>
+      </details>`;
+    }
     return `<div class="tw-ban ${tone}" role="status" data-tw="banner">
       <div class="tw-bh"><i></i><b>${esc(title)}</b></div>
       <div class="tw-pills"><span class="tw-pill ${L[0].split(' ')[0]}">radar ${esc(L[1].toLowerCase())} · ${esc(nf(lv.n_on, 0))}/${esc(nf(lv.n_max, 0))} signalen</span>
@@ -280,6 +295,20 @@ const TechWarn = (() => {
       .tw-bl { margin: 0 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.5; color: var(--text, #eceef0); }
       .tw-bl li::marker { color: var(--tone); }
       .tw-bf { font-size: 11px; color: var(--muted, #83888d); font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); }
+      /* compact (Vandaag): één regel, de rest na openklappen */
+      .tw-mini { padding: 0; gap: 0; background: var(--panel, #1a1c1e); }
+      .tw-mini > summary { list-style: none; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 10px 14px; min-height: 44px; }
+      .tw-mini > summary::-webkit-details-marker { display: none; }
+      .tw-mini > summary i { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex-shrink: 0; }
+      .tw-mini > summary b { font-size: 13.5px; font-weight: 700; color: var(--tone); }
+      .tw-mi { font-size: 12.5px; color: var(--muted, #83888d); }
+      .tw-mb { margin-left: auto; font-size: 12px; color: var(--muted, #83888d); white-space: nowrap; }
+      .tw-mb::after { content: ' ▾'; } .tw-mini[open] .tw-mb::after { content: ' ▴'; }
+      .tw-mini > summary:hover .tw-mb { color: var(--text, #eceef0); }
+      .tw-mini[open] > summary { border-bottom: 1px solid var(--line, #2a2c2f); }
+      .tw-mini > :not(summary) { margin: 0 14px; }
+      .tw-mini > .tw-pills { margin-top: 10px; } .tw-mini > .tw-bt, .tw-mini > .tw-bl { margin-top: 8px; }
+      .tw-mini > .tw-bl { margin-left: 32px; } .tw-mini > .tw-bf { margin: 8px 14px 12px; }
       @media (max-width: 480px) {
         .tw-cc { padding: 14px 13px 12px; } .tw-verdict, .tw-num { font-size: 20px; }
         .tw-ms2 { gap: 8px; } .tw-m { padding: 7px 8px; }

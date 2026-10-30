@@ -83,6 +83,21 @@ const WIDTHS = [390, 1280];
           if (!(await page.inputValue('#f-ticker'))) errs.push('zoeken: tikken op een notering vult de ticker niet in');
           await page.click('#f-cancel');
         }
+        if (pg === 'vandaag.html') {                       // groep openklappen in de lijst; techradar is één regel die openklapt
+          if (await page.$('.kansen, #kansen')) errs.push('Kansen van de dag staat weer op Vandaag');
+          const more = await page.$('.grp .more');
+          if (more) {
+            const n0 = await page.$$eval('.grp:first-of-type .row', r => r.length);
+            await more.click();
+            if (await page.$$eval('.grp:first-of-type .row', r => r.length) <= n0) errs.push('Vandaag: "nog … tonen" klapt de groep niet open');
+          }
+          const tw = await page.$('#techwarn details > summary');
+          if (tw) {
+            if (await page.$eval('#techwarn details', d => d.open)) errs.push('Vandaag: techradar staat standaard open');
+            await tw.click();
+            if (!(await page.$eval('#techwarn details', d => d.open))) errs.push('Vandaag: techradar klapt niet open');
+          }
+        }
         if (pg === 'opzoeken.html') {                      // zoeken op naam, zonder token: uitleg in plaats van toevoegen; kaart openklappen
           await page.fill('#q', 'nvidia');
           await page.waitForSelector('#results .z-co', { timeout: 8000 });

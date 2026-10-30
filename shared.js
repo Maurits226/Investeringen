@@ -490,7 +490,7 @@ const Shared = (() => {
     }, `Ticker verwijderd via het dashboard: ${sym}`);
   }
 
-  // ── Opzoeken (tab Opzoeken): opzoeklijst.json is openbaar (alleen tickers, naam en datum, geen bedragen). Een wijziging
+  // ── Stock opzoeken (tab Stock opzoeken): opzoeklijst.json is openbaar (alleen tickers, naam en datum, geen bedragen). Een wijziging
   // start de Top 250-run, die elk aandeel uit de lijst scoort (opzoeken.json). Nieuwste bovenaan; na LOOK_DAYS dagen valt
   // een aandeel er vanzelf uit (de run negeert het dan, en de volgende wijziging haalt het weg), verwijderen kan altijd.
   const LOOK_DAYS = 30, LOOK_MAX = 50;
@@ -511,13 +511,13 @@ const Shared = (() => {
     if (!TICKER_OK.test(sym)) return Promise.resolve('error');
     alt = [...new Set((alt || []).map(a => String(a || '').toUpperCase()))].filter(a => a !== sym && TICKER_OK.test(a)).slice(0, 8);
     const at = new Date().toISOString().slice(0, 19) + 'Z';
-    return lookEdit(items => [{ sym, alt, name: lookName(name), at }].concat(items.filter(e => e.sym !== sym)), `Opzoeken: ${sym}`);
+    return lookEdit(items => [{ sym, alt, name: lookName(name), at }].concat(items.filter(e => e.sym !== sym)), `Stock opzoeken: ${sym}`);
   }
   function lookRemove(sym) {
     sym = String(sym || '').trim().toUpperCase();
-    return lookEdit(items => items.filter(e => e.sym !== sym), `Opzoeken: ${sym} verwijderd`);
+    return lookEdit(items => items.filter(e => e.sym !== sym), `Stock opzoeken: ${sym} verwijderd`);
   }
-  const lookClean = () => lookEdit(items => items, 'Opzoeken: aandelen ouder dan 30 dagen weggehaald');
+  const lookClean = () => lookEdit(items => items, 'Stock opzoeken: aandelen ouder dan 30 dagen weggehaald');
 
   // ── Opnieuw tonen als een andere pagina iets wijzigt, of als dit tabblad weer zichtbaar wordt
   const WATCH = ['portfolio_state', 'portfolio_positions', 'radar_trades', 'buy_mode', 'gh_token'];

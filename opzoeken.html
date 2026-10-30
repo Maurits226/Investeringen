@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="fonts.css">
 <link rel="preload" href="fonts/SpaceGrotesk-var.woff2" as="font" type="font/woff2" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Opzoeken</title>
+<title>Stock opzoeken</title>
 <style>
   :root {
     --ink: #141517; --panel: #1a1c1e; --panel-2: #202224; --line: #2a2c2f;
@@ -101,7 +101,6 @@
   .fact em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
   .c-up { color: var(--up); } .c-down { color: var(--down); }
   .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
-  .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   @media (max-width: 900px) {
@@ -141,7 +140,7 @@
 <div class="wrap">
   <header class="top">
     <div class="title-block">
-      <h1><span class="pulse"></span>Opzoeken</h1>
+      <h1><span class="pulse"></span>Stock opzoeken</h1>
       <p>Zoek een aandeel en krijg de volledige scorecard en de 12 stappen van <i>How to Find the Best Stocks</i>, afgezet tegen alle bedrijven uit de scan.
         Het nieuwste staat bovenaan; verwijderen doe je zelf, en na 30 dagen verdwijnt een aandeel vanzelf.</p>
     </div>
@@ -158,11 +157,6 @@
   <div class="list-h"><h2>Opgezocht</h2><span id="count"></span></div>
   <div class="list" id="list"><div class="empty">Laden…</div></div>
 
-  <p class="foot">
-    De beoordeling gebeurt in de Top 250-run op GitHub (meestal binnen 2 à 3 minuten na het toevoegen), met dezelfde scorecard en 12 stappen als op Beoordeling
-    en Kansen portefeuille. Een aandeel buiten de scan wordt tegen alle bedrijven uit de scan afgezet, maar telt zelf niet mee in de lijsten.
-    Alleen noteringen en cijfers in euro of dollar. Je opzoeklijst staat, net als tickers.txt, openbaar in je repository (alleen tickers en datum, geen bedragen). Dit is geen beleggingsadvies.
-  </p>
 </div>
 
 <script src="vault.js"></script>

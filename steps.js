@@ -136,7 +136,7 @@ const Steps = (() => {
       text: `Scorecard ${sc(c.s)}${c.s >= 100 ? ' (uitzonderlijk)' : ' (watchlist-niveau)'} en geen afvaller in de bedrijfsstappen.${val && val.s === 'fail' ? ' Wel duur: bijkopen pas bij een betere prijs, maar dat is geen reden om te verkopen.' : ''} Check elk kwartaal, herhaal de scorecard jaarlijks.` };
   }
 
-  // Oordeel als nieuwe aankoop (Survivors, Opzoeken): de 12 stappen zijn een koopfilter, elke afvaller telt.
+  // Oordeel als nieuwe aankoop (Survivors, Stock opzoeken): de 12 stappen zijn een koopfilter, elke afvaller telt.
   function buyVerdict(it) {
     const s = it && it.s12, c = it && it.card;
     if (!s || !c || c.s == null) return { cls: 'v-na', label: 'Niet te beoordelen', text: 'Te weinig cijfers voor de scorecard en de 12 stappen.' };

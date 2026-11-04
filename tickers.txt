@@ -31,3 +31,4 @@ VUAA.MI
 WSLV.MI
 PHAU.AS
 SNDK, Sandisk Corporation, Stocks  # via dashboard
+LLY.DE, Eli Lilly and Company, Watchlist  # via dashboard

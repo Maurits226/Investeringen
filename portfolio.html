@@ -1110,7 +1110,7 @@ function positionCard(p, q, err) {
         return '<span class="badge hold">geen actie</span>';
       })()}
       <div class="p-btns">
-        ${isWatch ? '' : `<button class="edit-cost" data-id="${esc(id)}" title="Aankoopprijs aanpassen">Aankoopprijs<span class="lbl-long"> aanpassen</span></button>`}
+        ${isWatch ? '' : `<button class="edit-cost" data-id="${esc(id)}" title="Gemiddelde aankoopprijs en aantal aanpassen (bv. na bijkopen)">Aankoop<span class="lbl-long"> aanpassen</span></button>`}
         <button class="remove" data-id="${esc(id)}">verwijder</button>
       </div>
     </div>`;
@@ -1118,7 +1118,7 @@ function positionCard(p, q, err) {
   // Knop: verwijderen
   el.querySelector('.remove').onclick = () => removePosition(id);
 
-  // Knop: aankoopprijs aanpassen
+  // Knop: aankoop aanpassen (na bijkopen veranderen gemiddelde aankoopprijs én aantal; het aantal geeft bedragen bij Risico)
   const editBtn = el.querySelector('.edit-cost');
   if (editBtn) editBtn.onclick = () => {
     const huidige = p.cost;
@@ -1128,9 +1128,13 @@ function positionCard(p, q, err) {
     if (invoer == null) return;
     const nieuw = parseFloat(invoer.replace(',', '.'));
     if (!isFinite(nieuw) || nieuw <= 0) { alert('Ongeldig bedrag'); return; }
+    const stuks = prompt(`Aantal stuks van ${p.label || p.ticker} (voor bedragen in euro's bij Risico):\nHuidig: ${p.qty || 1}`, p.qty || 1);
+    const n = stuks == null ? null : parseFloat(String(stuks).replace(',', '.'));
+    if (stuks != null && (!isFinite(n) || n <= 0)) { alert('Ongeldig aantal'); return; }
     userState[id] = userState[id] || {};
     userState[id].cost = nieuw;
     p.cost = nieuw;
+    if (n != null) { userState[id].qty = n; p.qty = n; }
     saveState(); savePositions(); render();
   };
 

@@ -665,7 +665,7 @@ function analyseHTML(all) {
   const REG = { calm: 'Rustig & stijgend', neutral: 'Neutraal', off: 'Risico-uit' };
   const byDir = [['Koopadviezen', closed.filter(h => h.dir === 'up')]];
   const byReg = ['calm', 'neutral', 'off'].map(k => [REG[k], closed.filter(h => h.regime === k)]).concat([['Onbekend (van vóór deze analyse)', closed.filter(h => !h.regime)]]);
-  // Werken sterkere signalen beter? Dan kan de drempel voor een advies omhoog (nu vanaf patroonscore 35)
+  // Werken sterkere signalen beter? Daarom staat de drempel voor een advies sinds 5 november 2026 op patroonscore 60 (was 35)
   const band = h => h.score == null ? null : h.score < 50 ? '35–49' : h.score < 60 ? '50–59' : h.score < 70 ? '60–69' : '70+';
   const byScore = ['35–49', '50–59', '60–69', '70+'].map(k => [`score ${k}`, closed.filter(h => h.dir === 'up' && band(h) === k)]);
   const pc = {};

@@ -705,7 +705,7 @@ function prep(raw) {
     const p = pos[it.symbol.toUpperCase()];
     const cat = (p && p.section) || it.category || 'Stocks';
     const pr = it.projected_pct;
-    const flag = pr != null && it.direction === 'up' && pr >= MOVE_MIN;   // alleen koopsignalen
+    const flag = !it.rem && pr != null && it.direction === 'up' && pr >= MOVE_MIN;   // alleen koopsignalen, niet als het gepauzeerd is
     return { ...it, flag, category: MERGE_CATEGORY[cat] || cat, label: (p && p.label) || it.label, watch: SET === 'top250' };
   };
   const keep = it => !SKIP_CATEGORIES.includes(it.category);
@@ -790,7 +790,9 @@ function card(it) {
   const title = it.label || it.name || it.symbol;
   const sigma = `±${it.sigma_pct.toFixed(1).replace('.', ',')}%`;
 
-  const verw = !sig
+  const verw = it.rem
+    ? `<div class="v" style="color:var(--warn)">gepauzeerd</div><div class="drop-tag">${esc(it.rem)}</div>`
+    : !sig
     ? `<div class="v" style="color:var(--muted)">geen signaal</div><div class="drop-tag">${it.direction === 'flat' || p == null ? 'geen duidelijk patroon' : `verwacht ${pct(p)}, onder de ${MOVE_MIN}%`}</div>`
     : `<div class="v ${d}">${pct(p)}</div><div class="drop-tag">naar ${fmt(it.target, cur)}</div>`;
 

@@ -35,7 +35,7 @@ from urllib.request import Request, urlopen
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "tech.json")
 FRESH_MIN = 55               # niet vaker opnieuw rekenen dan eens per zoveel minuten
-VERSION = 1                  # nieuwe versie van dit script = meteen opnieuw rekenen
+VERSION = 2                  # nieuwe versie van dit script = meteen opnieuw rekenen
 FETCH_FROM = date(1985, 1, 1)
 BUDGET_S = 180               # na zoveel seconden ophalen de overige bronnen overslaan (de lus geeft 5 minuten)
 H10, H15 = 40, 60            # gebeurtenis: >= 10% daling binnen 40 handelsdagen (±2 mnd), >= 15% binnen 60 (±3 mnd)
@@ -66,6 +66,8 @@ VXN_JUMP = 0.25    # angst: VXN > 25% hoger dan 5 handelsdagen geleden
 VXN_RISE = 0.20    # of VXN > 20% boven zijn 50-daags gemiddelde ...
 VXN_CALM = 30.0    # ... terwijl hij nog onder 30 staat (onrust begint vanuit rust)
 REL_GAP = 0.08     # smalle rally: Nasdaq-100 > 8 procentpunt beter dan S&P 500 over 63 handelsdagen
+SOX_HOT = 0.35     # chips oververhit: SOX > 35% boven zijn 200-daags gemiddelde. Bedacht na de chipdaling van oktober
+                   # 2026 (achteraf), daarom een proefsignaal: telt alleen mee als het historisch extra kans gaf
 OPT_ON, OPT_OFF = 1.15, 1.05  # optioneel signaal telt mee zodra het tot dan toe >= 1,15x de normale kans gaf, en pas
                               # weer niet onder 1,05x (geen heen-en-weer); de keuze wordt eens per maand herzien ...
 OPT_MIN, OPT_EP = 250, 15     # ... en pas na 250 afgeronde signaaldagen uit 15 episodes (alleen verleden: geen blik vooruit)
@@ -77,6 +79,7 @@ SIGNALS = [  # sleutel, naam, uitleg, bron, optioneel
     ("chips_zwakker", "Chips lopen voorop omlaag", "Chipindex (SOX) 8% of meer onder zijn 20-daagse top terwijl de Nasdaq-100 nog binnen 4% van zijn jaartop staat, of chips 5% zwakker dan de Nasdaq-100 t.o.v. hun 50-daags gemiddelde.", "sox", False),
     ("angst_stijgt", "Angst neemt toe", "Angstindex van de Nasdaq (VXN) meer dan 25% hoger dan 5 dagen geleden, of 20% boven zijn 50-daags gemiddelde terwijl hij nog onder 30 staat.", "vxn", False),
     ("smalle_rally", "Smalle rally", "Nasdaq-100 deed het in 3 maanden 8 procentpunt of meer beter dan de S&P 500: veel geld in weinig namen. Telt alleen mee in de som als het historisch extra kans gaf.", "spx", True),
+    ("chips_oververhit", "Chips oververhit", "Chipindex (SOX) staat meer dan 35% boven zijn 200-daags gemiddelde: veel winst in korte tijd, weinig buffer. Proefsignaal: telt alleen mee in de som als het historisch extra kans gaf.", "sox", True),
 ]
 OPT = {s[0]: s[4] for s in SIGNALS}
 # Niveau op basis van het aantal signalen tegelijk (één signaal alleen is ruis): sleutel, naam, minimum, regel, tekst
@@ -208,7 +211,7 @@ def bereken(ndx, sox, vxn, spx):
     dd52 = [ndx[i] / hi52[i] - 1 if hi52[i] else None for i in range(n)]
     ext60 = roll_max(ext, 60)                                  # hoogste stand boven 200d in de laatste 60 dagen
     run60 = roll_max([chg(ndx, i, 60) for i in range(n)], 21)  # sterkste 60-daagse rit in de laatste 21 dagen
-    sx_hi20 = roll_max(sox, 20)
+    sx_hi20, sx200 = roll_max(sox, 20), sma(sox, 200)
     ratio = [sox[i] / ndx[i] if sox[i] is not None else None for i in range(n)]
     r50, v50 = sma(ratio, 50), sma(vxn, 50)
     sig = {s[0]: [None] * n for s in SIGNALS}
@@ -230,6 +233,8 @@ def bereken(ndx, sox, vxn, spx):
         a, b = chg(ndx, i, 63), chg(spx, i, 63)
         if a is not None and b is not None:
             sig["smalle_rally"][i] = a - b > REL_GAP
+        if sox[i] is not None and sx200[i]:
+            sig["chips_oververhit"][i] = sox[i] / sx200[i] - 1 > SOX_HOT
     return sig, {"s50": s50, "s200": s200, "ext": ext, "dd52": dd52, "sx_hi20": sx_hi20, "ratio": ratio, "r50": r50}
 
 

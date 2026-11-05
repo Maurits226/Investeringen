@@ -75,7 +75,7 @@ check(out["asof"] == DATA["^NDX"][-1][0].isoformat(), "asof = laatste datum")
 check(len(out["spark"]["c"]) == 260 and len(out["spark"]["s200"]) == 260, "spark 260 punten")
 check(sum(l["n_days"] for l in out["levels"]) == out["base"]["n"], "niveaus dekken alle dagen")
 check(out["source_errors"] == [], "geen bronfouten")
-check(len(out["signals"]) == 6 and all(not s.get("na") for s in out["signals"]), "6 signalen met data")
+check(len(out["signals"]) == 7 and all(not s.get("na") for s in out["signals"]), "7 signalen met data")
 check(json.dumps(out, allow_nan=False) is not None, "geen NaN")
 check(out["state"]["status"] in ("normaal", "terugval", "correctie", "berenmarkt"), "status geldig")
 check(out["level"]["k"] in ("rustig", "opletten", "verhoogd", "hoog"), "niveau geldig")
@@ -129,7 +129,11 @@ for mh, fracs in ((200, (0.45, 0.7, 0.9, 0.995)), (PROD_MIN, (0.7, 0.9, 0.995)))
 tech.MIN_HIST = PROD_MIN
 R = tech.reeks(base_rows)
 n = len(R["dates"])
-check(sorted(R["mask"]) == ["smalle_rally"], "smalle_rally in de vergelijking")
+check(sorted(R["mask"]) == ["chips_oververhit", "smalle_rally"], "optionele signalen in de vergelijking")
+# chips oververhit = SOX meer dan 35% boven zijn eigen 200-daags gemiddelde, op de kalender van de Nasdaq-100
+sx, s2 = R["al"]["sox"], tech.sma(R["al"]["sox"], 200)
+want = [None if sx[i] is None or not s2[i] else sx[i] / s2[i] - 1 > tech.SOX_HOT for i in range(n)]
+check(R["sig"]["chips_oververhit"] == want, f"chips_oververhit volgt de definitie ({sum(1 for v in want if v)} dagen aan)")
 
 # 3. bron valt weg
 print("3. bron valt weg")
@@ -388,7 +392,10 @@ os_ = tech.build(stale, [])
 ch = next(s_ for s_ in os_["signals"] if s_["k"] == "chips_zwakker")
 check(ch["on"] is None and ch.get("oud") and not ch["in_mix"], "chips_zwakker: on=None, oud, telt niet mee")
 check(any("Chipindex" in e and "actuele" in e for e in os_["source_errors"]), "melding in source_errors: " + "; ".join(os_["source_errors"]))
-check(os_["sox"]["oud"] is True and os_["level"]["n_max"] == cur["level"]["n_max"] - 1, "SOX-meter verouderd, n_max één lager")
+n_sox = sum(1 for s_ in cur["signals"] if s_["k"] in ("chips_zwakker", "chips_oververhit") and s_["in_mix"])
+check(os_["sox"]["oud"] is True and os_["level"]["n_max"] == cur["level"]["n_max"] - n_sox, f"SOX-meter verouderd, n_max {n_sox} lager")
+ov = next(s_ for s_ in os_["signals"] if s_["k"] == "chips_oververhit")
+check(ov["on"] is None and not ov["in_mix"], "chips_oververhit telt dan ook niet mee")
 check(os_["base"]["n"] > 6000, f"backtest blijft volledig ({os_['base']['n']} dagen)")
 
 # 13. afgekapte SOX (bevinding 13): telt niet mee, backtest blijft heel
@@ -420,17 +427,18 @@ sys.argv = ["tech.py"]
 check(code == 0 and open(OUT, encoding="utf-8").read() == before, "korte NDX: oude tech.json blijft, exitcode 0")
 
 # 15. keuze optioneel signaal (bevinding 5): weinig wissels, alleen op maandbegin, genoeg episodes
-print("15. keuze smalle_rally")
+print("15. keuze optionele signalen (smalle rally, chips oververhit)")
 for seed in (7, 1, 2, 3, 4):
     Rg = tech.reeks(rows_from(synth.make(seed=seed)))
-    mk, ds = Rg["mask"]["smalle_rally"], Rg["dates"]
-    flips = [i for i in range(1, len(mk)) if mk[i] != mk[i - 1]]
-    check(all(ds[i].month != ds[i - 1].month for i in flips) and len(flips) <= 6, f"seed {seed}: {len(flips)} wissels, alleen op maandbegin")
-    if mk.count(True):
-        i0 = mk.index(True)
-        col = Rg["sig"]["smalle_rally"]
-        known = [j for j in range(i0 - tech.H10 + 1) if col[j]]
-        check(len(tech.episodes(known)) >= tech.OPT_EP and len(known) >= tech.OPT_MIN, f"seed {seed}: pas aan na {len(tech.episodes(known))} episodes / {len(known)} dagen")
+    for key in ("smalle_rally", "chips_oververhit"):
+        mk, ds = Rg["mask"][key], Rg["dates"]
+        flips = [i for i in range(1, len(mk)) if mk[i] != mk[i - 1]]
+        check(all(ds[i].month != ds[i - 1].month for i in flips) and len(flips) <= 6, f"seed {seed} {key}: {len(flips)} wissels, alleen op maandbegin")
+        if mk.count(True):
+            i0 = mk.index(True)
+            col = Rg["sig"][key]
+            known = [j for j in range(i0 - tech.H10 + 1) if col[j]]
+            check(len(tech.episodes(known)) >= tech.OPT_EP and len(known) >= tech.OPT_MIN, f"seed {seed} {key}: pas aan na {len(tech.episodes(known))} episodes / {len(known)} dagen")
 
 # 16. eerlijkheidsnoot en kop op basis van vergelijkbare stand en episodes (bevinding 2/3)
 print("16. eerlijkheidsnoot")

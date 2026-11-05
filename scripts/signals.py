@@ -41,7 +41,10 @@ HORIZON = 10          # handelsdagen vooruit (~2 weken)
 DROP_PCT = 5.0        # daling vanaf deze grootte = interessant
 RISE_PCT = 5.0        # stijging vanaf deze grootte = interessant
 EVAL_RISE_PCT = 5.0   # stijging die de backtest als 'raak' telt
-SIGNAL_SCORE = 35     # |score| vanaf hier is er een richting (schaal -100..100)
+SIGNAL_SCORE = 60     # |score| vanaf hier is er een richting (schaal -100..100). Was 35; in het archief (sep-nov 2026)
+                      # deden koopadviezen met score 60+ het in beide sets minder slecht (eigen aandelen gem. -0,7%
+                      # tegen -2,9%, Top 250 -0,6% tegen -1,0%), dus minder en betere adviezen
+CHIP_CORR = 0.5       # chipgevoelig: dagkoersen bewogen het afgelopen jaar met samenhang 0,5+ mee met de chipindex
 PIVOT_K = 5           # bars links/rechts voor een swing-top/-bodem
 SPARK_BARS = 120
 RETRACE = 0.5         # na het koersdoel: terugveer-/terugvalniveau (50% van de beweging)
@@ -639,6 +642,31 @@ def stock_context(tk, us, prev):
 CTX_NOTE = "achtergrond: telt niet mee in de score (niet terug te testen)"
 
 
+def tech_level():
+    """Niveau van de techradar (tech.json, zelfde lus), alleen als het hooguit twee dagen oud is; anders None."""
+    try:
+        with open(os.path.join(ROOT, "tech.json"), encoding="utf-8") as f:
+            t = json.load(f)
+        if (datetime.now(timezone.utc) - datetime.fromisoformat(t["updated"])).total_seconds() < 2 * 86400:
+            return (t.get("level") or {}).get("k")
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def chip_rem(ctx, tech, state):
+    """Waarom een chipgevoelig aandeel nu geen koopadvies krijgt (None = geen rem): techradar 'verhoogd' of hoger, of
+    de markt in risico-uit. In de chipdaling van okt-nov 2026 raakten 54 van de 78 koopadviezen op eigen aandelen
+    hun stop; adviezen tegen een vallende sector in waren vooral ruis."""
+    chips = next((sn for sn in ctx.get("sens") or [] if sn.get("key") == "chips"), None)
+    if not chips or chips.get("corr", 0) < CHIP_CORR:
+        return None
+    why = ([f"techradar {tech}"] if tech in ("verhoogd", "hoog") else []) + (["markt in risico-uit"] if state == "off" else [])
+    if not why:
+        return None
+    return f"{' en '.join(why)}; beweegt sterk mee met chips (samenhang {chips['corr']:.2f})".replace(".", ",")
+
+
 def context_patterns(ctx):
     """Patronen van buitenaf (de beurs vandaag, nieuws): niet terug te testen, dus ze tellen niet mee in de score
     die een advies geeft. Live bleken ze er zelfs slechter van te worden (archief: 'Nieuws overwegend positief'
@@ -1079,6 +1107,11 @@ def analyse(tk, bars, meta, world=None):
     proj = round((target / price - 1) * 100, 1) if target else None
     flag = bool(proj is not None and (
         (direction == "down" and -proj >= DROP_PCT) or (direction == "up" and proj >= RISE_PCT)))
+    # Rem: geen koopadvies voor een chipgevoelig aandeel bij techradar 'verhoogd'+ of risico-uit (zichtbaar met de reden)
+    rem = chip_rem(ctx, world.get("tech"), (S.regime or {}).get(day_key(S.t[i]))) if direction == "up" else None
+    if rem:
+        flag = False
+        P.append({"label": "Koopadvies gepauzeerd", "dir": "info", "w": 0, "detail": rem})
     plan = make_plan(price, direction, target, sup, res, sig)
     if plan:
         plan = {k: round(v, 4) for k, v in plan.items()}
@@ -1121,6 +1154,7 @@ def analyse(tk, bars, meta, world=None):
         "resistance": r2(res),
         "plan": plan,
         "new_signal": new_signal,
+        "rem": rem,
         "context": ctx,
         "prev_signal": prev_signal,
         "rsi": round(S.rsi[i], 1) if S.rsi[i] is not None else None,
@@ -1342,7 +1376,7 @@ def _nl():
 def _snap_item(it):
     keys = ("symbol", "name", "label", "category", "currency", "price", "day_pct", "score", "direction", "flag",
             "projected_pct", "target", "support", "resistance", "plan", "new_signal", "rsi", "sigma_pct", "pattern_symbol",
-            "rank")
+            "rank", "rem")
     out = {k: it.get(k) for k in keys}
     out["patterns"] = [{"label": p.get("label"), "dir": p.get("dir"), "detail": p.get("detail")} for p in it.get("patterns") or []]
     return out
@@ -1427,6 +1461,8 @@ def main():
         print(f"  wereldcontext niet beschikbaar: {e}")
         world, regime, returns = {"factors": [], "regime": {"state": None, "text": None}, "headlines": []}, {}, {}
     print(f"  wereld: {len(world['factors'])} factoren, klimaat {world['regime']['state']}, {len(world['headlines'])} koppen")
+    tech = tech_level()
+    print(f"  techradar: {tech or 'onbekend'}")
     week = datetime.now(timezone.utc).strftime("%Y-%W")
     try:
         fx = eurusd()
@@ -1439,7 +1475,7 @@ def main():
             eu_bars, eu_meta = fetch_bars(tk["symbol"], "2y", 1)
             bars_by_sym[tk["symbol"]] = eu_bars[-40:]
             us = find_us_listing(tk, eu_bars[-1][4], fx, cache) if fx else None
-            wctx = {"regime": regime, "returns": returns, "factors": world["factors"],
+            wctx = {"regime": regime, "returns": returns, "factors": world["factors"], "tech": tech,
                     "stock_ctx": stock_context(tk, us, prev_ctx.get(tk["symbol"], {}))}
             item = None
             if us:

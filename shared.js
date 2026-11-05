@@ -81,6 +81,7 @@ const Shared = (() => {
       if (r.cost == null && l.cost != null) out[id].cost = l.cost;
       if (r.qty == null && l.qty != null) out[id].qty = l.qty;
       if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
+      if (!(r.buys && r.buys.length) && l.buys && l.buys.length) out[id].buys = l.buys;
       if (out[id].sells) out[id].sells = withRearms(withRearms(out[id].sells, l.sells), r.sells);
       const rv = newerReview(r.review, l.review);
       if (rv) out[id].review = rv;
@@ -171,7 +172,7 @@ const Shared = (() => {
     const st = await loadState();
     return pos.filter(p => p && p.ticker).map(p => {
       const s = st[posId(p)] || {};
-      return { ...p, id: posId(p), cost: s.cost ?? p.cost ?? null, qty: s.qty ?? p.qty ?? 1, sells: s.sells || [], review: s.review || {} };
+      return { ...p, id: posId(p), cost: s.cost ?? p.cost ?? null, qty: s.qty ?? p.qty ?? 1, sells: s.sells || [], buys: s.buys || [], review: s.review || {} };
     });
   }
 
@@ -390,6 +391,106 @@ const Shared = (() => {
   const smartOn = () => { try { return localStorage.getItem('buy_mode') !== 'vast'; } catch (e) { return true; } };
   const thresholdFor = (p, q) => smartOn() && q && q.vol ? Math.round(Math.max(8, Math.min(35, q.vol * 0.5))) : (p.thresh || 20);
 
+  // ── Kooptrap: niet alles op het eerste koopsignaal, maar een derde per trede: je koopdrempel, 1,5x en 2x die drempel
+  // onder de 52-weekse top (vaste drempel 20%: -20, -30 en -40%). In de chipdaling van okt-nov 2026 stond alles kopen
+  // op het eerste signaal op -17,7%, de trap op -11,9% (met geld over). Een gekochte trede leg je vast
+  // (buys: { level, date, price, top }); die telt tot het aandeel een nieuwe top maakt, dan begint de trap opnieuw.
+  const BUY_STEPS = [1, 1.5, 2];
+  // 'Valt nog': deze week de laagste slotkoers van de laatste 5 weken en onder het 50-daags gemiddelde
+  function stillFalling(q) {
+    const lows = (q && q.wk && Array.isArray(q.wk.low) ? q.wk.low : []).filter(x => x > 0);
+    if (lows.length < 5 || !(q.sma50 > 0) || !(q.price > 0)) return false;
+    return lows[lows.length - 1] <= Math.min(...lows.slice(-5, -1)) && q.price < q.sma50;
+  }
+  function buyLadder(p, q, buys) {
+    if (!q || !(q.high52 > 0) || !(q.price > 0)) return null;
+    const thr = thresholdFor(p, q), drop = (q.high52 - q.price) / q.high52 * 100;
+    const levels = BUY_STEPS.map(f => Math.round(thr * f));
+    const reached = levels.filter(l => drop >= l).length;
+    const cur = (buys || []).filter(b => b && +b.level >= 1 && !(q.high52 > (+b.top || 0) * 1.001));   // in deze trap
+    const done = cur.length ? Math.min(levels.length, Math.max(...cur.map(b => +b.level))) : 0;
+    const next = reached > done ? done + 1 : null;                        // bereikt en nog niet gekocht
+    return { thr, drop, levels, reached, done, next, alert: next != null, falling: stillFalling(q),
+             toNext: done < levels.length ? levels[done] - drop : null };   // nog zoveel procentpunt tot de volgende trede
+  }
+
+  // ── Risico: hoe hard kan het zakken, en wat beweegt samen. 'Slechte maand' = 1 op 20 maanden: 1,645 keer de normale
+  // maandbeweging uit de jaarbeweeglijkheid (vol in data.json). In de chipdaling van okt-nov 2026 zakten aandelen met
+  // 55-100% beweeglijkheid 33-41%, anderhalf tot twee keer zo'n normale maandbeweging, en ze zakten samen. Samenhang uit
+  // de weekreeks in data.json (laagste slotkoers per week, laatste 52 weken); een groep = posities die gemiddeld met
+  // 0,45 of meer samen bewegen. Oververhit: 50%+ boven het 200-daags gemiddelde en 40%+ beweeglijk.
+  const BAD_Z = 1.645, GROUP_CORR = 0.45, GROUP_MAX = 40, HOT_EXT = 50, HOT_VOL = 40, CORR_DEFAULT = 0.3;
+  const badMonth = sigmaYear => (1 - Math.exp(-BAD_Z * sigmaYear / Math.sqrt(12))) * 100;
+  // Oververhit: hoeveel procent boven het 200-daags gemiddelde (null = niet oververhit)
+  const hotExt = q => { const ext = q && q.sma200 > 0 && q.price > 0 ? (q.price / q.sma200 - 1) * 100 : null;
+    return ext != null && ext >= HOT_EXT && (!(q.vol > 0) || q.vol >= HOT_VOL) ? ext : null; };
+  function weekRets(q) {
+    const wk = q && q.wk, out = new Map();
+    const t0 = wk && Array.isArray(wk.low) ? Math.round(Date.parse(wk.from + 'T00:00:00Z') / 6048e5) : NaN;
+    if (!isFinite(t0)) return out;
+    wk.low.forEach((v, i) => { const p = wk.low[i - 1]; if (i && v > 0 && p > 0) out.set(t0 + i, v / p - 1); });
+    return out;
+  }
+  function corrOf(a, b) {
+    const ks = [...a.keys()].filter(k => b.has(k)).sort((x, y) => x - y).slice(-52);
+    if (ks.length < 20) return null;
+    const x = ks.map(k => a.get(k)), y = ks.map(k => b.get(k));
+    const mx = x.reduce((s, v) => s + v, 0) / x.length, my = y.reduce((s, v) => s + v, 0) / y.length;
+    let sxy = 0, sxx = 0, syy = 0;
+    x.forEach((v, i) => { sxy += (v - mx) * (y[i] - my); sxx += (v - mx) ** 2; syy += (y[i] - my) ** 2; });
+    return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
+  }
+  // held: [{ id, name, q, qty, rate }] (rate = omrekening naar euro, bv. 1/EURUSD voor een dollarnotering). Zonder echte
+  // aantallen (overal 1) tellen alle posities even zwaar en zijn er geen bedragen.
+  const toEur = (q, fx) => q && q.currency === 'USD' && fx > 0 ? 1 / fx : 1;
+  function riskView(held) {
+    const xs = (held || []).filter(x => x && x.q && x.q.price > 0);
+    if (!xs.length) return null;
+    const equal = !xs.some(x => +x.qty > 0 && +x.qty !== 1);
+    const val = xs.map(x => equal ? 1 : x.q.price * (+x.qty > 0 ? +x.qty : 1) * (x.rate > 0 ? x.rate : 1)), tot = val.reduce((a, b) => a + b, 0);
+    const R = xs.map(x => weekRets(x.q));
+    const sig = xs.map((x, i) => {
+      if (x.q.vol > 0) return x.q.vol / 100;
+      const r = [...R[i].values()].slice(-52);
+      if (r.length < 8) return null;
+      const m = r.reduce((a, b) => a + b, 0) / r.length;
+      return Math.sqrt(r.reduce((a, b) => a + (b - m) ** 2, 0) / (r.length - 1) * 52);
+    });
+    const C = xs.map((_, i) => xs.map((_, j) => i === j ? 1 : j < i ? null : corrOf(R[i], R[j])));
+    const rho = (i, j) => i === j ? 1 : C[Math.min(i, j)][Math.max(i, j)];
+    // spreiding van een deel (indexen): gewogen met samenhang; onbekende samenhang = 0,3, onbekende beweeglijkheid telt niet
+    const part = idx => {
+      const w = idx.reduce((a, i) => a + val[i], 0);
+      let v = 0;
+      idx.forEach(i => idx.forEach(j => { if (sig[i] != null && sig[j] != null) v += val[i] * val[j] / (w * w) * (rho(i, j) ?? CORR_DEFAULT) * sig[i] * sig[j]; }));
+      const bad = badMonth(Math.sqrt(Math.max(0, v)));
+      return { share: w / tot * 100, bad, badEur: equal ? null : w * bad / 100 };
+    };
+    // groepen: telkens de twee groepen samenvoegen die gemiddeld het sterkst samen bewegen, zolang dat 0,45 of meer is
+    let groups = xs.map((_, i) => [i]);
+    const avg = (A, B) => { const r = []; A.forEach(i => B.forEach(j => { const c = rho(i, j); if (c != null) r.push(c); })); return r.length ? r.reduce((a, b) => a + b, 0) / r.length : -1; };
+    for (;;) {
+      let best = null;
+      groups.forEach((A, a) => groups.forEach((B, b) => { if (a < b) { const c = avg(A, B); if (!best || c > best.c) best = { c, a, b }; } }));
+      if (!best || best.c < GROUP_CORR) break;
+      groups[best.a] = groups[best.a].concat(groups[best.b]); groups.splice(best.b, 1);
+    }
+    const big = groups.filter(g => g.length >= 2).map(g => ({ g, w: g.reduce((a, i) => a + val[i], 0) })).sort((a, b) => b.w - a.w)[0];
+    const pos = xs.map((x, i) => {
+      const ext = x.q.sma200 > 0 ? (x.q.price / x.q.sma200 - 1) * 100 : null, vol = sig[i] != null ? sig[i] * 100 : null;
+      const bad = sig[i] != null ? badMonth(sig[i]) : null;
+      return { id: x.id, name: x.name, share: val[i] / tot * 100, bad, badEur: equal || bad == null ? null : val[i] * bad / 100, ext, vol,
+               hot: hotExt(x.q) != null };
+    });
+    const all = part(xs.map((_, i) => i));
+    const inner = g => g.flatMap((i, k) => g.slice(k + 1).map(j => rho(i, j))).filter(c => c != null);   // paren binnen de groep
+    const group = big ? { ...part(big.g), n: big.g.length, ids: big.g.map(i => xs[i].id),
+                          names: big.g.slice().sort((a, b) => val[b] - val[a]).map(i => xs[i].name),
+                          corr: (c => c.length ? c.reduce((a, b) => a + b, 0) / c.length : null)(inner(big.g)) } : null;
+    return { equal, total: equal ? null : tot, bad: all.bad, badEur: all.badEur, n: xs.length, pos, group,
+             warn: !!(group && group.share > GROUP_MAX), hot: pos.filter(p => p.hot).sort((a, b) => b.ext - a.ext), max: GROUP_MAX };
+  }
+
   // ── Aandeel zoeken (positie toevoegen). zoek.json komt uit de Top 250-run: elk bedrijf dat de scan kent, met zijn
   // noteringen in euro en dollar. Per bedrijf gegroepeerd, de handigste notering voorop: de thuisbeurs van een
   // Europees bedrijf, dan Xetra (.DE), dan de Amerikaanse hoofdbeurs, dan Frankfurt/Düsseldorf en Wenen.
@@ -530,6 +631,6 @@ const Shared = (() => {
   }
 
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
-           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
+           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, BUY_STEPS, stillFalling, buyLadder, badMonth, hotExt, riskView, toEur, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
            editRepoFile, TICKER_OK, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
 })();

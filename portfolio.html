@@ -277,6 +277,16 @@
   .day-chg.up { color: var(--up); }
   .day-chg.down { color: var(--down); }
   .drop-tag { font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+  /* kooptrap: drie treden onder de top; gekocht = groen, nu een derde kopen = rood, nog niet bereikt = grijs */
+  .ladder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .ladder .st { padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .ladder .st.done { color: var(--up); border-color: rgba(62,207,142,.45); background: rgba(62,207,142,.1); }
+  .ladder .st.now { color: var(--down); border-color: rgba(255,93,108,.5); background: rgba(255,93,108,.12); font-weight: 600; }
+  .buy-step { background: rgba(255,93,108,.12); border: 1px solid rgba(255,93,108,.45); color: var(--down); font-size: 11px; font-weight: 600;
+    padding: 4px 9px; border-radius: 8px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .buy-step:hover { background: rgba(255,93,108,.22); }
+  .undo-buy { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0 2px; opacity: .5; }
+  .undo-buy:hover { color: var(--down); opacity: 1; }
 
   .p-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
   /* beide knoppen in één groep: bij weinig ruimte gaan ze samen naar de volgende regel */
@@ -285,6 +295,8 @@
   .badge.buy { background: rgba(255,93,108,.15); color: var(--down); border: 1px solid rgba(255,93,108,.4); }
   .badge.sell { background: rgba(62,207,142,.15); color: var(--up); border: 1px solid rgba(62,207,142,.4); }
   .badge.hold { background: rgba(134,149,179,.12); color: var(--muted); border: 1px solid var(--line); }
+  .badge.hot { background: rgba(245,181,68,.13); color: var(--warn); border: 1px solid rgba(245,181,68,.45); }
+  .next-target.hot { color: var(--warn); }
   .remove { background: none; border: none; color: var(--muted); font-size: 12px; padding: 2px; cursor: pointer; }
   .remove:hover { color: var(--down); }
   .edit-cost { background: none; border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
@@ -779,11 +791,14 @@ const thresholdFor = Shared.thresholdFor;
 
 // Kerngetallen per positie, gebruikt voor sorteren en filteren
 function metrics(p, q) {
-  if (!q) return { plPct: -Infinity, drop: -Infinity, alert: false, openSell: false };
+  if (!q) return { plPct: -Infinity, drop: -Infinity, alert: false, openSell: false, toBuy: Infinity };
   const isWatch = p.watch || p.cost == null;
   const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
   const drop = q.high52 ? ((q.high52 - q.price) / q.high52) * 100 : 0;
-  const alert = drop >= thresholdFor(p, q);
+  // Koopsignaal: een trede van de kooptrap is bereikt en nog niet gekocht (shared.js, zelfde regel als Vandaag)
+  const L = Shared.buyLadder(p, q, (userState[posId(p)] || {}).buys);
+  const alert = !!(L && L.alert);
+  const toBuy = !L ? Infinity : L.alert ? 0 : L.toNext == null ? Infinity : L.toNext;   // procentpunt tot de volgende trede
   // Openstaande verkoop? (volgende trede, of een heropende, bereikt) en de afstand tot die trede
   // (voor 'dichtst bij verkoopsignaal'; 0 = verkoopsignaal actief)
   let openSell = false, toSell = Infinity;
@@ -792,13 +807,14 @@ function metrics(p, q) {
     openSell = S.canRealise;
     toSell = openSell ? 0 : S.nextTargetPct - plPct;   // hoeveel % winst nog te gaan
   }
-  return { plPct, drop, alert, openSell, toSell };
+  return { plPct, drop, alert, openSell, toSell, toBuy };
 }
 
 const fmt = (n, cur) => new Intl.NumberFormat('nl-NL', {
   style: 'currency', currency: cur || 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
 }).format(n);
 const pct = n => (n >= 0 ? '+' : '') + n.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+const fmt0 = (n, cur) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: cur || 'EUR', maximumFractionDigits: 0 }).format(n);
 
 // De data komt uit data.json, dat GitHub Actions elke 15 min bijwerkt.
 // Geen CORS, geen proxy — het dashboard leest gewoon zijn eigen bestand.
@@ -832,8 +848,29 @@ function renderCheck() {
     return extra.refs.find(r => (r.eu || '').toUpperCase() === t || r.sym === t || (us && r.sym === us));
   };
   const qn = p => { const q = getQuote(p.ticker); return q ? q.name : p.ticker; };
+  const shortName = n => String(n || '').replace(/\b(Corporation|Corp|Inc|Incorporated|Holdings?|plc|N\.V|SE|AG|Class [A-C]|Common Stock|Ltd)\b\.?/gi, '').replace(/\s+/g, ' ').replace(/[\s,.]+$/, '').trim();
   const cards = [];
   let issues = 0;
+
+  // 0. Risico: een slechte maand (1 op 20) voor het geheel en voor de grootste groep die samen beweegt, en wat oververhit is
+  //    (shared.js, zelfde cijfers als Vandaag). Dollarposities in euro via de koers uit de Patroonradar.
+  const usd = ((sig.world || {}).factors || []).find(f => f.key === 'dollar');
+  const RV = Shared.riskView(positions.filter(p => !p.watch && p.cost != null).map(p => {
+    const q = getQuote(p.ticker);
+    return q && { id: posId(p), name: shortName(q.name || p.ticker), q, qty: p.qty, rate: Shared.toEur(q, usd && usd.last) };
+  }).filter(Boolean));
+  if (RV) {
+    if (RV.warn) issues++;
+    issues += RV.hot.length;
+    const loss = (v, e) => `−${Math.round(v)}%${e != null ? ' · −' + fmt0(e, 'EUR') : ''}`;
+    const g = RV.group;
+    cards.push(`<div class="pc ${RV.warn || RV.hot.length ? 'warn' : 'ok'}"><div class="pc-k">Risico <span>slechte maand, 1 op 20</span></div>
+      <div class="pc-row"><span>Hele portefeuille</span><small>${loss(RV.bad, RV.badEur)}</small></div>
+      ${g ? `<div class="pc-row"><span>Beweegt samen: ${g.n} posities, <b${RV.warn ? ' style="color:var(--warn)"' : ''}>${Math.round(g.share)}%</b></span><small>${loss(g.bad, g.badEur)}</small></div>
+        <div class="pc-note">${g.names.slice(0, 6).map(esc).join(', ')}${g.n > 6 ? ` en ${g.n - 6} meer` : ''}.${RV.warn ? ` <b style="color:var(--warn)">Meer dan ${RV.max}% in één groep</b>: in een crash vallen ze samen (okt-nov 2026: −30%).` : ''}</div>` : ''}
+      ${RV.hot.map(h => `<div class="pc-row"><span>${esc(h.name)}</span><small style="color:var(--warn)">+${Math.round(h.ext)}% boven 200d · deel verkopen?</small></div>`).join('')}
+      <div class="pc-note">Uit de beweeglijkheid van het afgelopen jaar en hoe sterk je posities samen bewegen${RV.equal ? '; zonder aantallen telt elke positie even zwaar' : ''}. In een echte crash kan het meer zijn.</div></div>`);
+  }
 
   // 1. ETF-doorkijk
   if (extra.etf) {
@@ -903,7 +940,7 @@ function renderCheck() {
     <div class="pc-note">${heavy ? `<b style="color:var(--warn)">Meer dan de helft zit in ${esc(named[0][0].toLowerCase())}.</b> ` : ''}Telt het aantal posities, niet de waarde (aantallen staan nu op 1).</div></div>`);
 
   document.getElementById('pcGrid').innerHTML = cards.join('');
-  document.getElementById('pcSub').innerHTML = issues ? `<b>${issues} ${issues === 1 ? 'aandachtspunt' : 'aandachtspunten'}</b> · ETF-doorkijk · kwaliteit · trend · cijfers · spreiding` : 'alles op orde · ETF-doorkijk · kwaliteit · trend · cijfers · spreiding';
+  document.getElementById('pcSub').innerHTML = issues ? `<b>${issues} ${issues === 1 ? 'aandachtspunt' : 'aandachtspunten'}</b> · risico · ETF-doorkijk · kwaliteit · trend · cijfers · spreiding` : 'alles op orde · risico · ETF-doorkijk · kwaliteit · trend · cijfers · spreiding';
   box.hidden = false;
 }
 
@@ -958,7 +995,8 @@ function positionCard(p, q, err) {
   const isWatch = p.watch || p.cost == null;
   const plPct = isWatch ? 0 : ((q.price - p.cost) / p.cost) * 100;
   const thr = thresholdFor(p, q);
-  const alert = dropFromHigh >= thr;
+  const L = Shared.buyLadder(p, q, (userState[posId(p)] || {}).buys);
+  const alert = !!(L && L.alert);
   const trendUp = q.sma200 ? q.price > q.sma200 : null;
   const rangePos = Math.max(0, Math.min(100, ((q.price - q.low52) / (q.high52 - q.low52)) * 100));
 
@@ -983,6 +1021,7 @@ function positionCard(p, q, err) {
          <div class="k">Resultaat</div>
          <div class="v ${plPct >= 0 ? 'up' : 'down'}">${pct(plPct)}</div>
          <div class="day-chg" style="color:var(--muted)">koop ${fmt(p.cost, cur)}</div>
+         ${q.vol > 0 ? `<div class="day-chg" style="color:var(--muted);white-space:normal" title="Zoveel kan deze positie zakken in een slechte maand (1 op 20), uit de beweeglijkheid van het afgelopen jaar${+p.qty > 0 && +p.qty !== 1 ? ': ongeveer −' + fmt0(q.price * p.qty * Shared.badMonth(q.vol / 100) / 100, cur) : ''}">slechte mnd −${Math.round(Shared.badMonth(q.vol / 100))}%</div>` : ''}
        </div>`;
 
   // Winstniveau-blok (niet voor watchlist)
@@ -1020,11 +1059,13 @@ function positionCard(p, q, err) {
         ? `<div class="next-target">↻ Weer open na 25% daling: opnieuw ${nextSellPct}% verkopen bij +${nextTargetPct}%</div>`
         : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
 
+    const hot = Shared.hotExt(q);
     profitBlock = `
       <div class="profit-block">
         <div class="k">Winst nemen</div>
         ${sellsHtml}
         ${btnHtml}
+        ${hot != null ? `<div class="next-target hot" title="Zeer beweeglijk en ver boven zijn trend: geen voorspelling, wel veel om te verliezen. Een deel verkopen verlaagt je risico.">Oververhit: +${Math.round(hot)}% boven 200-daags gem. · overweeg een deel te verkopen</div>` : ''}
       </div>`;
   }
 
@@ -1046,18 +1087,26 @@ function positionCard(p, q, err) {
         <div class="bar-marker" style="left:${rangePos}%"></div>
       </div>
       <div class="drop-tag" style="color:${alert?'var(--down)':'var(--muted)'}">
-        ${dropFromHigh.toFixed(1).replace('.', ',')}% onder de top · drempel ${thr}%${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${+p.thresh || 20}%">(slim)</span>` : ''}
+        ${dropFromHigh.toFixed(1).replace('.', ',')}% onder de top${!L || L.reached || L.done ? '' : ` · kooptrap vanaf −${L.levels[0]}%`}${smartOn() && q.vol ? ` <span title="Beweeglijkheid ${q.vol.toFixed(0)}% per jaar; je vaste drempel is ${+p.thresh || 20}%">(slim)</span>` : ''}
       </div>
-      ${alert && trendUp != null ? `<div class="trend-tag" style="color:${trendUp ? 'var(--up)' : 'var(--warn)'}">${trendUp
+      ${alert && (L.falling || trendUp != null) ? `<div class="trend-tag" style="color:${!L.falling && trendUp ? 'var(--up)' : 'var(--warn)'}"${L.falling ? ' title="Deze week de laagste slotkoers in 5 weken en onder het 50-daags gemiddelde: misschien de volgende trede afwachten"' : ''}>${L.falling
+        ? '↓ valt nog (nieuwe bodem deze week)'
+        : trendUp
         ? '✓ dip in een stijgende trend (boven 200-daags gemiddelde)'
         : '⚠ onder het 200-daags gemiddelde: dalende trend, voorzichtig'}</div>` : ''}
+      ${L && (L.reached || L.done) ? `<div class="ladder" title="Koop een derde per trede in plaats van alles op het eerste signaal">${L.levels.map((l, k) => {
+          const n = k + 1, c = n <= L.done ? 'done' : n <= L.reached ? 'now' : '';
+          return `<span class="st ${c}">${c === 'done' ? '✓' : '⅓'} −${l}%</span>`; }).join('')}
+        ${L.alert ? `<button class="buy-step" data-step="${L.next}" title="Leg vast dat je deze derde gekocht hebt (pas je aankoopprijs en aantal zelf aan)">Trede ${L.next} gekocht</button>` : ''}
+        ${L.done ? `<button class="undo-buy" title="laatste vastgelegde aankoop in deze trap verwijderen">✕</button>` : ''}</div>` : ''}
     </div>
     ${profitBlock}
     <div class="p-actions">
       ${(() => {
         const m = metrics(p, q);
-        if (m.alert) return '<span class="badge buy">KOOPSIGNAAL</span>';
+        if (m.alert) return `<span class="badge buy">KOOP TREDE ${L.next}/3</span>`;
         if (!isWatch && m.openSell) return '<span class="badge sell">VERKOOPSIGNAAL</span>';
+        if (!isWatch && Shared.hotExt(q) != null) return '<span class="badge hot">OVERVERHIT</span>';
         return '<span class="badge hold">geen actie</span>';
       })()}
       <div class="p-btns">
@@ -1096,6 +1145,24 @@ function positionCard(p, q, err) {
     // Sla de koers op het verkoopmoment op, zodat we een 25% koersdaling
     // kunnen detecteren die dit niveau opnieuw vrijgeeft (optie B).
     userState[id].sells.push({ level: step, pct: sellPct, date: today, price: q.price });
+    saveState(); render();
+  };
+
+  // Knop: trede van de kooptrap gekocht (de top van nu gaat mee: bij een nieuwe top begint de trap opnieuw)
+  const buyBtn = el.querySelector('.buy-step');
+  if (buyBtn) buyBtn.onclick = () => {
+    userState[id] = userState[id] || {};
+    userState[id].buys = userState[id].buys || [];
+    userState[id].buys.push({ level: parseInt(buyBtn.dataset.step), date: new Date().toLocaleDateString('nl-NL'), price: q.price, top: q.high52 });
+    saveState(); render();
+  };
+  const undoBuy = el.querySelector('.undo-buy');
+  if (undoBuy) undoBuy.onclick = (e) => {
+    e.stopPropagation();
+    const buys = (userState[id] || {}).buys || [];
+    const i = buys.map((b, k) => ({ b, k })).filter(({ b }) => b && !(q.high52 > (+b.top || 0) * 1.001)).pop();
+    if (!i || !confirm(`Vastgelegde aankoop van trede ${i.b.level} (${String(i.b.date || '')}) verwijderen?`)) return;
+    buys.splice(i.k, 1);
     saveState(); render();
   };
 
@@ -1242,7 +1309,7 @@ async function render() {
     const sorted = filtered.slice().sort((a, b) => {
       if (sortBy === 'name') return naam(a).localeCompare(naam(b), 'nl');
       if (sortBy === 'result') return metrics(b.p, b.q).plPct - metrics(a.p, a.q).plPct;
-      if (sortBy === 'signal') return metrics(b.p, b.q).drop - metrics(a.p, a.q).drop;
+      if (sortBy === 'signal') { const ma = metrics(a.p, a.q), mb = metrics(b.p, b.q); return ma.toBuy - mb.toBuy || mb.drop - ma.drop; }
       if (sortBy === 'sellsignal') return metrics(a.p, a.q).toSell - metrics(b.p, b.q).toSell;
       return naam(a).localeCompare(naam(b), 'nl');
     });

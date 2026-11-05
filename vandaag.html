@@ -81,6 +81,7 @@
   .meter-l span:nth-child(2) { text-align: center; } .meter-l span:nth-child(3) { text-align: right; }
   .wk { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); border-top: 1px solid rgba(255,255,255,.06); padding-top: 10px; display: flex; align-items: center; gap: 6px; }
   .wk b { font-family: var(--mono); font-weight: 600; }
+  .wk .sep { opacity: .5; }
 
   /* te doen */
   .todo-h { display: flex; align-items: center; gap: 10px; margin: 28px 2px 12px; }
@@ -92,7 +93,7 @@
   .grp::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 80px; pointer-events: none; border-radius: 18px 18px 0 0;
     background: radial-gradient(260px 80px at 0% 0%, color-mix(in srgb, var(--tone) 16%, transparent), transparent 75%); }
   .g-kopen { --tone: var(--up); } .g-winst { --tone: var(--warn); } .g-beoordelen { --tone: var(--gold); }
-  .g-radar { --tone: var(--accent); } .g-opgevolgd { --tone: var(--violet); } .g-agenda { --tone: var(--teal); }
+  .g-radar { --tone: var(--accent); } .g-opgevolgd { --tone: var(--violet); } .g-agenda { --tone: var(--teal); } .g-risico { --tone: var(--down); }
   .grp-h { position: relative; display: flex; align-items: center; gap: 10px; padding: 13px 14px 10px; }
   .grp-h .ico { width: 32px; height: 32px; border-radius: 10px; } .grp-h .ico svg { width: 17px; height: 17px; }
   .grp-h b { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
@@ -112,6 +113,9 @@
   .trend.up { color: var(--up); } .trend.down { color: var(--warn); }
   .steps { display: inline-flex; gap: 3px; } .steps i { width: 14px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
   .steps i.on { background: var(--warn); box-shadow: 0 0 8px rgba(245,181,68,.45); }
+  /* kooptrap: gekochte treden groen, de trede van nu rood */
+  .steps.buy i.on { background: var(--up); box-shadow: 0 0 8px rgba(62,207,142,.4); }
+  .steps.buy i.now { background: var(--down); box-shadow: 0 0 8px rgba(240,89,95,.5); }
   .chip { font-size: 11.5px; color: var(--text); padding: 3px 8px; border-radius: 7px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--edge); white-space: nowrap; }
   .chip.rest { color: var(--muted); }
   .cal { display: inline-flex; align-items: center; gap: 7px; padding: 3px 9px 3px 3px; border-radius: 9px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--edge); }
@@ -164,6 +168,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const nf = (v, d = 1) => v == null || v === '' || !isFinite(+v) ? '—' : (+v).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (v, d = 1) => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
+const eur0 = v => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 
 // Naar een ander scherm van het dashboard (de pagina staat in een iframe van index.html)
 function go(hash) {
@@ -177,9 +182,6 @@ async function getJSON(u) {
 
 // Posities en state: zelfde bron als alle andere pagina's (shared.js)
 const loadPositions = Shared.positions;
-
-// Zelfde regels als het Overzicht (shared.js): slimme koopdrempel en winstnemingstrap
-const thresholdFor = Shared.thresholdFor;
 
 function newCutoff() {
   const c = new Date(Date.now() - 24 * 3600 * 1000);
@@ -205,13 +207,14 @@ const ICON = {
   radar: svg('<path d="M12 12 18.4 5.6"/><path d="M19.8 12a7.8 7.8 0 1 1-2.3-5.5"/><path d="M15.6 12a3.6 3.6 0 1 1-1-2.5"/>'),
   opgevolgd: svg('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
   agenda: svg('<rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3.5v4M15 3.5v4"/>'),
+  risico: svg('<path d="M12 3.5 20 7v5.5c0 4.2-3.4 7.4-8 8.5-4.6-1.1-8-4.3-8-8.5V7z"/><path d="M12 8.5v4.5M12 16.2v.3"/>'),
   klimaat: svg('<path d="M3 12.5h3.5l2.5-6 4 12 3-8.5 1.5 2.5H21"/>'),
   ok: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>')
 };
 const ARROW = { up: svg('<path d="M7 17 17 7M9 7h8v8"/>'), down: svg('<path d="M7 7l10 10M17 9v8H9"/>') };
 
 // Te doen: per groep een kaart met hooguit 3 regels; de rest klap je hier open (blijft open bij verversen)
-const GROUPS = [['Kopen', 'kopen'], ['Winst nemen', 'winst'], ['Beoordelen', 'beoordelen'], ['Radar', 'radar'], ['Opgevolgd', 'opgevolgd'], ['Agenda', 'agenda']];
+const GROUPS = [['Kopen', 'kopen'], ['Winst nemen', 'winst'], ['Risico', 'risico'], ['Beoordelen', 'beoordelen'], ['Radar', 'radar'], ['Opgevolgd', 'opgevolgd'], ['Agenda', 'agenda']];
 const SHOW = 3;
 const opened = new Set();
 let twOpen = false, todo = [], first = true;
@@ -221,9 +224,11 @@ const chips = (xs, n = 3) => xs.slice(0, n).map(x => `<span class="chip">${esc(x
 function rowHTML(t) {
   let x = '', v = '';
   if (t.kind === 'koop') {
-    x = `<span class="bar" aria-hidden="true"><i style="width:${Math.min(100, Math.round(t.drop / 50 * 100))}%"></i></span><span><span class="m">${nf(t.drop, 0)}%</span> onder de top</span>`
-      + (t.trend == null ? '' : `<span class="trend ${t.trend ? 'up' : 'down'}" title="${t.trend ? 'boven' : 'onder'} het 200-daags gemiddelde">${ARROW[t.trend ? 'up' : 'down']}${t.trend ? 'stijgende' : 'dalende'} trend</span>`);
-    v = `<span class="pill ${t.watch ? 'blue' : 'green'}">${t.watch ? 'watchlist' : 'bijkopen'}</span>`;
+    x = `<span class="steps buy" title="kooptrap: trede ${t.step} van 3, een derde kopen" aria-hidden="true">${[1, 2, 3].map(i => `<i class="${i <= t.done ? 'on' : i === t.step ? 'now' : ''}"></i>`).join('')}</span>`
+      + `<span><span class="m">${nf(t.drop, 0)}%</span> onder de top</span>`
+      + (t.falling ? `<span class="trend down" title="deze week een nieuwe bodem en onder het 50-daags gemiddelde">${ARROW.down}valt nog</span>`
+        : t.trend == null ? '' : `<span class="trend ${t.trend ? 'up' : 'down'}" title="${t.trend ? 'boven' : 'onder'} het 200-daags gemiddelde">${ARROW[t.trend ? 'up' : 'down']}${t.trend ? 'stijgende' : 'dalende'} trend</span>`);
+    v = `<span class="pill ${t.watch ? 'blue' : 'green'}">⅓ ${t.watch ? 'kopen' : 'bijkopen'}</span>`;
   } else if (t.kind === 'winst') {
     const n = ((t.step - 1) % 3) + 1;
     x = `<span class="steps" title="trede ${t.step}: ${t.sellPct}% verkopen" aria-hidden="true">${[1, 2, 3].map(i => `<i${i <= n ? ' class="on"' : ''}></i>`).join('')}</span>`
@@ -256,7 +261,7 @@ function drawTodo() {
 }
 
 async function render() {
-  const [data, sig, scr, pos, trades, tech, these] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese()]);
+  const [data, sig, scr, pos, trades, tech, these, agenda] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese(), getJSON('marktagenda.json')]);
   // de Top 250-radar (1,2 MB) alleen als je een Top 250-advies opvolgt: daar komt dan de actuele koers vandaan
   const sigTop = (trades || []).some(t => t && !t.deleted && t.status === 'open' && t.set === 'top250') ? await getJSON('signals_top250.json') : null;
   const idx = Shared.stockIndex(scr, sig, data);
@@ -283,6 +288,9 @@ async function render() {
   const costSum = held.reduce((a, x) => a + x.p.cost * (x.p.qty || 1), 0);
   const plPct = costSum ? (held.reduce((a, x) => a + (x.q.price - x.p.cost) * (x.p.qty || 1), 0) / costSum) * 100 : null;
   const upN = held.filter(x => dayOf(x) > 0).length, downN = held.filter(x => dayOf(x) < 0).length;
+  // Risico (shared.js, zelfde cijfers als Investeringen): slechte maand, grootste groep die samen beweegt, oververhit
+  const usd = ((sig && sig.world && sig.world.factors) || []).find(f => f.key === 'dollar');
+  const RV = Shared.riskView(held.map(x => ({ id: x.p.id, name: short(x.q.name || x.p.ticker), q: x.q, qty: x.p.qty, rate: Shared.toEur(x.q, usd && usd.last) })));
   const nm = x => short(x.q.name || x.p.ticker);
 
   // Portefeuille: vandaag en sinds aankoop groot, daaronder één blokje per positie in de kleur van de dag
@@ -292,27 +300,23 @@ async function render() {
       <div class="h-row"><div><div class="k">Vandaag</div><div class="big ${cls(dayPct)}">${pct(dayPct, 2)}</div></div>
         <div><div class="k">Sinds aankoop</div><div class="big sm ${cls(plPct)}">${pct(plPct)}</div></div></div>
       ${held.length ? `<div class="heat" role="img" aria-label="Per positie vandaag: ${upN} omhoog, ${downN} omlaag">${heat}</div>
-      <div class="h-foot"><span class="u"><b>${upN}</b> omhoog</span><span class="d"><b>${downN}</b> omlaag</span><span><b>${held.length}</b> posities</span></div>`
+      <div class="h-foot"><span class="u"><b>${upN}</b> omhoog</span><span class="d"><b>${downN}</b> omlaag</span><span><b>${held.length}</b> posities</span>${RV ? `<span title="Zoveel kan je portefeuille zakken in een slechte maand (1 op 20), uit de beweeglijkheid en hoe sterk je posities samen bewegen">slechte maand <b>−${Math.round(RV.bad)}%</b>${RV.badEur != null ? ` <b>−${esc(eur0(RV.badEur))}</b>` : ''}</span>` : ''}</div>`
         : '<div class="h-foot">Geen aankoopprijzen op dit apparaat: zet Sync aan op Investeringen</div>'}
     </section>`;
 
-  // Beursklimaat vandaag (meter: risico-uit · neutraal · rustig) en deze week (zelfde regels als de Patroonradar)
+  // Beursklimaat vandaag (meter: risico-uit · neutraal · rustig; zelfde regels als de Patroonradar) en waar het op
+  // rust: angstindex en Nasdaq tegen zijn 50-daags gemiddelde. Geen 'deze week verwacht' meer: die voorspelde de hele
+  // chipdaling van okt-nov 2026 een stijging (de Patroonradar geeft alleen koopsignalen, dus wijst bijna altijd omhoog).
   const reg = (sig && sig.world && sig.world.regime) || {};
   const REG = { off: ['var(--down)', 'Risico-uit', 'r'], neutral: ['var(--warn)', 'Neutraal', 'n'], calm: ['var(--up)', 'Rustig & stijgend', 'g'] }[reg.state] || ['var(--muted)', '—', ''];
   const horizon = (sig && sig.config && sig.config.horizon) || 10;
-  let sw = 0, sm = 0;
-  ((sig && sig.items) || []).forEach(it => {
-    if (it.category === 'Gold & Silver') return;
-    const p = pos.find(x => x.ticker.toUpperCase() === it.symbol.toUpperCase());
-    const w = (it.price || 1) * ((p && p.qty) || 1);
-    sw += w; sm += w * (it.projected_pct != null ? it.projected_pct * 5 / horizon : 0);
-  });
-  const wk = sw ? sm / sw : null;
+  const fac = k => ((sig && sig.world && sig.world.factors) || []).find(f => f.key === k);
+  const vix = fac('vix'), ndq = fac('nasdaq');
   $('clim').innerHTML = `<section class="glass clim${first ? ' rise' : ''}" style="--i:1;--tone:${REG[0]}" role="button" tabindex="0" data-go="patroonradar">
       <span class="ico">${ICON.klimaat}</span><div><div class="k">Beursklimaat</div><div class="v">${esc(REG[1])}</div></div>
       <div class="meter" role="img" aria-label="Beursklimaat: ${esc(REG[1])}"><i class="r${REG[2] === 'r' ? ' on' : ''}"></i><i class="n${REG[2] === 'n' ? ' on' : ''}"></i><i class="g${REG[2] === 'g' ? ' on' : ''}"></i></div>
       <div class="meter-l"><span>risico-uit</span><span>neutraal</span><span>rustig</span></div>
-      <div class="wk">deze week ${wk == null ? '—' : `<span class="trend ${wk >= 0 ? 'up' : 'down'}">${ARROW[wk >= 0 ? 'up' : 'down']}</span><b class="${cls(wk)}">${pct(wk)}</b> verwacht`}</div>
+      <div class="wk">${vix && vix.last != null ? `angstindex <b class="${vix.last >= 25 ? 'c-down' : vix.last < 18 ? 'c-up' : ''}">${nf(vix.last, 0)}</b>` : ''}${vix && ndq ? '<span class="sep">·</span>' : ''}${ndq ? `Nasdaq <b class="${ndq.trend === 'up' ? 'c-up' : 'c-down'}">${ndq.trend === 'up' ? 'boven' : 'onder'}</b> 50-daags gem.` : ''}${vix || ndq ? '' : '—'}</div>
     </section>`;
 
   // Techradar: kaart met niveau, signalen en je deel in tech; uitleg en tips pas na 'Wat te doen'
@@ -330,15 +334,13 @@ async function render() {
 
   // ── Te doen
   todo = [];
-  // 1. Koopsignalen (incl. watchlist); met een dalende trend achteraan
+  // 1. Kooptrap (incl. watchlist): een trede bereikt en nog niet gekocht; wat nog valt of in een dalende trend zit achteraan
   pos.forEach(p => {
-    const qq = q(p.ticker); if (!qq || !qq.high52 || !qq.price) return;
-    const drop = (qq.high52 - qq.price) / qq.high52 * 100, thr = thresholdFor(p, qq);
-    if (drop >= thr) {
-      const trend = qq.sma200 ? qq.price > qq.sma200 : null;
-      todo.push({ g: 'Kopen', kind: 'koop', title: short(qq.name || p.ticker), drop, trend, watch: !!p.watch,
-        go: 'investeringen', prio: trend === false ? 2 : 1, ord: -drop });
-    }
+    const qq = q(p.ticker), L = Shared.buyLadder(p, qq, p.buys);
+    if (!L || !L.alert) return;
+    const trend = qq.sma200 ? qq.price > qq.sma200 : null;
+    todo.push({ g: 'Kopen', kind: 'koop', title: short(qq.name || p.ticker), drop: L.drop, step: L.next, done: L.done, falling: L.falling,
+      trend, watch: !!p.watch, go: 'investeringen', prio: L.falling || trend === false ? 2 : 1, ord: -L.drop });
   });
   // 2. Winstnemingstrap (zelfde regel als de knop "Realiseer" op het tabblad Investeringen)
   held.forEach(x => {
@@ -348,6 +350,11 @@ async function render() {
     todo.push({ g: 'Winst nemen', kind: 'winst', title: nm(x), step: s.nextStep, target: s.nextTargetPct, sellPct: s.nextSellPct,
       heropend: s.isHeropend, pl, go: 'investeringen', prio: 1, ord: -pl });
   });
+  // Oververhit: zeer beweeglijk en 50%+ boven het 200-daags gemiddelde (geen voorspelling: een deel verkopen verlaagt je risico)
+  (RV ? RV.hot : []).forEach(h => todo.push({ g: 'Winst nemen', title: h.name, sub: `+${nf(h.ext, 0)}% boven 200-daags gemiddelde`,
+    pill: 'deel verkopen', pillCls: 'amber', go: 'investeringen', prio: 2, ord: -h.ext }));
+  if (RV && RV.warn) todo.push({ g: 'Risico', kind: 'chips', title: `${Math.round(RV.group.share)}% beweegt samen`, items: RV.group.names,
+    pill: `max ${RV.max}%`, pillCls: 'red', go: 'investeringen', prio: 1 });
   // Oude verkopen zonder vastgelegde verkoopkoers: zonder koers kan die trede niet weer opengaan na een daling van 25%
   const noPrice = held.filter(x => (x.p.sells || []).some(v => v && !(v.price > 0)));
   if (noPrice.length) todo.push({ g: 'Winst nemen', kind: 'chips', title: 'Verkoopkoers invullen', items: noPrice.map(nm),
@@ -389,10 +396,24 @@ async function render() {
     todo.push({ g: 'Opgevolgd', title: short(t.name || t.symbol), sub: `${t.dir === 'up' ? 'koopadvies' : 'verkoopadvies'}${t.plan && t.plan.target ? ' · doel ' + nf(t.plan.target, 2) : ''}`,
       pill: pct(res), pillCls: res == null ? 'grey' : res >= 0 ? 'green' : 'red', go: (t.set === 'top250' ? 'top250-radar' : 'patroonradar'), prio: 3 });
   });
-  // 6. Kwartaalcijfers binnen 7 dagen: één regel met datumtegels, de eerstvolgende voorop
+  // 6. Markt in de komende 14 dagen: Fed-besluiten, Amerikaanse inflatie en verkiezingen (marktagenda.json) en de cijfers
+  //    van Nvidia, de graadmeter voor de hele AI-sector. Geen voorspelling van de richting: wel een moment waarop het hard kan gaan.
+  const d0 = new Date(), base = Date.UTC(d0.getFullYear(), d0.getMonth(), d0.getDate());
+  const dayN = iso => Math.round((Date.parse(String(iso).slice(0, 10) + 'T00:00:00Z') - base) / 864e5);
+  const mkt = ((agenda && agenda.events) || []).filter(e => e && /^\d{4}-\d{2}-\d{2}$/.test(e.date)).map(e => ({ n: e.title, date: e.date }));
+  const nv = ((sig && sig.items) || []).find(it => it.pattern_symbol === 'NVDA' || it.symbol === 'NVDA');
+  const nvDate = (nv && nv.context && nv.context.earnings && nv.context.earnings.date)
+    || (((scr && scr.refs) || []).concat((scr && scr.items) || []).find(r => r && r.sym === 'NVDA') || {}).earnings;
+  if (nvDate) mkt.push({ n: 'Nvidia-cijfers', date: nvDate, nvda: true });
+  const nextMkt = mkt.map(e => ({ ...e, days: dayN(e.date) })).filter(e => e.days >= 0 && e.days <= 14).sort((a, b) => a.days - b.days);
+  if (nextMkt.length) todo.push({ g: 'Agenda', kind: 'cal', title: 'Markt komende 2 weken', items: nextMkt.map(e => ({ ...e, ...dParts(e.date) })),
+    go: 'patroonradar', prio: 4, ord: -1 });
+  const nvInMkt = nextMkt.some(e => e.nvda);
+  // 7. Kwartaalcijfers binnen 7 dagen: één regel met datumtegels, de eerstvolgende voorop (Nvidia staat dan al bij de markt)
   const soon = [];
   ((sig && sig.items) || []).forEach(it => {
     const e = it.context && it.context.earnings;
+    if (nvInMkt && (it.pattern_symbol === 'NVDA' || it.symbol === 'NVDA')) return;
     if (e && e.days != null && e.days >= 0 && e.days <= 7) {
       const dt = dParts(e.date || new Date(Date.now() + e.days * 864e5).toISOString());
       soon.push({ n: short(it.label || it.name || it.symbol), days: e.days, d: dt.d, m: dt.m });

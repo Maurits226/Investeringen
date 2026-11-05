@@ -28,6 +28,25 @@ function serve() {
   });
 }
 
+// Een paar posities met aankoopprijs en aantal (en een gekochte trede), om de kooptrap, het risico en Vandaag met echte
+// posities te zien; de andere ronde draait zonder (zoals een nieuw apparaat zonder Sync)
+const SEED = [['AMD.DE', 180, 20], ['MTE.DE', 300, 10], ['NVD.DE', 120, 40], ['MSF.DE', 400, 8], ['QDVE.DE', 30, 100, "ETF's"], ['LLY.DE', null, 0, 'Watchlist']];
+function seed(list) {
+  if (sessionStorage.getItem('seeded')) return;
+  sessionStorage.setItem('seeded', '1');
+  localStorage.setItem('portfolio_positions', JSON.stringify(list.map(([t, c, n, sec]) => ({ ticker: t, section: sec || 'Stocks', thresh: 20, cur: 'native', watch: sec === 'Watchlist' }))));
+  localStorage.setItem('portfolio_version', '999');
+  const st = {};
+  list.forEach(([t, c, n, sec]) => { if (c) st[(sec || 'Stocks') + '|' + t] = { cost: c, qty: n, sells: [] }; });
+  st['Stocks|MTE.DE'].buys = [{ level: 1, date: '20-10-2026', price: 780, top: 1e9 }];
+  localStorage.setItem('portfolio_state', JSON.stringify(st));
+}
+const marktSoon = () => {
+  const d0 = new Date(), base = Date.UTC(d0.getFullYear(), d0.getMonth(), d0.getDate());
+  return (JSON.parse(fs.readFileSync(path.join(ROOT, 'marktagenda.json'), 'utf8')).events || [])
+    .some(e => { const d = Math.round((Date.parse(e.date + 'T00:00:00Z') - base) / 864e5); return d >= 0 && d <= 14; });
+};
+
 const PAGES = ['index.html', 'vandaag.html', 'portfolio.html', 'beoordeling.html', 'beoordeling.html?set=top',
   'signals.html', 'signals.html?set=top250', 'archief.html', 'archief.html?set=top250', 'screener.html',
   'koopmoment.html', 'koopmoment.html?set=own', 'opzoeken.html'];
@@ -39,9 +58,12 @@ const WIDTHS = [390, 1280];
   const browser = await chromium.launch();
   const problems = [];
   let n = 0;
-  for (const w of WIDTHS) {
-    for (const pg of PAGES) {
+  const RUNS = WIDTHS.flatMap(w => PAGES.map(pg => ({ w, pg, seeded: false })))
+    .concat(WIDTHS.flatMap(w => ['portfolio.html', 'vandaag.html'].map(pg => ({ w, pg, seeded: true }))));
+  for (const { w, pg, seeded } of RUNS) {
+    {
       const ctx = await browser.newContext({ viewport: { width: w, height: 900 }, hasTouch: w < 1000, isMobile: w < 1000 });
+      if (seeded) await ctx.addInitScript(seed, SEED);
       const page = await ctx.newPage();
       const errs = [];
       page.on('pageerror', e => errs.push('JS: ' + e.message));
@@ -85,7 +107,20 @@ const WIDTHS = [390, 1280];
           await page.click('.b-card .b-head');
           await page.waitForSelector('.b-body', { timeout: 8000 });
         }
-        if (pg === 'portfolio.html') {                     // positie toevoegen: zoeken op naam vult de ticker in
+        if (pg === 'portfolio.html') {                     // elk koopsignaal is een trede van de kooptrap, met de treden erbij
+          const loose = await page.$$eval('.position.alert', els => els.filter(e => !/KOOP TREDE [123]\/3/.test(e.textContent) || !e.querySelector('.ladder')).length);
+          if (loose) errs.push(`Investeringen: ${loose} koopsignaal zonder kooptrap`);
+        }
+        if (seeded && pg === 'portfolio.html') {           // risico: eerste kaart van de portefeuillecheck; een gekochte trede staat als gekocht
+          await page.waitForSelector('#pcGrid .pc', { state: 'attached', timeout: 8000 });   // portefeuillecheck staat dicht
+          if (!/Risico/.test(await page.textContent('#pcGrid .pc'))) errs.push('Investeringen: risicokaart ontbreekt in de portefeuillecheck');
+          if (!(await page.$('.ladder .st.done'))) errs.push('Investeringen: vastgelegde trede niet als gekocht getoond');
+        }
+        if (seeded && pg === 'vandaag.html') {             // slechte maand in de kop, kooptrap bij Kopen
+          if (!/slechte maand/.test(await page.textContent('#hero'))) errs.push('Vandaag: slechte maand ontbreekt in de kop');
+          if (await page.$('.g-kopen') && !(await page.$('.g-kopen .steps.buy'))) errs.push('Vandaag: Kopen zonder kooptrap');
+        }
+        if (!seeded && pg === 'portfolio.html') {          // positie toevoegen: zoeken op naam vult de ticker in
           await page.click('#add');
           await page.fill('#f-search', 'nvidia');
           await page.waitForSelector('#f-results .z-l', { timeout: 8000 });
@@ -93,7 +128,11 @@ const WIDTHS = [390, 1280];
           if (!(await page.inputValue('#f-ticker'))) errs.push('zoeken: tikken op een notering vult de ticker niet in');
           await page.click('#f-cancel');
         }
-        if (pg === 'vandaag.html') {                       // groep openklappen in de lijst; techradar is één regel die openklapt
+        if (pg === 'vandaag.html') {                       // geen weekverwachting meer; marktagenda als er de komende 2 weken iets is
+          if (/verwacht/.test(await page.textContent('#clim'))) errs.push('Vandaag: beursklimaat toont weer een verwachting');
+          if (marktSoon() && !/Markt komende 2 weken/.test(await page.textContent('#todo'))) errs.push('Vandaag: marktagenda ontbreekt');
+        }
+        if (!seeded && pg === 'vandaag.html') {            // groep openklappen in de lijst; techradar is één regel die openklapt
           if (await page.$('.kansen, #kansen')) errs.push('Kansen van de dag staat weer op Vandaag');
           const more = await page.$('.grp .more');
           if (more) {
@@ -123,7 +162,7 @@ const WIDTHS = [390, 1280];
         }
       } catch (e) { errs.push('interactie: ' + e.message.split('\n')[0]); }
       await page.waitForTimeout(300);
-      if (errs.length) problems.push(`${w}px ${pg}:\n    ` + [...new Set(errs)].join('\n    '));
+      if (errs.length) problems.push(`${w}px ${pg}${seeded ? ' (met posities)' : ''}:\n    ` + [...new Set(errs)].join('\n    '));
       n++;
       await ctx.close();
     }

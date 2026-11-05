@@ -1,0 +1,33 @@
+{
+ "v": 1,
+ "bijgewerkt": "2026-11-05",
+ "uitleg": "Marktgebeurtenissen voor de Agenda op Vandaag: Fed-rentebesluiten (tweede dag van de vergadering), Amerikaanse inflatiecijfers (CPI, 14:30 NL-tijd) en verkiezingen. Datums nagezocht in november 2026 (federalreserve.gov en bls.gov via zoekresultaten; de Fed en het BLS kunnen datums nog verschuiven). Nvidia-cijfers komen uit de koersdata (screener.json). Bijwerken voordat de lijst opraakt; de check op de code waarschuwt.",
+ "events": [
+  { "date": "2026-11-10", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2026-12-09", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2026-12-10", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-01-13", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-01-27", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-02-11", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-03-10", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-03-17", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-04-13", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-04-18", "kind": "verkiezing", "title": "Frankrijk kiest (1e ronde)" },
+  { "date": "2027-04-28", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-05-02", "kind": "verkiezing", "title": "Frankrijk kiest (2e ronde)" },
+  { "date": "2027-05-12", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-06-09", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-06-10", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-07-14", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-07-28", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-08-11", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-09-14", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-09-15", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-10-14", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-10-27", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-11-10", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2027-12-08", "kind": "fed", "title": "Fed-rentebesluit" },
+  { "date": "2027-12-10", "kind": "cpi", "title": "VS-inflatie" },
+  { "date": "2028-11-07", "kind": "verkiezing", "title": "VS kiest (president)" }
+ ]
+}

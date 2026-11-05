@@ -82,6 +82,38 @@ try:
         fail(f"signals.py: achtergrondpatronen tellen mee in de score: {P}")
 except Exception as e:  # noqa: BLE001
     fail(f"signals.py: achtergrondpatronen niet te testen: {e}")
+# Rem op koopadviezen: alleen chipgevoelige aandelen (samenhang 0,5+ met de chipindex), alleen bij techradar 'verhoogd'
+# of hoger of de markt in risico-uit
+try:
+    chip, los = {"sens": [{"key": "chips", "corr": 0.82}]}, {"sens": [{"key": "chips", "corr": 0.31}, {"key": "nasdaq", "corr": 0.9}]}
+    cases = [(chip, "verhoogd", "neutral", "techradar verhoogd"), (chip, "hoog", "calm", "techradar hoog"),
+             (chip, "rustig", "off", "risico-uit"), (chip, "opletten", "neutral", None), (chip, None, None, None),
+             (los, "hoog", "off", None), ({}, "hoog", "off", None)]
+    for ctx, lvl, st, want in cases:
+        got = SG.chip_rem(ctx, lvl, st)
+        if (want is None) != (got is None) or (want and want not in got):
+            fail(f"signals.py: rem bij {lvl}/{st} en {ctx}: {got!r}, verwacht {want!r}")
+    if SG.SIGNAL_SCORE != 60:
+        fail(f"signals.py: drempel voor een advies is {SG.SIGNAL_SCORE}, afgesproken 60")
+except Exception as e:  # noqa: BLE001
+    fail(f"signals.py: rem op koopadviezen niet te testen: {e}")
+
+# 6b. Marktagenda (Vandaag): geldige datums en soorten, op volgorde, en nog minstens 60 dagen Fed- en inflatiedatums vooruit
+try:
+    from datetime import date, timedelta
+    ag = json.load(open(os.path.join(ROOT, "marktagenda.json"), encoding="utf-8"))
+    ev = ag.get("events") or []
+    ds = [date.fromisoformat(e["date"]) for e in ev]
+    if any(e.get("kind") not in ("fed", "cpi", "verkiezing") or not str(e.get("title") or "").strip() for e in ev):
+        fail("marktagenda.json: onbekende soort of lege titel")
+    if ds != sorted(ds) or len(set((e["date"], e["kind"]) for e in ev)) != len(ev):
+        fail("marktagenda.json: niet op datum gesorteerd of dubbele gebeurtenis")
+    horizon = date.today() + timedelta(days=60)
+    for k in ("fed", "cpi"):
+        if not any(e["kind"] == k and date.fromisoformat(e["date"]) >= horizon for e in ev):
+            fail(f"marktagenda.json: geen '{k}'-datum meer na {horizon}: lijst bijwerken (federalreserve.gov, bls.gov)")
+except Exception as e:  # noqa: BLE001
+    fail(f"marktagenda.json: {e}")
 
 # 6. Rekenregels van het dashboard (winstnemingstrap, samenvoegen van je state) in shared.js
 r = subprocess.run(["node", os.path.join(ROOT, "tests", "test_rules.js")], capture_output=True, text=True)

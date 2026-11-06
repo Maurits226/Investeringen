@@ -41,6 +41,9 @@ function seed(list) {
   st['Stocks|MTE.DE'].buys = [{ level: 1, date: '20-10-2026', price: 780, top: 1e9 }];
   localStorage.setItem('portfolio_state', JSON.stringify(st));
 }
+// Wat via het dashboard in tickers.txt staat, hoort op elk apparaat in de lijst (ook zonder of met een oude lokale lijst)
+const viaDashboard = () => fs.readFileSync(path.join(ROOT, 'tickers.txt'), 'utf8').split('\n')
+  .filter(l => /#\s*via dashboard\s*$/.test(l)).map(l => l.split(',')[0].trim().toUpperCase()).filter(Boolean);
 const marktSoon = () => {
   const d0 = new Date(), base = Date.UTC(d0.getFullYear(), d0.getMonth(), d0.getDate());
   return (JSON.parse(fs.readFileSync(path.join(ROOT, 'marktagenda.json'), 'utf8')).events || [])
@@ -106,6 +109,11 @@ const WIDTHS = [390, 1280];
         if (pg === 'beoordeling.html' && await page.$('.b-card .b-head')) {
           await page.click('.b-card .b-head');
           await page.waitForSelector('.b-body', { timeout: 8000 });
+        }
+        if (pg === 'portfolio.html') {                     // posities van een ander apparaat (tickers.txt) staan er ook
+          const cards = await page.$$eval('.position .p-company', els => els.map(e => e.textContent));
+          const missing = viaDashboard().filter(t => !cards.some(c => c.includes(`(${t})`)));
+          if (missing.length) errs.push('Investeringen: via het dashboard toegevoegd maar niet in de lijst: ' + missing.join(', '));
         }
         if (pg === 'portfolio.html') {                     // elk koopsignaal is een trede van de kooptrap, met de treden erbij
           const loose = await page.$$eval('.position.alert', els => els.filter(e => !/KOOP TREDE [123]\/3/.test(e.textContent) || !e.querySelector('.ladder')).length);

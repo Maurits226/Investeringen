@@ -784,6 +784,21 @@ function savePositions() {
 }
 
 let positions = loadPositions();
+// Posities die je op een ander apparaat via het dashboard toevoegde (tickers.txt, '# via dashboard') aanvullen, en met je
+// token ook weghalen wat daar verwijderd is (shared.js). Samenvoegen met de lijst van dát moment: een positie die je
+// intussen toevoegde, blijft staan.
+function syncList() {
+  Shared.dashboardTickers().then(d => {
+    const r = Shared.mergeDashboard(positions, d);
+    if (!r.changed) return;
+    positions = r.list;
+    positions.forEach(applyState);
+    savePositions();
+    render();
+  }).catch(() => {});
+}
+syncList();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncList(); });
 
 // Slimme koopdrempel: halve jaarbeweeglijkheid, tussen 8% en 35% (een wild aandeel krijgt meer ruimte dan een rustig)
 const smartOn = Shared.smartOn;
@@ -1110,7 +1125,7 @@ function positionCard(p, q, err) {
         return '<span class="badge hold">geen actie</span>';
       })()}
       <div class="p-btns">
-        ${isWatch ? '' : `<button class="edit-cost" data-id="${esc(id)}" title="Gemiddelde aankoopprijs en aantal aanpassen (bv. na bijkopen)">Aankoop<span class="lbl-long"> aanpassen</span></button>`}
+        ${p.watch ? '' : `<button class="edit-cost" data-id="${esc(id)}" title="Gemiddelde aankoopprijs en aantal ${p.cost == null ? 'invullen' : 'aanpassen (bv. na bijkopen)'}">Aankoop<span class="lbl-long"> ${p.cost == null ? 'invullen' : 'aanpassen'}</span></button>`}
         <button class="remove" data-id="${esc(id)}">verwijder</button>
       </div>
     </div>`;
@@ -1124,7 +1139,7 @@ function positionCard(p, q, err) {
     const huidige = p.cost;
     const invoer = prompt(
       `Nieuwe gemiddelde aankoopprijs voor ${p.label || p.ticker} (in ${cur}):\n` +
-      `Huidig: ${huidige}`, huidige);
+      `Huidig: ${huidige ?? 'nog niet ingevuld'}`, huidige ?? '');
     if (invoer == null) return;
     const nieuw = parseFloat(invoer.replace(',', '.'));
     if (!isFinite(nieuw) || nieuw <= 0) { alert('Ongeldig bedrag'); return; }

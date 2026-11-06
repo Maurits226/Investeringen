@@ -42,6 +42,11 @@ function serve(keys) {
       const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+      if (rel === 'tickers.txt' && keys === TEXT) {           // naam van een via het dashboard toegevoegde positie
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end(fs.readFileSync(file, 'utf8').replace(/^([^,#\n]+),\s*([^,#\n]+),(.*#\s*via dashboard\s*)$/gm, (m, t, n, rest) => `${t}, ${n}${PAY},${rest}`));
+        return;
+      }
       if (path.extname(file) === '.json') {
         try { cache[rel] = cache[rel] || JSON.stringify(taint(fixture[rel] || JSON.parse(fs.readFileSync(file, 'utf8')), keys)); }
         catch (e) { cache[rel] = fs.readFileSync(file, 'utf8'); }

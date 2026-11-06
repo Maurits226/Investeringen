@@ -169,7 +169,8 @@ const Shared = (() => {
         });
       } catch (e) { pos = []; }
     }
-    const st = await loadState();
+    const [st, d] = await Promise.all([loadState(), dashboardTickers()]);
+    pos = mergeDashboard(pos, d).list;
     return pos.filter(p => p && p.ticker).map(p => {
       const s = st[posId(p)] || {};
       return { ...p, id: posId(p), cost: s.cost ?? p.cost ?? null, qty: s.qty ?? p.qty ?? 1, sells: s.sells || [], buys: s.buys || [], review: s.review || {} };
@@ -591,6 +592,54 @@ const Shared = (() => {
     }, `Ticker verwijderd via het dashboard: ${sym}`);
   }
 
+  // ── Je lijst met posities op elk apparaat. De lijst staat per apparaat (localStorage, plus de vaste lijst in
+  // portfolio.html); wat je via het dashboard toevoegt, komt ook in tickers.txt met '# via dashboard' (ticker, naam en
+  // kopje, geen bedragen). Zo komt zo'n positie terug op een ander apparaat, in een andere browser of in de app op je
+  // beginscherm (die heeft een eigen opslag). Met je token lezen we de echte versie via GitHub en verdwijnt ook wat op een
+  // ander apparaat is verwijderd; zonder token de versie van de website, en dan vullen we alleen aan.
+  const SECTIONS = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
+  async function dashboardTickers() {
+    let txt = null, exact = false;
+    if (token()) {
+      try {
+        const r = await fetch(`${api('tickers.txt')}?ref=${GH.branch}&t=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
+        if (r.ok) { txt = Vault.b64ToText((await r.json()).content); exact = true; }
+      } catch (e) {}
+    }
+    if (txt == null) {
+      try { const r = await fetch('tickers.txt', { cache: 'no-cache' }); if (r.ok) txt = await r.text(); } catch (e) {}
+    }
+    if (txt == null) return null;
+    const list = txt.split('\n').filter(l => /#\s*via dashboard\s*$/.test(l)).map(l => {
+      const [sym, name, section] = l.replace(/#.*$/, '').split(',').map(x => x.trim());
+      const t = (sym || '').toUpperCase();
+      return TICKER_OK.test(t) ? { ticker: t, label: name && name.toUpperCase() !== t ? name : null, section: SECTIONS.includes(section) ? section : 'Stocks' } : null;
+    }).filter(Boolean);
+    return { list, exact };
+  }
+  // Ontbrekende posities aanvullen. Weghalen alleen met de echte versie, en alleen wat hier al eens in tickers.txt gezien
+  // is (sync: 'txt'): een positie die je net toevoegde, of een uit de vaste lijst, blijft altijd staan.
+  function mergeDashboard(list, d) {
+    if (!d) return { list, changed: false };
+    const ids = new Set(d.list.map(x => x.section + '|' + x.ticker));
+    let changed = false;
+    const out = [];
+    (list || []).forEach(p => {
+      if (!p || !p.ticker) return;
+      if (ids.has(posId(p))) { if (p.sync !== 'txt') { p = { ...p, sync: 'txt' }; changed = true; } }
+      else if (p.sync === 'txt' && d.exact) { changed = true; return; }
+      out.push(p);
+    });
+    const have = new Set(out.map(posId));
+    d.list.forEach(x => {
+      if (have.has(x.section + '|' + x.ticker)) return;
+      out.push(Object.assign({ ticker: x.ticker, section: x.section, watch: x.section === 'Watchlist',
+        thresh: x.section === 'Stocks' || x.section === 'Watchlist' ? 20 : 10, cur: 'native', sync: 'txt' }, x.label ? { label: x.label } : {}));
+      changed = true;
+    });
+    return { list: out, changed };
+  }
+
   // ── Stock opzoeken (tab Stock opzoeken): opzoeklijst.json is openbaar (alleen tickers, naam en datum, geen bedragen). Een wijziging
   // start de Top 250-run, die elk aandeel uit de lijst scoort (opzoeken.json). Nieuwste bovenaan; na LOOK_DAYS dagen valt
   // een aandeel er vanzelf uit (de run negeert het dan, en de volgende wijziging haalt het weg), verwijderen kan altijd.
@@ -632,5 +681,5 @@ const Shared = (() => {
 
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
            sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, BUY_STEPS, stillFalling, buyLadder, badMonth, hotExt, riskView, toEur, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
-           editRepoFile, TICKER_OK, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
+           editRepoFile, TICKER_OK, dashboardTickers, mergeDashboard, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
 })();

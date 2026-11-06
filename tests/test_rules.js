@@ -130,5 +130,34 @@ check(!RV.equal && Math.abs(RV.total - (vA + vB + vC)) < 1e-6 && RV.badEur > 0, 
 check(Math.abs(RV.group.share - (vA + vB) / (vA + vB + vC) * 100) < 1e-6 && RV.warn === RV.group.share > 40, `groepsaandeel naar waarde (${RV.group.share.toFixed(1)}%)`);
 check(S.riskView([]) === null, 'geen posities: geen risicobeeld');
 
-console.log(fails.length ? `REGELS: ${fails.length} fout(en)` : 'REGELS: alles in orde');
-process.exit(fails.length ? 1 : 0);
+// Posities op elk apparaat: wat via het dashboard is toegevoegd (tickers.txt, '# via dashboard') komt terug in de lijst
+const fixed = [{ ticker: 'AMD.DE', section: 'Stocks', thresh: 20 }];
+const dash = (list, exact) => ({ list, exact });
+const SNDK = { ticker: 'SNDK', section: 'Stocks', label: 'Sandisk Corporation' }, ARMW = { ticker: 'ARM', section: 'Watchlist', label: 'Arm Holdings plc' };
+let M = S.mergeDashboard(fixed, dash([SNDK, ARMW], false));
+const sn = M.list.find(p => p.ticker === 'SNDK'), ar = M.list.find(p => p.ticker === 'ARM');
+check(M.changed && M.list.length === 3 && sn && sn.section === 'Stocks' && sn.label === 'Sandisk Corporation' && sn.sync === 'txt' && !sn.watch,
+  `ontbrekende Sandisk aangevuld (${JSON.stringify(M.list)})`);
+check(ar && ar.watch && ar.thresh === 20, 'watchlist-regel wordt een watchlist-positie');
+M = S.mergeDashboard(M.list, dash([SNDK, ARMW], false));
+check(!M.changed && M.list.length === 3, 'tweede keer: niets te doen');
+M = S.mergeDashboard(M.list, dash([ARMW], false));
+check(!M.changed && M.list.some(p => p.ticker === 'SNDK'), 'zonder token (versie van de website): niets weghalen');
+M = S.mergeDashboard(M.list, dash([ARMW], true));
+check(M.changed && !M.list.some(p => p.ticker === 'SNDK') && M.list.some(p => p.ticker === 'AMD.DE'), 'met token: elders verwijderd = hier weg, vaste lijst blijft');
+const ownAdd = [...fixed, { ticker: 'ZETA', section: 'Stocks', thresh: 20, added: 1 }];
+M = S.mergeDashboard(ownAdd, dash([], true));
+check(!M.changed && M.list.length === 2, 'net zelf toegevoegd (nog niet in tickers.txt gezien): blijft staan');
+M = S.mergeDashboard(ownAdd, dash([{ ticker: 'ZETA', section: 'Stocks', label: null }], true));
+check(M.changed && M.list.find(p => p.ticker === 'ZETA').sync === 'txt' && M.list.length === 2, 'eigen toevoeging gezien in tickers.txt: gemarkeerd, niet dubbel');
+check(S.mergeDashboard(fixed, null).list === fixed, 'tickers.txt niet te lezen: lijst ongewijzigd');
+(async () => {
+  // tickers.txt lezen (zonder token: de versie van de website)
+  ctx.fetch = async u => ({ ok: u === 'tickers.txt', text: async () => '# kop\nAMD.DE\nSNDK, Sandisk Corporation, Stocks  # via dashboard\nLLY.DE, Eli Lilly and Company, Watchlist  # via dashboard\nbad ticker!, X, Stocks # via dashboard\n' });
+  const parsed = await S.dashboardTickers();
+  check(parsed && !parsed.exact && parsed.list.map(x => `${x.section}|${x.ticker}|${x.label}`).join(';') === 'Stocks|SNDK|Sandisk Corporation;Watchlist|LLY.DE|Eli Lilly and Company',
+    `tickers.txt gelezen: alleen geldige regels via het dashboard (${JSON.stringify(parsed)})`);
+
+  console.log(fails.length ? `REGELS: ${fails.length} fout(en)` : 'REGELS: alles in orde');
+  process.exit(fails.length ? 1 : 0);
+})();

@@ -70,35 +70,45 @@ const Shared = (() => {
     const add = s => s && !s.rearm && flag.has(sellKey(s));
     return sells.some(add) ? sells.map(s => add(s) ? { ...s, rearm: flag.get(sellKey(s)) } : s) : sells;
   }
-  // Portefeuille-state: GitHub is leidend, lokaal bekende aankoopprijzen/verkopen vullen ontbrekende aan
+  // Portefeuille-state samenvoegen: per positie wint de nieuwste wijziging (t = tijdstip, gezet bij elke wijziging op
+  // Investeringen). Zo zet een oudere versie van GitHub (vlak na het opslaan geeft GitHub nog even de vorige) of van een
+  // andere pagina je wijziging niet terug. Zonder tijd (oudere gegevens) is GitHub leidend en vullen lokaal bekende
+  // aankoopprijzen en verkopen ontbrekende aan.
+  const newerEdit = (a, b) => ((a && a.t) || 0) > ((b && b.t) || 0);
   function mergeState(remote, local) {
     const out = {};
     new Set([...Object.keys(remote || {}), ...Object.keys(local || {})]).forEach(id => {
       const r = (remote || {})[id], l = (local || {})[id];
       if (!r) { out[id] = l; return; }
       if (!l || typeof r !== 'object') { out[id] = r; return; }
-      out[id] = { ...l, ...r };
-      if (r.cost == null && l.cost != null) out[id].cost = l.cost;
-      if (r.qty == null && l.qty != null) out[id].qty = l.qty;
-      if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
-      if (!(r.buys && r.buys.length) && l.buys && l.buys.length) out[id].buys = l.buys;
+      if (newerEdit(l, r)) out[id] = { ...r, ...l };
+      else {
+        out[id] = { ...l, ...r };
+        if (r.cost == null && l.cost != null) out[id].cost = l.cost;
+        if (r.qty == null && l.qty != null) out[id].qty = l.qty;
+        if (!(r.sells && r.sells.length) && l.sells && l.sells.length) out[id].sells = l.sells;
+        if (!(r.buys && r.buys.length) && l.buys && l.buys.length) out[id].buys = l.buys;
+      }
       if (out[id].sells) out[id].sells = withRearms(withRearms(out[id].sells, l.sells), r.sells);
       const rv = newerReview(r.review, l.review);
       if (rv) out[id].review = rv;
     });
     return out;
   }
-  // Voor een pagina die zijn eigen state uploadt (Investeringen): eigen wijzigingen houden, maar nieuwere
-  // beoordelingen en posities die alleen op GitHub staan (van een ander apparaat of tabblad) overnemen
+  // Voor een pagina die zijn eigen state uploadt (Investeringen): eigen wijzigingen houden, maar een positie die op een
+  // ander apparaat later is gewijzigd, nieuwere beoordelingen en posities die alleen op GitHub staan overnemen
   function keepRemoteExtras(local, remote) {
     const out = { ...(local || {}) };
     Object.entries(remote || {}).forEach(([id, r]) => {
       if (!r || typeof r !== 'object') return;
-      if (!out[id]) { out[id] = r; return; }
-      const rv = newerReview(out[id].review, r.review);
-      if (rv && rv !== out[id].review) out[id] = { ...out[id], review: rv };
-      const sv = withRearms(out[id].sells, r.sells);
-      if (sv !== out[id].sells) out[id] = { ...out[id], sells: sv };
+      const l = out[id];
+      if (!l) { out[id] = r; return; }
+      let x = newerEdit(r, l) ? { ...l, ...r } : l;
+      const rv = newerReview(l.review, r.review);
+      if (rv && rv !== x.review) x = { ...x, review: rv };
+      const sv = withRearms(withRearms(x.sells, l.sells), r.sells);
+      if (sv !== x.sells) x = { ...x, sells: sv };
+      out[id] = x;
     });
     return out;
   }

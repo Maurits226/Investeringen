@@ -130,6 +130,17 @@ check(!RV.equal && Math.abs(RV.total - (vA + vB + vC)) < 1e-6 && RV.badEur > 0, 
 check(Math.abs(RV.group.share - (vA + vB) / (vA + vB + vC) * 100) < 1e-6 && RV.warn === RV.group.share > 40, `groepsaandeel naar waarde (${RV.group.share.toFixed(1)}%)`);
 check(S.riskView([]) === null, 'geen posities: geen risicobeeld');
 
+// Samenvoegen met tijdstempel: per positie wint de nieuwste wijziging, van welke kant ook
+const oldR = { [id]: { cost: 180, qty: 1, t: 1000 } }, newL = { [id]: { cost: 250, qty: 30, t: 2000 } };
+check(S.mergeState(oldR, newL)[id].cost === 250 && S.mergeState(oldR, newL)[id].qty === 30, 'mergeState: net aangepast hier wint van een oudere GitHub-versie');
+check(S.mergeState(newL, { [id]: { cost: 180, qty: 1, t: 1000 } })[id].cost === 250, 'mergeState: later op een ander apparaat aangepast wint');
+check(S.mergeState({ [id]: { cost: 180 } }, { [id]: { cost: 250 } })[id].cost === 180, 'mergeState: zonder tijdstempels blijft GitHub leidend');
+check(S.keepRemoteExtras(newL, oldR)[id].cost === 250, 'keepRemoteExtras: eigen nieuwere wijziging blijft');
+check(S.keepRemoteExtras({ [id]: { cost: 180, t: 1000 } }, newL)[id].cost === 250, 'keepRemoteExtras: elders later aangepast komt mee');
+const rvOld = { text: 'oud', updated: '2026-10-01' }, rvNew = { text: 'nieuw', updated: '2026-11-01' };
+check(S.mergeState({ [id]: { cost: 180, t: 1000, review: rvNew } }, { [id]: { cost: 250, t: 2000, review: rvOld } })[id].review.text === 'nieuw',
+  'nieuwste beoordeling blijft, ook als de andere kant de nieuwste prijs heeft');
+
 // Posities op elk apparaat: wat via het dashboard is toegevoegd (tickers.txt, '# via dashboard') komt terug in de lijst
 const fixed = [{ ticker: 'AMD.DE', section: 'Stocks', thresh: 20 }];
 const dash = (list, exact) => ({ list, exact });

@@ -633,6 +633,13 @@ function loadStateLocal() {
 function saveStateLocal() {
   try { localStorage.setItem('portfolio_state', JSON.stringify(userState)); } catch (e) {}
 }
+// Een wijziging aan een positie (aankoopprijs, aantal, verkopen, treden) krijgt een tijdstempel: bij samenvoegen wint de
+// nieuwste (shared.js), zodat een oudere versie van GitHub of van een andere pagina hem niet terugzet
+function touch(id) {
+  const st = userState[id] || (userState[id] = {});
+  st.t = Date.now();
+  return st;
+}
 function applyState(p) {
   const st = userState[posId(p)];
   if (st && st.cost != null) p.cost = st.cost;
@@ -1146,10 +1153,10 @@ function positionCard(p, q, err) {
     const stuks = prompt(`Aantal stuks van ${p.label || p.ticker} (voor bedragen in euro's bij Risico):\nHuidig: ${p.qty || 1}`, p.qty || 1);
     const n = stuks == null ? null : parseFloat(String(stuks).replace(',', '.'));
     if (stuks != null && (!isFinite(n) || n <= 0)) { alert('Ongeldig aantal'); return; }
-    userState[id] = userState[id] || {};
-    userState[id].cost = nieuw;
+    const st = touch(id);
+    st.cost = nieuw;
     p.cost = nieuw;
-    if (n != null) { userState[id].qty = n; p.qty = n; }
+    if (n != null) { st.qty = n; p.qty = n; }
     saveState(); savePositions(); render();
   };
 
@@ -1159,7 +1166,7 @@ function positionCard(p, q, err) {
     const step = parseInt(realBtn.dataset.step);
     const sellPct = parseInt(realBtn.dataset.pct);
     const today = new Date().toLocaleDateString('nl-NL');
-    userState[id] = userState[id] || {};
+    touch(id);
     userState[id].sells = userState[id].sells || [];
     // Sla de koers op het verkoopmoment op, zodat we een 25% koersdaling
     // kunnen detecteren die dit niveau opnieuw vrijgeeft (optie B).
@@ -1170,7 +1177,7 @@ function positionCard(p, q, err) {
   // Knop: trede van de kooptrap gekocht (de top van nu gaat mee: bij een nieuwe top begint de trap opnieuw)
   const buyBtn = el.querySelector('.buy-step');
   if (buyBtn) buyBtn.onclick = () => {
-    userState[id] = userState[id] || {};
+    touch(id);
     userState[id].buys = userState[id].buys || [];
     userState[id].buys.push({ level: parseInt(buyBtn.dataset.step), date: new Date().toLocaleDateString('nl-NL'), price: q.price, top: q.high52 });
     saveState(); render();
@@ -1182,6 +1189,7 @@ function positionCard(p, q, err) {
     const i = buys.map((b, k) => ({ b, k })).filter(({ b }) => b && !(q.high52 > (+b.top || 0) * 1.001)).pop();
     if (!i || !confirm(`Vastgelegde aankoop van trede ${i.b.level} (${String(i.b.date || '')}) verwijderen?`)) return;
     buys.splice(i.k, 1);
+    touch(id);
     saveState(); render();
   };
 
@@ -1199,6 +1207,7 @@ function positionCard(p, q, err) {
       const t = String(v).trim(), n = parseFloat(/,/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t);
       if (!(n > 0) || !isFinite(n)) { alert('Ongeldige koers'); return; }
       s.price = Math.round(n * 1e4) / 1e4;
+      touch(id);
       saveState(); render();
     };
   });
@@ -1213,6 +1222,7 @@ function positionCard(p, q, err) {
         const oms = s ? ` (+${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht op ${String(s.date || '')})` : '';
         if (!confirm(`Weet je zeker dat je deze verkoopregistratie${oms} wilt verwijderen?`)) return;
         userState[id].sells.splice(idx, 1);
+        touch(id);
         saveState(); render();
       }
     };
@@ -1447,15 +1457,18 @@ document.getElementById('f-save').onclick = () => {
   const costVal = parseFloat(document.getElementById('f-cost').value);
   const name = picked && picked.sym === t ? picked.name : '';
   const willAdd = !getQuote(t) && !positions.some(p => p.ticker.toUpperCase() === t);   // nog niet in tickers.txt (geen koers)
+  const qtyVal = parseFloat(document.getElementById('f-qty').value) || 1;
   positions.push(Object.assign({
     ticker: t,
     section: section,
     watch: isWatch,
     cost: isWatch ? null : (costVal || 0),
-    qty: parseFloat(document.getElementById('f-qty').value) || 1,
+    qty: qtyVal,
     thresh: parseInt(document.getElementById('f-thresh').value),
     cur: document.getElementById('f-cur').value
   }, name ? { label: name } : {}, willAdd && getToken() ? { added: Date.now() } : {}));
+  // aankoopprijs en aantal meteen in je (versleutelde) state, zodat ze op je andere apparaten ook kloppen
+  if (!isWatch && costVal > 0) { const st = touch(posId({ section, ticker: t })); st.cost = costVal; st.qty = qtyVal; saveState(); }
   ['f-ticker','f-cost','f-qty'].forEach(id => document.getElementById(id).value = '');
   dlg.close();
   savePositions();

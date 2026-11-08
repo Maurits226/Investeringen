@@ -241,6 +241,51 @@ if hasattr(S, "load_lookups"):
         check([it["mp"].get("fcf_margin") for it in pool] == before, "opzoeken: extra aandeel verandert de percentielen van de rest")
         check(ext["mp"].get("fcf_margin") == 100.0, f"opzoeken: extra aandeel met de hoogste marge moet percentiel 100 krijgen, kreeg {ext['mp']}")
 
+# Cijfers in een andere valuta (TSMC: Taiwanese dollars, 1 ADR = 5 gewone aandelen) omrekenen naar de koersvaluta
+tw = {"region": "VS", "fcur": "TWD", "mcap": 1.5e12, "price": 300.0, "pe": 3.2, "fpe": 2.5, "peg": 0.2, "ev_ebitda": 0.9,
+      "fcf": 960e9, "ocf": 1920e9, "rev_ttm": 3200e9,
+      "ts": {"annualTotalRevenue": [["2024-12-31", 2880e9], ["2025-12-31", 3200e9]],
+             "annualNetIncome": [["2024-12-31", 1120e9], ["2025-12-31", 1600e9]],
+             "annualDilutedAverageShares": [["2024-12-31", 25.0e9], ["2025-12-31", 25.0e9]],
+             "annualEBITDA": [["2025-12-31", 2240e9]], "annualTotalDebt": [["2025-12-31", 320e9]],
+             "annualCashCashEquivalentsAndShortTermInvestments": [["2025-12-31", 640e9]]}}
+cv = S.in_quote_currency(tw, 1.16, {"TWD": 32.0})
+last_ = lambda c, k: c["ts"][k][-1][1]  # noqa: E731
+check(abs(last_(cv, "annualTotalRevenue") - 100e9) < 1 and abs(cv["fcf"] - 30e9) < 1 and cv["fcur"] == "USD",
+      f"TWD: bedragen niet naar dollars omgerekend ({last_(cv, 'annualTotalRevenue')}, {cv['fcf']})")
+check(abs(last_(cv, "annualDilutedAverageShares") - 5.0e9) < 1 and cv.get("adr") == 5.0,
+      f"ADR: aantal aandelen niet naar noteringen ({last_(cv, 'annualDilutedAverageShares')}, adr {cv.get('adr')})")
+rv = lambda c: c["ts"]["annualTotalRevenue"]  # noqa: E731
+check(abs(rv(cv)[1][1] / rv(cv)[0][1] - rv(tw)[1][1] / rv(tw)[0][1]) < 1e-12, "omrekenen verandert de groei")
+check(abs(cv["pe"] - 30.0) < 1e-6 and cv["peg"] is None and cv["fpe"] is None,
+      f"K/W van Yahoo (andere valuta) niet zelf uitgerekend: pe {cv['pe']}, fpe {cv['fpe']}, peg {cv['peg']}")
+check(abs(cv["ev_ebitda"] - (1.5e12 + 10e9 - 20e9) / 70e9) < 1e-6, f"EV/EBITDA niet in één valuta: {cv['ev_ebitda']}")
+ok_pe = S.in_quote_currency(dict(tw, pe=29.0, fpe=25.0), 1.16, {"TWD": 32.0})
+check(ok_pe["pe"] == 29.0 and ok_pe["fpe"] == 25.0, "een kloppende K/W van Yahoo moet blijven staan")
+eu = S.in_quote_currency(dict(tw, region="EU"), 1.16, {"TWD": 32.0})
+check(abs(last_(eu, "annualTotalRevenue") - 100e9 / 1.16) < 1 and eu["fcur"] == "EUR", "TWD naar euro: via de dollar en EUR/USD")
+check(S.in_quote_currency(tw, 1.16, {}) is tw, "zonder wisselkoers: niets omrekenen (main scoort het dan niet)")
+check(S.in_quote_currency(dict(tw, fcur="USD"), 1.16, {"TWD": 32.0})["ts"] == tw["ts"], "dollarbedrijf met dollarkoers: ongewijzigd")
+check(S.convertible_skip({"skip": "rapporteert in TWD"}) and not S.convertible_skip({"skip": "rapporteert in XYZ"})
+      and not S.convertible_skip({"skip": "valuta GBp"}) and not S.convertible_skip(None), "convertible_skip herkent de verkeerde redenen")
+# ophalen: zonder omrekenen overgeslagen, als eigen positie door naar de cijfers
+class Door(Exception):
+    pass
+_sum, _ts, _sleep = S.summary, S.timeseries, S.time.sleep
+S.summary = lambda y, sym: {"cur": "USD", "fcur": "TWD", "country": "Taiwan", "name": "Taiwan Semiconductor"}
+S.timeseries = lambda y, sym: (_ for _ in ()).throw(Door())
+S.time.sleep = lambda *_: None
+try:
+    c_skip = S.fetch_stock(None, "TSM", {"src": "screener", "region": "VS"}, {}, 1.16)
+    check(c_skip.get("skip") == "rapporteert in TWD", f"brede scan: TWD moet overgeslagen worden ({c_skip.get('skip')})")
+    try:
+        S.fetch_stock(None, "TSM", {"src": "eigen", "region": "VS"}, {}, 1.16, convert=True)
+        check(False, "eigen positie in TWD: niet door naar de cijfers")
+    except Door:
+        pass
+finally:
+    S.summary, S.timeseries, S.time.sleep = _sum, _ts, _sleep
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten, "
       f"{sum(1 for it in items if (it.get('gap') or {}).get('ok'))} gaps · "

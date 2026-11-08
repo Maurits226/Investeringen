@@ -57,6 +57,10 @@ DYN_EU = {"min_cap": 1e9, "limit": 600,                    # eurozone: per thuis
           "exchanges": ["GER", "PAR", "AMS", "MIL", "MCE", "BRU", "HEL", "ISE", "VIE", "LIS", "ATH"],
           "mixed": {"GER", "VIE"}}                         # Xetra en Wenen noteren ook veel buitenlandse aandelen in euro (zie eu_keep)
 OK_FIN_CUR = {"USD", "EUR"}
+# Cijfers in een andere valuta (TSMC: Taiwanese dollars) rekenen we om met de wisselkoers van nu, alleen voor je eigen
+# posities en wat je opzoekt; de brede scan blijft bij euro en dollar. Groei en marges veranderen daar niet door.
+FX_FIN = {"TWD", "JPY", "GBP", "CHF", "DKK", "SEK", "NOK", "CAD", "AUD", "HKD", "CNY", "KRW", "INR", "SGD", "BRL", "MXN",
+          "ZAR", "ILS"}
 # Score 2.0 (marktrang): vijf pijlers. F = scorecard van de gids (absoluut), de andere vier zijn percentielen binnen de sector.
 PILLAR_W = {"F": 0.30, "Q": 0.20, "G": 0.20, "V": 0.15, "M": 0.15}
 MIN_PEERS = 15               # minder bedrijven in een sector? Dan vergelijken met de hele markt
@@ -265,6 +269,27 @@ def fx_eurusd(y):
     """Dollars per euro."""
     pts, meta = chart(y, "EURUSD=X")
     return meta.get("regularMarketPrice") or pts[-1][1]
+
+
+def fx_rates(y, curs):
+    """Per valuta uit FX_FIN: zoveel eenheden per dollar (TWD=X ≈ 32). Een valuta die niet lukt, ontbreekt."""
+    out = {}
+    for cur in sorted(curs):
+        try:
+            pts, meta = chart(y, f"{cur}=X")
+            v = meta.get("regularMarketPrice") or (pts[-1][1] if pts else None)
+            if v and v > 0:
+                out[cur] = v
+        except Exception as e:  # noqa: BLE001
+            print(f"  wisselkoers {cur} niet opgehaald: {e}")
+        time.sleep(SLEEP)
+    return out
+
+
+def convertible_skip(c):
+    """Eerder overgeslagen omdat de cijfers in een andere valuta staan die we nu omrekenen (bv. 'rapporteert in TWD')."""
+    why = str((c or {}).get("skip") or "")
+    return why.startswith("rapporteert in ") and why.split()[-1] in FX_FIN
 
 
 TS_ANNUAL = ["TotalRevenue", "OperatingRevenue", "OperatingIncome", "OperatingExpense",
@@ -1106,7 +1131,8 @@ def unknown_fin_cur(c):
     return f"cijfers in onbekende valuta ({country})"
 
 
-def fetch_stock(y, sym, meta, old, fx):
+def fetch_stock(y, sym, meta, old, fx, convert=False):
+    """convert: eigen positie of opgezocht, dan ook cijfers in een andere valuta uit FX_FIN (omrekenen bij het scoren)."""
     c = {"src": meta["src"], "region": meta["region"]}
     s = summary(y, sym)
     time.sleep(SLEEP)
@@ -1115,7 +1141,7 @@ def fetch_stock(y, sym, meta, old, fx):
     if s.get("cur") and s["cur"] != want:
         c.update({"f": iso(), "skip": f"valuta {s['cur']}", "name": s.get("name"), "country": s.get("country")})
         return c
-    if s.get("fcur") and s["fcur"] not in OK_FIN_CUR:
+    if s.get("fcur") and s["fcur"] not in OK_FIN_CUR and not (convert and s["fcur"] in FX_FIN):
         c.update({"f": iso(), "skip": f"rapporteert in {s['fcur']}", "name": s.get("name"), "country": s.get("country")})
         return c
     if unknown_fin_cur(s):
@@ -2031,28 +2057,55 @@ FIN_FIELDS = ("fcf", "ocf", "rev_ttm")       # bedragen uit financialData, in de
 TS_COUNTS = {"annualDilutedAverageShares"}   # aantallen aandelen, geen bedragen
 
 
-def in_quote_currency(c, fx):
+def in_quote_currency(c, fx, rates=None):
     """Rapporteert het bedrijf in de andere valuta dan de koers (euro-notering van een dollarbedrijf zoals TTE.PA,
     of een dollarnotering van een eurobedrijf zoals SPOT), dan de cijfers omrekenen naar de valuta van de koers.
-    Anders zitten koers/omzet, FCF-rendement en de DCF er een factor EUR/USD naast."""
+    Anders zitten koers/omzet, FCF-rendement en de DCF er een factor EUR/USD naast.
+    Andere valuta (FX_FIN, rates = eenheden per dollar): ook omrekenen, en bij een ADR die meerdere gewone aandelen is
+    (TSM = 5) het aantal aandelen naar noteringen (beurswaarde / koers), zodat de DCF per aandeel klopt met de koers.
+    De koerswinstverhouding en EV/EBITDA van Yahoo controleren we dan zelf (die mengen soms de twee valuta)."""
     cur = "USD" if c.get("region") == "VS" else "EUR"
     fcur = c.get("fcur")
-    if not fx or fcur not in OK_FIN_CUR or fcur == cur:
+    if not fx or not fcur or fcur == cur:
         return c
-    k = fx if fcur == "EUR" else 1 / fx          # fx = dollars per euro
+    if fcur in OK_FIN_CUR:
+        k = fx if fcur == "EUR" else 1 / fx          # fx = dollars per euro
+    elif (rates or {}).get(fcur):
+        k = 1 / rates[fcur] if cur == "USD" else 1 / rates[fcur] / fx
+    else:
+        return c                                     # geen wisselkoers: main scoort dit bedrijf deze run niet
     ts = {key: rows if key in TS_COUNTS else [[d, v * k] for d, v in rows] for key, rows in (c.get("ts") or {}).items()}
-    return dict(c, ts=ts, fcur=cur, **{f: c[f] * k for f in FIN_FIELDS if c.get(f) is not None})
+    out = dict(c, ts=ts, fcur=cur, **{f: c[f] * k for f in FIN_FIELDS if c.get(f) is not None})
+    if fcur in OK_FIN_CUR:
+        return out
+    last = lambda key: (series(ts, key) or [[None, None]])[-1][1]  # noqa: E731
+    mcap, px, sh = c.get("mcap"), c.get("price"), last("annualDilutedAverageShares")
+    if mcap and px and sh:
+        ratio = sh / (mcap / px)                     # gewone aandelen per notering
+        if not 0.8 <= ratio <= 1.25:
+            out["ts"] = dict(ts, annualDilutedAverageShares=[[d, v / ratio] for d, v in ts["annualDilutedAverageShares"]])
+            out["adr"] = round(ratio, 2)
+    ni = last("annualNetIncome")
+    pe_own = mcap / ni if mcap and ni and ni > 0 else None
+    if c.get("pe") and pe_own and not 0.5 <= c["pe"] / pe_own <= 2:
+        out.update(pe=pe_own, peg=None)              # Yahoo mengde de valuta: zelf uitgerekend
+    if c.get("fpe") and pe_own and not 1 / 3 <= c["fpe"] / pe_own <= 3:
+        out["fpe"] = None
+    ebitda, debt = last("annualEBITDA"), last("annualTotalDebt") or 0
+    cash = last("annualCashCashEquivalentsAndShortTermInvestments") or last("annualCashAndCashEquivalents") or 0
+    out["ev_ebitda"] = (mcap + debt - cash) / ebitda if mcap and ebitda and ebitda > 0 else None
+    return out
 
 
-def build_item(sym, c, prices, fx, curated, own, gics=None):
+def build_item(sym, c, prices, fx, curated, own, gics=None, rates=None):
     fcur0 = c.get("fcur")                            # rapportagevaluta vóór het omrekenen (voor Find the gap)
-    c = in_quote_currency(c, fx)
+    c = in_quote_currency(c, fx, rates)
     region = c.get("region")
     q = prices.get(sym, {})
     price_native = q.get("price") or c.get("price")
     if not price_native:
         return None
-    if q.get("pe"):
+    if q.get("pe") and (fcur0 not in FX_FIN or not c.get("pe") or 0.5 <= q["pe"] / c["pe"] <= 2):
         c = dict(c, pe=q["pe"])
     if not c.get("sector") and gics:
         c = dict(c, sector=gics)
@@ -2092,7 +2145,7 @@ def build_item(sym, c, prices, fx, curated, own, gics=None):
     fcf, ocf, ni = last("annualFreeCashFlow"), last("annualOperatingCashFlow"), last("annualNetIncome")
     sh, sh0 = last("annualDilutedAverageShares"), prev("annualDilutedAverageShares")
     mcap_n = q.get("mcap") or c.get("mcap")
-    fpe = q.get("fpe") or c.get("fpe")
+    fpe = c.get("fpe") if fcur0 in FX_FIN else (q.get("fpe") or c.get("fpe"))
     fwd_g = c["fwd_growth"] * 100 if c.get("fwd_growth") is not None else None
     chg12 = q.get("chg52") if q.get("chg52") is not None else (c["chg52"] * 100 if c.get("chg52") is not None else None)
     sma200 = q.get("sma200") or c.get("sma200")
@@ -2325,7 +2378,8 @@ def main():
     # eigen posities worden ook gescand: ze dienen als referentie en tellen mee in de vergelijking
     # opgezocht en nog nooit gelukt: elke run opnieuw proberen (niet pas na ERROR_RETRY_H uur)
     todo = [s for s in uni if needs_refresh(cache.get(s), uni[s]["region"])
-            or (s in look_pick and not (cache.get(s) or {}).get("f"))]
+            or (s in look_pick and not (cache.get(s) or {}).get("f"))
+            or ((s in look_pick or is_owned(s)) and convertible_skip(cache.get(s)))]
     # eerst wat je opzocht (daar wacht je op), dan je eigen posities (die beoordeel je zelf), dan de oudste
     todo.sort(key=lambda s: (0 if s in look_pick else 1 if is_owned(s) else 2, (cache.get(s) or {}).get("f") or ""))
     print(f"Te verversen: {len(todo)}")
@@ -2335,7 +2389,7 @@ def main():
             print("Tijdsbudget op; de volgende run gaat verder.")
             break
         try:
-            cache[sym] = fetch_stock(y, sym, uni[sym], cache.get(sym), fx)
+            cache[sym] = fetch_stock(y, sym, uni[sym], cache.get(sym), fx, convert=sym in look_pick or is_owned(sym))
             fails, done = 0, done + 1
             c = cache[sym]
             print(f"  {sym:<10} {'OVERGESLAGEN (' + c['skip'] + ')' if c.get('skip') else 'ok'}"
@@ -2363,7 +2417,13 @@ def main():
             why = fin_of.get(name_key(c_.get("name"))) or unknown_fin_cur(c_)
             if why:
                 c_["skip"] = why
-    ready = [s for s in uni if (cache.get(s) or {}).get("ts") and not cache[s].get("skip")]
+    # cijfers in een andere valuta (eigen posities, opgezocht): wisselkoers van nu; lukt die niet, dan deze run niet scoren
+    rates = fx_rates(y, {c_["fcur"] for s_, c_ in cache.items() if s_ in uni and c_.get("ts") and not c_.get("skip")
+                         and c_.get("fcur") in FX_FIN})
+    if rates:
+        print("Wisselkoersen per dollar: " + ", ".join(f"{k} {v:.4g}" for k, v in sorted(rates.items())))
+    ready = [s for s in uni if (cache.get(s) or {}).get("ts") and not cache[s].get("skip")
+             and (cache[s].get("fcur") not in FX_FIN or cache[s]["fcur"] in rates)]
     syms = set(ready) | {(cache[s].get("eu") or {}).get("sym") for s in ready if (cache[s].get("eu") or {}).get("sym")}
     prices = batch_quotes(y, syms)
     print(f"Koersen: {len(prices)} van {len(syms)}")
@@ -2385,7 +2445,7 @@ def main():
         try:
             it = build_item(sym, cache[sym], prices, fx, quality_map.get(sym)
                             or quality_map.get((cache[sym].get("eu") or {}).get("sym") or ""), own,
-                            uni[sym].get("gics"))
+                            uni[sym].get("gics"), rates)
         except Exception as e:  # noqa: BLE001
             print(f"  {sym:<10} score mislukt: {e}")
             continue

@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sDcIQ0EaMougPjEyI2sg1dEYqkqtXw+bj8vRpGYLLPw='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kWvRxj5o46rv0sQXip2ZZXJN8YMKAd80qXcaQdg92zQ='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -269,7 +269,7 @@ async function render() {
   const q = t => quotes[(t || '').toUpperCase()];
   const now = new Date();
   const h = now.getHours();
-  $('hello').textContent = (h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond') + ', Maurits';
+  $('hello').textContent = (h < 12 ? 'Goedemorgen' : h < 18 ? 'Goedemiddag' : 'Goedenavond') + (Shared.isAdmin() ? ', Maurits' : '');   // je naam alleen voor jou
   $('date').textContent = now.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
   // Versheid: een pulserende stip; oranje als iets een halve dag achterloopt
   const fresh = ageTxt(data && data.updated);

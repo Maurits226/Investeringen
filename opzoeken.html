@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-k1Z+raceGkK4f8hSOcxVHHXbpcJmOgEIiryekmi6gZs='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kDFTpJJirWV6slrufO/PdH65kVCls1DapO4O1JHSTGg='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -427,7 +427,7 @@ async function load() {
 // Kijkmodus: geen zoekveld (opzoeken zet een aandeel in de lijst op GitHub), alleen de lijst bekijken
 function mode() {
   const adm = ADM();
-  document.querySelector('.search label').hidden = $('q').hidden = $('results').hidden = !adm;
+  [document.querySelector('.search label'), $('q'), $('results')].forEach(el => { el.hidden = !adm; el.style.display = adm ? '' : 'none'; });
   if (!adm) { $('results').innerHTML = ''; note('Alleen-lezen: je kunt de lijst bekijken. Opzoeken en verwijderen kan alleen de beheerder, na inloggen met de token via <a data-go="investeringen">de knop Beheerder op Investeringen</a>.'); }
   else if (/Alleen-lezen/.test($('note').textContent)) note('');
 }

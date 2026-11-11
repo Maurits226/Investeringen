@@ -7,6 +7,7 @@
 //  6. Token vervangen op een apparaat zonder gegevens wist niets op GitHub.
 //  7. Elders intussen met een andere token versleuteld: opslaan weigert (overschrijft niets).
 //  8. Token vervangen op een apparaat mét gegevens: na bevestiging opnieuw versleuteld met de nieuwe token.
+//  9. Uitloggen haalt de token en je bedragen van het apparaat; op GitHub blijft alles versleuteld staan.
 // Lokaal: node tests/test_security.js   (PLAYWRIGHT=/pad/naar/playwright om een andere installatie te gebruiken)
 const http = require('http');
 const fs = require('fs');
@@ -254,6 +255,23 @@ async function fakeGitHub(ctx, base, gh) {
     await s2.page.waitForTimeout(2000);
     check(s2.gh.state === before, 'token vervangen geannuleerd: toch iets geschreven');
     await s.ctx.close(); await s2.ctx.close();
+  }
+
+  // 9. Uitloggen: token weg, en (alles stond op GitHub) ook de bedragen van dit apparaat
+  {
+    const s = await scenario({ token: OWNER, local: DATA, state: await lock(DATA, OWNER) });
+    await s.go('portfolio.html');
+    check(/koop\s*€\s*180/.test(await s.page.textContent('#cards')), 'uitloggen: vooraf staat de aankoopprijs er niet (testopzet)');
+    s.answers.push(false);                                               // Annuleren = uitloggen
+    await s.page.click('#syncBtn');
+    await s.page.waitForTimeout(2500);
+    const v = await s.view();
+    const left = await s.page.evaluate(() => ({ state: localStorage.getItem('portfolio_state'), trades: localStorage.getItem('radar_trades'),
+      costs: JSON.parse(localStorage.getItem('portfolio_positions') || '[]').filter(p => p.cost != null || p.qty != null).length, text: document.getElementById('cards').textContent }));
+    check(!v.token && v.kijk && !v.edits.length, 'uitloggen: daarna niet alleen-lezen');
+    check(!left.state && !left.trades && !left.costs && !/koop\s*€/.test(left.text), `uitloggen: bedragen staan nog op het apparaat (${JSON.stringify({ state: !!left.state, costs: left.costs })})`);
+    check(s.gh.state && (await open(s.gh.state, OWNER))[ID].cost === 180, 'uitloggen: de gegevens op GitHub zijn veranderd');
+    await s.ctx.close();
   }
 
   await browser.close();

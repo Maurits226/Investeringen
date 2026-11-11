@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-eg3lDCe4mAyu33tWF89nKDipGe8RIHeV/4tYE306toI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-PtBqOmxzkEDbootUF6iK6ihI3YF6RzgDuc/iBTHRViA='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -1754,7 +1754,7 @@ async function useToken(nieuw, oldRadar) {
 document.getElementById('syncBtn').onclick = async () => {
   const huidige = getToken();
   if (huidige) {
-    const keuze = confirm('Je bent op dit apparaat ingelogd als beheerder.\n\nOK = token vervangen\nAnnuleren = token verwijderen (dit apparaat wordt alleen-lezen)');
+    const keuze = confirm('Je bent op dit apparaat ingelogd als beheerder.\n\nOK = token vervangen\nAnnuleren = uitloggen (dit apparaat wordt alleen-lezen en je bedragen worden hier gewist)');
     if (keuze) {
       const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...).\n\n' + Shared.TOKEN_HELP, '');
       if (nieuw) {
@@ -1765,10 +1765,24 @@ document.getElementById('syncBtn').onclick = async () => {
         await useToken(nieuw, oldRadar);
       }
     } else {
+      // Uitloggen: de token gaat weg en, als alles op GitHub staat, ook je bedragen op dit apparaat (aankoopprijzen,
+      // aantallen, verkopen, notities, opgevolgde adviezen). Zo ziet een volgende gebruiker van dit apparaat ze niet.
+      const safe = syncStatus === 'synced';
+      if (!safe && !confirm('Je laatste wijzigingen staan mogelijk nog niet op GitHub (' + document.getElementById('syncBtn').textContent.trim() + ').\n\n'
+        + 'OK = toch uitloggen; je gegevens blijven dan op dit apparaat staan tot je weer inlogt.\nAnnuleren = ingelogd blijven.')) return;
       setToken('');
+      if (safe) {
+        try {
+          localStorage.removeItem('portfolio_state'); localStorage.removeItem('radar_trades');
+          localStorage.setItem('portfolio_positions', JSON.stringify(positions.map(p => { const q = Object.assign({}, p); delete q.cost; delete q.qty; return q; })));
+        } catch (e) {}
+        alert('Uitgelogd. Je bedragen zijn van dit apparaat gehaald en staan versleuteld op GitHub; het dashboard is hier nu alleen-lezen.');
+        location.reload();
+        return;
+      }
       Shared.applyMode();
       syncStatus = 'local'; updateSyncBadge(); render();
-      alert('Token verwijderd van dit apparaat. Het dashboard is hier nu alleen-lezen; je gegevens blijven versleuteld op GitHub staan.');
+      alert('Uitgelogd. Het dashboard is hier nu alleen-lezen; je gegevens staan nog op dit apparaat tot je weer inlogt.');
     }
     return;
   }

@@ -47,9 +47,13 @@ jobs:
         run: python3 -B tests/test_screener.py
 
       - name: Browser installeren
+        timeout-minutes: 6
+        # Zonder --with-deps: de systeembibliotheken voor Chromium staan al op de runner. De extra lettertypen die
+        # --with-deps via apt ophaalt zijn niet nodig, en maakten de controle afhankelijk van de Ubuntu-pakketserver
+        # (11 november 2026: tien minuten wachten en dan mislukt op 'Temporary failure resolving azure.archive.ubuntu.com').
         run: |
           npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
 
       - name: Alle pagina's in de browser (telefoon en desktop)
         run: node tests/test_pages.js

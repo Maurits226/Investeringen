@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Nk0B1qCbPeS6nc8RlJ24p9NRCK29K3vus549atjGqxI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-V3no8lUxTu0mgC5xVW/PXAmcnUR/W0maSUIwXyVWUMw='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -1429,7 +1429,7 @@ function showSync() {
   const el = document.getElementById('syncNote');
   const n = trades.some(t => !t.deleted);
   el.textContent = syncState === 'error' ? '☁ sync mislukt' : syncState === 'ok' && n ? '☁ gesynchroniseerd' : syncState === 'local' && n ? '☁ alleen op dit apparaat' : '';
-  el.title = syncState === 'local' ? 'Stel Sync in op het tabblad Investeringen om opgevolgde adviezen op al je apparaten te zien' : '';
+  el.title = syncState === 'local' ? 'Log in als beheerder op het tabblad Investeringen om opgevolgde adviezen op al je apparaten te zien' : '';
   el.style.color = syncState === 'error' ? 'var(--warn)' : '';
 }
 function touch(t) { if (!Shared.isAdmin()) return; t.updated = new Date().toISOString(); saveTradesLocal(); render(); syncTrades(); }

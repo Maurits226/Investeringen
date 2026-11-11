@@ -85,7 +85,7 @@ const Shared = (() => {
       // De repository is openbaar, dus GitHub laat elke geldige token meelezen. Schrijven mag alleen de beheerder:
       // zegt GitHub dat het account achter deze token dat niet mag, dan is het niet jouw token.
       const j = await r.json().catch(() => null);
-      if (j && j.permissions && j.permissions.push === false) return 'Deze token hoort niet bij de beheerder van dit dashboard: alleen de eigenaar van de repository kan synchroniseren.';
+      if (j && j.permissions && j.permissions.push === false) return 'Deze token hoort niet bij de beheerder van dit dashboard (of mist Contents: Read and write): alleen de eigenaar van de repository kan wijzigen en synchroniseren.';
     } catch (e) {}                                   // geen netwerk: niet tegenhouden
     return null;
   }

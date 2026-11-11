@@ -3,7 +3,8 @@ name: Controle
 # Controleert elke wijziging aan de code voordat die live gaat (eerst op een werkbranch, daarna pas naar main):
 # Python-scripts, JavaScript, de databestanden, de techradar en de Top 250-pijplijn op testdata,
 # alle pagina's in een echte browser op telefoon- en desktopformaat, of tekst van buiten (namen, nieuws) nergens
-# als HTML of code in een pagina belandt, en of een aangepaste aankoopprijs blijft staan met Sync aan.
+# als HTML of code in een pagina belandt, of een aangepaste aankoopprijs blijft staan met Sync aan, en de beveiliging:
+# bezoekers alleen-lezen, alleen de token van de beheerder kan opslaan, ingevoegde code draait niet (tests/test_security.js).
 # Alleen lezen: deze check kan niets in de repository veranderen. Data-commits van de andere workflows starten hem niet.
 
 on:
@@ -56,3 +57,6 @@ jobs:
 
       - name: Aangepaste aankoopprijs blijft staan met Sync aan (nagebootste GitHub)
         run: node tests/test_sync.js
+
+      - name: Alleen de beheerder kan wijzigen; bezoekers alleen-lezen; ingevoegde code draait niet
+        run: node tests/test_security.js

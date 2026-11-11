@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-u3BPXav6+ACDijTguQAs8jEahBjJgsEMaAlCLT2s9qk='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sDcIQ0EaMougPjEyI2sg1dEYqkqtXw+bj8vRpGYLLPw='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -301,7 +301,7 @@ async function render() {
         <div><div class="k">Sinds aankoop</div><div class="big sm ${cls(plPct)}">${pct(plPct)}</div></div></div>
       ${held.length ? `<div class="heat" role="img" aria-label="Per positie vandaag: ${upN} omhoog, ${downN} omlaag">${heat}</div>
       <div class="h-foot"><span class="u"><b>${upN}</b> omhoog</span><span class="d"><b>${downN}</b> omlaag</span><span><b>${held.length}</b> posities</span>${RV ? `<span title="Zoveel kan je portefeuille zakken in een slechte maand (1 op 20), uit de beweeglijkheid en hoe sterk je posities samen bewegen">slechte maand <b>−${Math.round(RV.bad)}%</b>${RV.badEur != null ? ` <b>−${esc(eur0(RV.badEur))}</b>` : ''}</span>` : ''}</div>`
-        : '<div class="h-foot">Geen aankoopprijzen op dit apparaat: zet Sync aan op Investeringen</div>'}
+        : '<div class="h-foot">Alleen-lezen: je resultaat zie je na inloggen als beheerder (knop Beheerder op Investeringen)</div>'}
     </section>`;
 
   // Beursklimaat vandaag (meter: risico-uit · neutraal · rustig; zelfde regels als de Patroonradar) en waar het op

@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tmmn2fpi/ZDlcstLYftzyQrFNl7o/xTX2Iot2RIyEUg='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-eg3lDCe4mAyu33tWF89nKDipGe8RIHeV/4tYE306toI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -212,6 +212,8 @@
   }
   .sync-btn.error { color: var(--down); background: rgba(255,93,108,.18); border-color: rgba(255,93,108,.6); }
   .sync-btn.syncing { color: var(--warn); background: rgba(245,181,68,.12); border-color: rgba(245,181,68,.45); }
+  /* bezoeker (alleen-lezen): rustige knop, het is geen foutmelding */
+  .sync-btn.viewer { color: var(--muted); background: rgba(255,255,255,.04); border-color: var(--line); }
   .section-header {
     font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text);
     margin-top: 18px; margin-bottom: 2px; padding-bottom: 8px;
@@ -420,7 +422,7 @@
     <div class="controls">
       <span class="updated" id="updated">laden…</span>
       <div class="ctl-btns">
-        <button id="syncBtn" class="sync-btn" title="Alleen-lezen. Ben jij de beheerder? Klik om je token in te voeren.">🔒 Beheerder</button>
+        <button id="syncBtn" class="sync-btn viewer" title="Alleen-lezen. Ben jij de beheerder? Klik om je token in te voeren.">🔒 Beheerder</button>
         <button class="primary" id="add">+ Positie</button>
       </div>
     </div>
@@ -1474,10 +1476,6 @@ document.getElementById('f-save').onclick = () => {
   render();
   // Koersen komen van GitHub (tickers.txt -> data.json): met je token zetten we de ticker er zelf in
   if (!willAdd) return;
-  if (!getToken()) {
-    addNote.textContent = `${t} staat in je lijst. Koersen komen pas als hij ook in tickers.txt staat: zet Sync aan (token) om dat automatisch te laten gebeuren, of voeg hem daar zelf toe.`;
-    return;
-  }
   addNote.textContent = `${t} wordt aan tickers.txt toegevoegd…`;
   Shared.addTicker(t, name, section).then(res => {
     addNote.textContent = res === 'ok' || res === 'same' ? `✓ ${t} staat in tickers.txt. De eerste koers komt binnen ±10 minuten (volgende koersupdate).`
@@ -1703,7 +1701,7 @@ function updateSyncBadge() {
   if (!btn) return;
   const map = {
     synced:  { cls: 'sync-btn synced',  txt: '✓ Gesynct',  title: 'Gesynchroniseerd met GitHub — klik om te wijzigen' },
-    local:   { cls: 'sync-btn',         txt: '🔒 Beheerder', title: 'Alleen-lezen. Ben jij de beheerder? Klik om je token in te voeren; pas dan kun je iets wijzigen.' },
+    local:   { cls: 'sync-btn viewer',  txt: '🔒 Beheerder', title: 'Alleen-lezen. Ben jij de beheerder? Klik om je token in te voeren; pas dan kun je iets wijzigen.' },
     error:   { cls: 'sync-btn error',   txt: '⚠ Sync-fout', title: 'Synchronisatie mislukt — klik om opnieuw te proberen' },
     syncing: { cls: 'sync-btn syncing', txt: '⟳ Bezig…',   title: 'Bezig met synchroniseren' },
     locked:  { cls: 'sync-btn error',   txt: '🔒 Token nodig', title: 'Je gegevens op GitHub zijn versleuteld met een andere token. Tot je de juiste invoert is alles alleen-lezen. Klik om je huidige token in te voeren.' },

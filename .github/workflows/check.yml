@@ -28,8 +28,10 @@ concurrency:
 
 jobs:
   controle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Vaste versie: 'ubuntu-latest' is sinds november 2026 Ubuntu 26.04, en daarop kan de vastgepinde testbrowser
+    # (Playwright 1.56.1) niet geïnstalleerd worden. Samen bijwerken: eerst Playwright, dan deze regel.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (vastgepind)
         with:

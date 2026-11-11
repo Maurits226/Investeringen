@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-k1Z+raceGkK4f8hSOcxVHHXbpcJmOgEIiryekmi6gZs='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -172,6 +172,8 @@ const nf = (v, d = 0) => v == null || !isFinite(v) ? '—' : Number(v).toLocaleS
 const money = (v, cur) => v == null || !isFinite(v) ? '—' : (cur === 'USD' ? '$ ' : '€ ') + nf(v, 2);
 const pctS = v => v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : '') + nf(v, 1) + '%';
 const hasToken = () => { try { return !!localStorage.getItem('gh_token'); } catch (e) { return false; } };
+// Opzoeken en verwijderen: alleen de beheerder (met je token, shared.js). Bezoekers zien de lijst alleen-lezen.
+const ADM = () => Shared.isAdmin();
 const keyOf = sym => 'z_' + String(sym).replace(/[^A-Za-z0-9]/g, '_');
 function go(hash) {
   try { if (window.top !== window) { window.top.location.hash = hash; return; } } catch (e) {}
@@ -266,7 +268,7 @@ function cardHTML(e) {
       <div class="b-score" title="${c && c.s != null ? `Scorecard ${c.s} van 125` : 'Nog geen scorecard'}">${Steps.ring(c && c.s, 52)}<small>${c && c.s != null ? 'van 125' : wait ? 'bezig' : 'geen data'}</small></div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) + `<div class="why">${esc(Steps.failText(it.s12))}</div>` : ''}${status}</div>
       <div class="b-act">${it ? `<button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>` : ''}
-        <button class="rm" data-rm="${esc(e.sym)}" title="Uit je opzoeklijst verwijderen" aria-label="${esc(name)} verwijderen">✕</button></div>
+        ${ADM() ? `<button class="rm" data-rm="${esc(e.sym)}" title="Uit je opzoeklijst verwijderen" aria-label="${esc(name)} verwijderen">✕</button>` : ''}</div>
     </div>`;
   return `<div class="b-card ${cls}${fresh.has(e.sym) ? ' fresh' : ''}" id="${k}">${head}${it && open ? bodyHTML(it, v, okRes) : ''}</div>`;
 }
@@ -339,13 +341,13 @@ async function poll() {
 }
 
 const note = (html, cls = '') => { $('note').className = 'note ' + cls; $('note').innerHTML = html; };
-const noToken = () => note('Om een aandeel op te zoeken is je GitHub-token nodig: zet eerst <a data-go="investeringen">Sync aan op Investeringen</a>. Daarmee zet het dashboard het aandeel in je opzoeklijst en beoordeelt de Top 250-run het.', 'err');
+const noToken = () => note('Alleen de beheerder kan aandelen opzoeken: log eerst in met je token via <a data-go="investeringen">de knop Beheerder op Investeringen</a>. Daarmee zet het dashboard het aandeel in je opzoeklijst en beoordeelt de Top 250-run het.', 'err');
 $('note').addEventListener('click', ev => { const a = ev.target.closest('[data-go]'); if (a) go(a.dataset.go); });
 
 async function add(sym, alt, name) {
   sym = String(sym || '').trim().toUpperCase();
   if (!Shared.TICKER_OK.test(sym)) { note('Ongeldige ticker. Gebruik het Yahoo-symbool, bv. ASML.AS, NVD.DE of NVDA.', 'err'); return; }
-  if (!hasToken()) { noToken(); return; }
+  if (!ADM()) { noToken(); return; }
   const was = list.slice();
   const e = { sym, alt: alt || [], name: name || null, at: new Date().toISOString().slice(0, 19) + 'Z' };
   list = [e].concat(list.filter(x => x.sym !== sym));
@@ -367,8 +369,8 @@ async function remove(sym) {
   const e = list.find(x => x.sym === sym);
   if (!e) return;
   const r = resultOf(e), name = (r && r.it && r.it.name) || (r && r.name) || e.name || sym;
+  if (!ADM()) { noToken(); return; }
   if (!confirm(`${name} uit je opzoeklijst verwijderen?`)) return;
-  if (!hasToken()) { noToken(); return; }
   const was = list.slice();
   list = list.filter(x => x.sym !== sym);
   render();
@@ -420,10 +422,17 @@ async function load() {
   render();
   if (list.some(waiting)) follow();
   // Verlopen aandelen (ouder dan 30 dagen) ook uit het bestand halen
-  if (l.expired && hasToken()) Shared.lookClean();
+  if (l.expired && ADM()) Shared.lookClean();
 }
-if (!hasToken()) note('Zonder GitHub-token kun je de lijst bekijken, maar niets toevoegen of verwijderen: zet <a data-go="investeringen">Sync aan op Investeringen</a>.');
-Shared.onRefresh(load);
+// Kijkmodus: geen zoekveld (opzoeken zet een aandeel in de lijst op GitHub), alleen de lijst bekijken
+function mode() {
+  const adm = ADM();
+  document.querySelector('.search label').hidden = $('q').hidden = $('results').hidden = !adm;
+  if (!adm) { $('results').innerHTML = ''; note('Alleen-lezen: je kunt de lijst bekijken. Opzoeken en verwijderen kan alleen de beheerder, na inloggen met de token via <a data-go="investeringen">de knop Beheerder op Investeringen</a>.'); }
+  else if (/Alleen-lezen/.test($('note').textContent)) note('');
+}
+mode();
+Shared.onRefresh(() => { mode(); load(); });
 load();
 </script>
 </body>

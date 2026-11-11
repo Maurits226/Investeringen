@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tmmn2fpi/ZDlcstLYftzyQrFNl7o/xTX2Iot2RIyEUg='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -420,7 +420,7 @@
     <div class="controls">
       <span class="updated" id="updated">laden…</span>
       <div class="ctl-btns">
-        <button id="syncBtn" class="sync-btn" title="Synchronisatie met GitHub instellen">⟳ Sync</button>
+        <button id="syncBtn" class="sync-btn" title="Alleen-lezen. Ben jij de beheerder? Klik om je token in te voeren.">🔒 Beheerder</button>
         <button class="primary" id="add">+ Positie</button>
       </div>
     </div>
@@ -658,30 +658,18 @@ let stateSha = null;          // sha van state.json op GitHub (nodig om te schri
 let stateLocked = false;      // false | 'geen-token' | 'verkeerde-token'
 let syncStatus = 'local';     // 'local' | 'synced' | 'error' | 'syncing'
 
-// Lees state.json van GitHub (werkt ook zonder token, want repo is public)
+// Lees state.json van GitHub en ontsleutel hem met je token (shared.js: daar wordt ook bepaald of je beheerder bent).
+// Zonder token lezen we niets: het bestand is versleuteld, een bezoeker heeft er niets aan.
+let statePlain = false;       // oude, nog niet versleutelde versie op GitHub
+let stateRead = null;         // uitkomst van de laatste keer lezen: 'ok' | 'missing' | 'locked' | 'error'
 async function loadStateFromGitHub() {
-  try {
-    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`;
-    const headers = { 'Accept': 'application/vnd.github+json' };
-    const token = getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const r = await fetch(url, { headers });
-    if (r.status === 404) { stateSha = null; return null; } // bestaat nog niet
-    if (!r.ok) throw new Error('kon state niet laden');
-    const j = await r.json();
-    stateSha = j.sha;
-    // base64 -> UTF-8 tekst (robuust met €, accenten)
-    const parsed = JSON.parse(Vault.b64ToText(j.content));
-    stateLocked = false;
-    if (Vault.isLocked(parsed)) {
-      if (!token) { stateLocked = 'geen-token'; return null; }
-      try { return await Vault.unlock(parsed, token); }
-      catch (e) { stateLocked = 'verkeerde-token'; return null; }   // token vervangen op een ander apparaat?
-    }
-    return parsed;                                                  // oude, nog niet versleutelde versie
-  } catch (e) {
-    return null;
-  }
+  const r = await Shared.ghReadFull(GH_STATE_FILE);
+  stateRead = r.status;
+  if (r.status === 'error') return null;                         // geen verbinding of token verlopen: lokaal verder
+  stateSha = r.sha || null;
+  statePlain = !!r.plain;
+  stateLocked = r.status === 'locked' ? (getToken() ? 'verkeerde-token' : 'geen-token') : false;
+  return r.status === 'ok' ? r.data : null;
 }
 
 // Alleen de sha ophalen (nodig om te schrijven), zonder te ontsleutelen
@@ -697,6 +685,7 @@ async function refreshStateSha() {
 async function saveStateToGitHub(force = false) {
   const token = getToken();
   if (!token) return false;
+  if (!force && !Shared.isAdmin()) return false;                   // kijkmodus: niets naar GitHub
   try {
     syncStatus = 'syncing'; updateSyncBadge();
     // Eerst de laatste sha ophalen (kan gewijzigd zijn op een ander apparaat)
@@ -705,6 +694,8 @@ async function saveStateToGitHub(force = false) {
     // je eigen wijzigingen blijven, nieuwere beoordelingen en onbekende posities van GitHub komen erbij
     if (!force) {
       const remote = await Shared.ghReadFull(GH_STATE_FILE);
+      // intussen op een ander apparaat opnieuw versleuteld met een andere token: niet overschrijven
+      if (remote.status === 'locked') stateLocked = 'verkeerde-token';
       if (remote.status === 'ok' && remote.data && typeof remote.data === 'object') {
         userState = Shared.keepRemoteExtras(userState, remote.data);
         if (remote.sha) stateSha = remote.sha;
@@ -734,18 +725,21 @@ async function saveStateToGitHub(force = false) {
     if (!r.ok) throw new Error('schrijven mislukt (' + r.status + ')');
     const j = await r.json();
     stateSha = j.content.sha;
+    stateLocked = false;
+    Shared.noteAccess('ok', true);                                  // deze token opent de versie op GitHub: beheerder
     syncStatus = 'synced'; updateSyncBadge();
     return true;
   } catch (e) {
-    syncStatus = 'error'; updateSyncBadge();
+    syncStatus = stateLocked === 'verkeerde-token' ? 'locked' : Shared.tokenExpired() ? 'expired' : 'error'; updateSyncBadge();
     return false;
   }
 }
 
-// Sla op: altijd lokaal, en naar GitHub als er een token is
+// Sla op: lokaal en versleuteld naar GitHub. Alleen als beheerder (met je token); in de kijkmodus verandert er niets.
 function saveState() {
+  if (!Shared.isAdmin()) return;
   saveStateLocal();
-  if (getToken()) saveStateToGitHub();
+  saveStateToGitHub();
 }
 
 // Eenmalige migratie: aankoopprijzen die nog in de oude lokale lijst staan, gaan naar de state
@@ -1005,8 +999,9 @@ function positionCard(p, q, err) {
         de GitHub Action één keer handmatig (tab <strong>Actions</strong> → <strong>Run workflow</strong>)
         en ververs daarna.`}
       </div>
-      <div class="p-actions"><button class="remove" data-t="${esc(p.ticker)}">verwijder</button></div>`;
-    el.querySelector('.remove').onclick = () => removePosition(posId(p));
+      <div class="p-actions">${Shared.isAdmin() ? `<button class="remove" data-t="${esc(p.ticker)}">verwijder</button>` : ''}</div>`;
+    const rm = el.querySelector('.remove');
+    if (rm) rm.onclick = () => removePosition(posId(p));
     return el;
   }
 
@@ -1032,6 +1027,7 @@ function positionCard(p, q, err) {
   const id = posId(p);
   const st = userState[id] || {};
   const sells = st.sells || [];
+  const ADM = Shared.isAdmin();     // beheerder (met je token): knoppen om te wijzigen; anders alleen-lezen
 
   const resultBlock = isWatch
     ? `<div class="p-block">
@@ -1067,16 +1063,16 @@ function positionCard(p, q, err) {
           const mark = heropend ? '<span title="koers zakte na deze verkoop 25%: trede weer open">↻</span>' : '✓';
           // verkoopkoers: nodig voor de 25%-regel; oude registraties (begin september) hebben er nog geen
           const prijs = s.price > 0 ? `<span class="sell-date">· ${fmt(s.price, cur)}</span>`
-            : `<button class="sell-price" data-idx="${i}" title="verkoopkoers invullen: zonder koers kan deze trede niet weer opengaan na een daling">koers?</button>`;
-          return `<div class="${cls}">${mark} +${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht <span class="sell-date">${esc(s.date)}</span>${prijs} <button class="undo-sell" data-id="${esc(id)}" data-idx="${i}" title="verwijder deze registratie">✕</button></div>`;
+            : !ADM ? '' : `<button class="sell-price" data-idx="${i}" title="verkoopkoers invullen: zonder koers kan deze trede niet weer opengaan na een daling">koers?</button>`;
+          return `<div class="${cls}">${mark} +${(+s.level || 0) * 50}% → ${+s.pct || 0}% verkocht <span class="sell-date">${esc(s.date)}</span>${prijs}${ADM ? ` <button class="undo-sell" data-id="${esc(id)}" data-idx="${i}" title="verwijder deze registratie">✕</button>` : ''}</div>`;
         })
         .join('') + '</div>';
     }
 
     const btnHtml = canRealise
-      ? `<button class="realise" data-id="${esc(id)}" data-step="${nextStep}" data-pct="${nextSellPct}">
+      ? (ADM ? `<button class="realise" data-id="${esc(id)}" data-step="${nextStep}" data-pct="${nextSellPct}">
            ${isHeropend ? 'Opnieuw realiseren' : 'Realiseer'} +${nextTargetPct}% (verkoop ${nextSellPct}%)
-         </button>`
+         </button>` : `<div class="next-target">+${nextTargetPct}% bereikt: ${nextSellPct}% verkopen</div>`)
       : isHeropend
         ? `<div class="next-target">↻ Weer open na 25% daling: opnieuw ${nextSellPct}% verkopen bij +${nextTargetPct}%</div>`
         : `<div class="next-target">Volgende: +${nextTargetPct}% → ${nextSellPct}% verkopen</div>`;
@@ -1119,8 +1115,8 @@ function positionCard(p, q, err) {
       ${L && (L.reached || L.done) ? `<div class="ladder" title="Koop een derde per trede in plaats van alles op het eerste signaal">${L.levels.map((l, k) => {
           const n = k + 1, c = n <= L.done ? 'done' : n <= L.reached ? 'now' : '';
           return `<span class="st ${c}">${c === 'done' ? '✓' : '⅓'} −${l}%</span>`; }).join('')}
-        ${L.alert ? `<button class="buy-step" data-step="${L.next}" title="Leg vast dat je deze derde gekocht hebt (pas je aankoopprijs en aantal zelf aan)">Trede ${L.next} gekocht</button>` : ''}
-        ${L.done ? `<button class="undo-buy" title="laatste vastgelegde aankoop in deze trap verwijderen">✕</button>` : ''}</div>` : ''}
+        ${ADM && L.alert ? `<button class="buy-step" data-step="${L.next}" title="Leg vast dat je deze derde gekocht hebt (pas je aankoopprijs en aantal zelf aan)">Trede ${L.next} gekocht</button>` : ''}
+        ${ADM && L.done ? `<button class="undo-buy" title="laatste vastgelegde aankoop in deze trap verwijderen">✕</button>` : ''}</div>` : ''}
     </div>
     ${profitBlock}
     <div class="p-actions">
@@ -1131,14 +1127,15 @@ function positionCard(p, q, err) {
         if (!isWatch && Shared.hotExt(q) != null) return '<span class="badge hot">OVERVERHIT</span>';
         return '<span class="badge hold">geen actie</span>';
       })()}
-      <div class="p-btns">
+      ${!ADM ? '' : `<div class="p-btns">
         ${p.watch ? '' : `<button class="edit-cost" data-id="${esc(id)}" title="Gemiddelde aankoopprijs en aantal ${p.cost == null ? 'invullen' : 'aanpassen (bv. na bijkopen)'}">Aankoop<span class="lbl-long"> ${p.cost == null ? 'invullen' : 'aanpassen'}</span></button>`}
         <button class="remove" data-id="${esc(id)}">verwijder</button>
-      </div>
+      </div>`}
     </div>`;
 
-  // Knop: verwijderen
-  el.querySelector('.remove').onclick = () => removePosition(id);
+  // Knop: verwijderen (alle knoppen hieronder bestaan alleen voor de beheerder)
+  const rmBtn = el.querySelector('.remove');
+  if (rmBtn) rmBtn.onclick = () => removePosition(id);
 
   // Knop: aankoop aanpassen (na bijkopen veranderen gemiddelde aankoopprijs én aantal; het aantal geeft bedragen bij Risico)
   const editBtn = el.querySelector('.edit-cost');
@@ -1391,6 +1388,7 @@ async function render() {
 }
 
 function removePosition(id) {
+  if (!Shared.isAdmin()) return;
   const pos = positions.find(p => posId(p) === id);
   const q = pos && getQuote(pos.ticker);
   const naam = pos ? (pos.label || (q && q.name) || pos.ticker) : id;
@@ -1442,12 +1440,13 @@ fRes.addEventListener('click', e => {
   showPicked();
 });
 fTicker.addEventListener('input', showPicked);
-document.getElementById('add').onclick = () => { dlg.showModal(); fSearch.focus(); };
+document.getElementById('add').onclick = () => { if (!Shared.isAdmin()) return; dlg.showModal(); fSearch.focus(); };
 document.getElementById('f-cancel').onclick = () => dlg.close();
 dlg.addEventListener('close', () => { fSearch.value = ''; fRes.innerHTML = ''; picked = null; fPicked.hidden = true; });
 Shared.onRefresh(() => { if (dlg.open) showPicked(); });
 const addNote = document.getElementById('addNote');
 document.getElementById('f-save').onclick = () => {
+  if (!Shared.isAdmin()) { dlg.close(); return; }
   const t = fTicker.value.trim().toUpperCase();
   if (!t) { fSearch.focus(); return; }
   if (!/^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/.test(t)) { alert('Ongeldige ticker. Gebruik de Yahoo-ticker, bv. ASML.AS, NVD.DE of NVDA.'); return; }
@@ -1698,71 +1697,88 @@ document.getElementById('catSel').onchange = render;
 document.getElementById('statusSel').onchange = render;
 document.getElementById('mktSel').onchange = render;
 
-// Toon de synchronisatiestatus
+// Toon de synchronisatiestatus. Zonder token ben je bezoeker: alles is alleen-lezen en de knop is de ingang voor de beheerder.
 function updateSyncBadge() {
   const btn = document.getElementById('syncBtn');
   if (!btn) return;
   const map = {
     synced:  { cls: 'sync-btn synced',  txt: '✓ Gesynct',  title: 'Gesynchroniseerd met GitHub — klik om te wijzigen' },
-    local:   { cls: 'sync-btn',         txt: '⟳ Sync uit',  title: 'Synchronisatie met GitHub instellen' },
+    local:   { cls: 'sync-btn',         txt: '🔒 Beheerder', title: 'Alleen-lezen. Ben jij de beheerder? Klik om je token in te voeren; pas dan kun je iets wijzigen.' },
     error:   { cls: 'sync-btn error',   txt: '⚠ Sync-fout', title: 'Synchronisatie mislukt — klik om opnieuw te proberen' },
     syncing: { cls: 'sync-btn syncing', txt: '⟳ Bezig…',   title: 'Bezig met synchroniseren' },
-    locked:  { cls: 'sync-btn error',   txt: '🔒 Token nodig', title: 'Je gegevens op GitHub zijn versleuteld met een andere token. Klik om je huidige token in te voeren.' }
+    locked:  { cls: 'sync-btn error',   txt: '🔒 Token nodig', title: 'Je gegevens op GitHub zijn versleuteld met een andere token. Tot je de juiste invoert is alles alleen-lezen. Klik om je huidige token in te voeren.' },
+    expired: { cls: 'sync-btn error',   txt: '🔑 Token verlopen', title: 'GitHub kent je token niet meer (verlopen of ingetrokken). Wijzigingen blijven op dit apparaat tot je een nieuwe token invoert. Klik om dat te doen.' }
   };
-  const s = map[syncStatus] || map.local;
+  const key = !getToken() ? 'local' : syncStatus === 'local' ? 'syncing' : syncStatus;
+  const s = map[key] || map.local;
   btn.className = s.cls;
   btn.textContent = s.txt;
   btn.title = s.title;
+  document.getElementById('add').hidden = !Shared.isAdmin();     // kijkmodus: geen '+ Positie'
+}
+
+// Nieuwe token in gebruik nemen (eerste keer of vervangen). Volgorde die nooit gegevens wist:
+// 1. opent de nieuwe token de versie op GitHub (op een ander apparaat al omgezet, of dezelfde sleutel)? Samenvoegen en opslaan.
+// 2. opent hij die niet (GitHub is nog versleuteld met je vorige token)? Dan alleen met de gegevens van dít apparaat
+//    opnieuw versleutelen, na jouw bevestiging, en nooit als dit apparaat geen gegevens heeft.
+async function useToken(nieuw, oldRadar) {
+  setToken(nieuw.trim());
+  Shared.applyMode();
+  syncStatus = 'syncing'; updateSyncBadge();
+  // je opgevolgde adviezen (radar.json), nog geopend met de vorige token, gaan mee naar de nieuwe
+  if (oldRadar && oldRadar.status === 'ok' && oldRadar.data && Array.isArray(oldRadar.data.trades)) {
+    const trades = Shared.mergeTrades(oldRadar.data.trades, Shared.lsGet('radar_trades', []));
+    await Shared.ghWrite('radar.json', Object.assign({}, oldRadar.data, { trades }), oldRadar.sha, 'Opgevolgde adviezen opnieuw versleuteld (nieuwe token)');
+  }
+  const remote = await loadStateFromGitHub();
+  if (remote && typeof remote === 'object') {
+    userState = mergeState(remote, userState); saveStateLocal();
+    positions.forEach(applyState);
+  }
+  let ok = false;
+  if (stateLocked === 'verkeerde-token') {
+    const n = Object.keys(userState).filter(k => userState[k] && (userState[k].cost != null || (userState[k].sells || []).length)).length;
+    if (!n) {
+      syncStatus = 'locked'; updateSyncBadge(); render();
+      alert('Deze token opent je gegevens op GitHub niet: die zijn versleuteld met een andere (vorige) token, en dit apparaat heeft zelf geen gegevens.\n\n'
+        + 'Vervang de token op een apparaat waar je posities met aankoopprijs nog staan; daarna werkt de nieuwe token hier ook.');
+      return;
+    }
+    if (confirm(`De gegevens op GitHub zijn nog versleuteld met je vorige token.\n\nOK = vervangen door de gegevens van dit apparaat (${n} posities), versleuteld met de nieuwe token.\nAnnuleren = niets wijzigen.`))
+      ok = await saveStateToGitHub(true);
+    else { syncStatus = 'locked'; updateSyncBadge(); render(); return; }
+  } else ok = await saveStateToGitHub();
+  render();
+  alert(ok ? 'Token opgeslagen. Je gegevens staan versleuteld op GitHub en je kunt weer wijzigen.' : 'Kon niet naar GitHub schrijven — controleer de token (Contents: Read and write voor Investeringen).');
 }
 
 // Token instellen / wijzigen / verwijderen
 document.getElementById('syncBtn').onclick = async () => {
   const huidige = getToken();
   if (huidige) {
-    const keuze = confirm('Synchronisatie is actief op dit apparaat.\n\nOK = token vervangen\nAnnuleren = token verwijderen (terug naar alleen dit apparaat)');
+    const keuze = confirm('Je bent op dit apparaat ingelogd als beheerder.\n\nOK = token vervangen\nAnnuleren = token verwijderen (dit apparaat wordt alleen-lezen)');
     if (keuze) {
       const nieuw = prompt('Plak je nieuwe GitHub-token (github_pat_...).\n\n' + Shared.TOKEN_HELP, '');
       if (nieuw) {
         const fout = await Shared.checkToken(nieuw);
         if (fout) { alert(fout + '\n\n' + Shared.TOKEN_HELP); return; }
-        // Had dit apparaat de gegevens al open (juiste oude token)? Dan versleutelen we ze opnieuw met de nieuwe token.
-        const hadOpen = stateLocked !== 'verkeerde-token';
-        // Ook je opgevolgde adviezen (radar.json) nog met de oude token openen, zodat ze mee overgaan naar de nieuwe
-        const oldRadar = hadOpen ? await Shared.ghReadFull('radar.json') : null;
-        setToken(nieuw.trim());
-        if (oldRadar && oldRadar.status === 'ok' && oldRadar.data && Array.isArray(oldRadar.data.trades)) {
-          const trades = Shared.mergeTrades(oldRadar.data.trades, Shared.lsGet('radar_trades', []));
-          await Shared.ghWrite('radar.json', Object.assign({}, oldRadar.data, { trades }), oldRadar.sha, 'Opgevolgde adviezen opnieuw versleuteld (nieuwe token)');
-        }
-        if (!hadOpen) {
-          const remote = await loadStateFromGitHub();      // op een ander apparaat al omgezet? Dan opent de nieuwe token hem
-          if (remote) { userState = mergeState(remote, userState); saveStateLocal(); positions.forEach(applyState); render(); }
-        }
-        const ok = await saveStateToGitHub(hadOpen || stateLocked !== 'verkeerde-token');
-        alert(ok ? 'Token opgeslagen. Je gegevens zijn versleuteld met de nieuwe token.' : 'Kon niet opslaan — controleer de token.');
+        // Opgevolgde adviezen nog met de vorige token openen (lukt alleen als die nog geldig is), zodat ze mee overgaan
+        const oldRadar = await Shared.ghReadFull('radar.json');
+        await useToken(nieuw, oldRadar);
       }
     } else {
       setToken('');
-      syncStatus = 'local'; updateSyncBadge();
-      alert('Token verwijderd van dit apparaat. Je gegevens blijven lokaal bewaard.');
+      Shared.applyMode();
+      syncStatus = 'local'; updateSyncBadge(); render();
+      alert('Token verwijderd van dit apparaat. Het dashboard is hier nu alleen-lezen; je gegevens blijven versleuteld op GitHub staan.');
     }
     return;
   }
-  const t = prompt('Plak je GitHub-token (github_pat_...) om je gegevens versleuteld tussen apparaten te synchroniseren.\n\n' + Shared.TOKEN_HELP, '');
+  const t = prompt('Alleen voor de beheerder: plak je GitHub-token (github_pat_...) om te kunnen wijzigen en je gegevens versleuteld tussen je apparaten te synchroniseren.\n\n' + Shared.TOKEN_HELP, '');
   if (t) {
     const fout = await Shared.checkToken(t);
     if (fout) { alert(fout + '\n\n' + Shared.TOKEN_HELP); return; }
-    setToken(t.trim());
-    syncStatus = 'syncing'; updateSyncBadge();
-    // Bij het aanzetten: haal eerst remote op, en als die er niet is, push de lokale
-    const remote = await loadStateFromGitHub();
-    if (remote && typeof remote === 'object') {
-      userState = mergeState(remote, userState); saveStateLocal();
-      positions.forEach(applyState);
-      render();
-    }
-    const ok = await saveStateToGitHub();
-    alert(ok ? 'Synchronisatie ingesteld. Je gegevens staan nu ook op GitHub.' : 'Kon niet naar GitHub schrijven — controleer de token.');
+    await useToken(t, null);
   }
 };
 
@@ -1775,15 +1791,9 @@ document.getElementById('resetFilters').onclick = () => {
   render();
 };
 
-// Bij opstart: probeer de state van GitHub te halen (bron van waarheid bij
-// meerdere apparaten). Lukt dat, gebruik die; anders val terug op lokaal.
+// Bij opstart: haal met je token de state van GitHub (samenvoegen: per positie wint de nieuwste wijziging).
+// Zonder token (bezoeker) praat de pagina niet met GitHub en is alles alleen-lezen.
 async function initSync() {
-  let wasPlain = false;
-  try {
-    const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_STATE_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`,
-      { headers: getToken() ? { Authorization: 'Bearer ' + getToken() } : {} });
-    if (r.ok) wasPlain = !Vault.isLocked(JSON.parse(Vault.b64ToText((await r.json()).content)));
-  } catch (e) {}
   const remote = await loadStateFromGitHub();
   if (remote && typeof remote === 'object') {
     const merged = mergeState(remote, userState);
@@ -1791,18 +1801,24 @@ async function initSync() {
     userState = merged;
     saveStateLocal();
     positions.forEach(applyState);
-    syncStatus = getToken() ? 'synced' : 'local';
+    syncStatus = 'synced';
     // oude onversleutelde versie of nieuwe gegevens (migratie)? Meteen versleuteld terugschrijven
-    if (getToken() && (wasPlain || changed || migrated)) saveStateToGitHub();
+    if (statePlain || changed || migrated) saveStateToGitHub();
   } else if (stateLocked === 'verkeerde-token') {
     syncStatus = 'locked';
-  } else if (getToken() && (migrated || wasPlain)) {
-    saveStateToGitHub();
+  } else if (Shared.tokenExpired()) {
+    syncStatus = 'expired';
+  } else if (getToken()) {
+    syncStatus = stateRead === 'error' ? 'error' : 'synced';     // 'missing': er staat nog niets, de eerste wijziging maakt het aan
+    if (migrated || statePlain) saveStateToGitHub();
   }
   updateSyncBadge();
   render();
 }
+// De beheerderstand verandert (token ingevoerd of verwijderd in een ander tabblad, of de token opent de gegevens niet meer)
+Shared.onRefresh(() => { updateSyncBadge(); render(); });
 
+updateSyncBadge();            // meteen de juiste stand: bezoeker (alleen-lezen) of beheerder
 initSync();
 </script>
 </body>

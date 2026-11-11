@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-F+bflgKoZpAV5+4RhXUzTHOUlfX8g+O5om5S3SiVd1I='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -686,7 +686,7 @@ function render() {
   const gen = ++renderGen;
   shown = list;
   if (!list.length) {
-    box.innerHTML = `<div class="empty">Geen stocks met deze filters. <button class="tb-reset" onclick="resetAll()">Reset filters</button></div>`;
+    box.innerHTML = `<div class="empty">Geen stocks met deze filters. <button class="tb-reset" data-reset>Reset filters</button></div>`;
     return;
   }
   // Tot 1000 kaarten: de eerste meteen, de rest in porties erachteraan, zodat de lijst (en het scherm) direct reageert
@@ -878,6 +878,8 @@ function resetAll() {
 let tSearch;
 $('searchInp').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(render, 150); };
 $('resetBtn').onclick = resetAll;
+// de knop in de lege lijst: via een luisteraar (het beveiligingsbeleid staat geen onclick-attribuut in de pagina toe)
+document.addEventListener('click', e => { if (e.target.closest('[data-reset]')) resetAll(); });
 // Smalle keuzelijsten (telefoon, aanraakscherm met 16px-tekst): korte optieteksten, anders valt de tekst weg
 const SHORT_MQ = matchMedia('(max-width: 560px), (pointer: coarse)');
 function shortLabels() {

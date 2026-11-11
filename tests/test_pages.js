@@ -1,5 +1,7 @@
 // Laadt elke pagina van het dashboard in een echte browser (telefoon en desktop) en faalt bij:
 // JavaScript-fouten, schendingen van het beveiligingsbeleid (CSP), zijwaarts scrollen, of pagina's die leeg blijven.
+// Als bezoeker (zonder token) mag er nergens een knop zijn om iets te wijzigen en geen verkeer naar de GitHub-API;
+// als beheerder (met token) moeten die knoppen er juist wel zijn.
 // Gebruikt de data die in de repository staat. Geen netwerk naar buiten: alleen de eigen bestanden.
 // Lokaal: node tests/test_pages.js   (PLAYWRIGHT=/pad/naar/playwright om een andere installatie te gebruiken)
 const http = require('http');
@@ -27,6 +29,14 @@ function serve() {
     srv.listen(0, '127.0.0.1', () => resolve(srv));
   });
 }
+
+// Bezoeker of beheerder. Zonder token is het dashboard alleen-lezen (kijkmodus): geen enkele knop om iets te wijzigen en
+// geen verkeer naar de GitHub-API. Met de token (hier een neptoken; GitHub zelf is in de test onbereikbaar) ben je beheerder.
+const TOKEN = 'github_pat_TEST1234567890abcdefghijklmnopqrstuvwxyz';
+function login(tok) { try { localStorage.setItem('gh_token', tok); } catch (e) {} }
+// Alles waarmee je iets kunt wijzigen: mag er voor een bezoeker niet zijn
+const EDIT_CONTROLS = '#add:not([hidden]), .remove, .edit-cost, .realise, .buy-step, .undo-buy, .sell-price, .undo-sell, '
+  + '[data-follow], [data-close], [data-del], .notes textarea, [data-qcheck], input[type=checkbox][data-step], .rm, #q:not([hidden])';
 
 // Een paar posities met aankoopprijs en aantal (en een gekochte trede), om de kooptrap, het risico en Vandaag met echte
 // posities te zien; de andere ronde draait zonder (zoals een nieuw apparaat zonder Sync)
@@ -61,14 +71,19 @@ const WIDTHS = [390, 1280];
   const browser = await chromium.launch();
   const problems = [];
   let n = 0;
-  const RUNS = WIDTHS.flatMap(w => PAGES.map(pg => ({ w, pg, seeded: false })))
-    .concat(WIDTHS.flatMap(w => ['portfolio.html', 'vandaag.html'].map(pg => ({ w, pg, seeded: true }))));
-  for (const { w, pg, seeded } of RUNS) {
+  // bezoeker: alle pagina's; beheerder: toevoegen en opzoeken, en Investeringen en Vandaag met echte posities
+  const RUNS = WIDTHS.flatMap(w => PAGES.map(pg => ({ w, pg, seeded: false, admin: false })))
+    .concat(WIDTHS.flatMap(w => ['portfolio.html', 'opzoeken.html', 'beoordeling.html', 'signals.html'].map(pg => ({ w, pg, seeded: false, admin: true }))))
+    .concat(WIDTHS.flatMap(w => ['portfolio.html', 'vandaag.html'].map(pg => ({ w, pg, seeded: true, admin: true }))));
+  for (const { w, pg, seeded, admin } of RUNS) {
     {
       const ctx = await browser.newContext({ viewport: { width: w, height: 900 }, hasTouch: w < 1000, isMobile: w < 1000 });
+      if (admin) await ctx.addInitScript(login, TOKEN);
       if (seeded) await ctx.addInitScript(seed, SEED);
       const page = await ctx.newPage();
       const errs = [];
+      const api = [];                                    // verkeer naar de GitHub-API (een bezoeker hoort er geen te hebben)
+      page.on('request', r => { if (/^https:\/\/api\.github\.com\//.test(r.url())) api.push(r.method() + ' ' + r.url().split('?')[0].split('/').slice(-1)[0]); });
       page.on('pageerror', e => errs.push('JS: ' + e.message));
       page.on('console', m => {
         const t = m.text();
@@ -128,7 +143,7 @@ const WIDTHS = [390, 1280];
           if (!/slechte maand/.test(await page.textContent('#hero'))) errs.push('Vandaag: slechte maand ontbreekt in de kop');
           if (await page.$('.g-kopen') && !(await page.$('.g-kopen .steps.buy'))) errs.push('Vandaag: Kopen zonder kooptrap');
         }
-        if (!seeded && pg === 'portfolio.html') {          // positie toevoegen: zoeken op naam vult de ticker in
+        if (admin && !seeded && pg === 'portfolio.html') { // positie toevoegen: zoeken op naam vult de ticker in
           await page.click('#add');
           await page.fill('#f-search', 'nvidia');
           await page.waitForSelector('#f-results .z-l', { timeout: 8000 });
@@ -155,11 +170,19 @@ const WIDTHS = [390, 1280];
             if (!(await page.$eval('#techwarn details', d => d.open))) errs.push('Vandaag: techradar klapt niet open');
           }
         }
-        if (pg === 'opzoeken.html') {                      // zoeken op naam, zonder token: uitleg in plaats van toevoegen; kaart openklappen
+        if (pg === 'opzoeken.html' && admin) {             // beheerder: zoeken op naam en toevoegen (GitHub is hier onbereikbaar: nette melding)
           await page.fill('#q', 'nvidia');
           await page.waitForSelector('#results .z-co', { timeout: 8000 });
           await page.click('#results .z-co');
-          if (!/token/.test(await page.textContent('#note'))) errs.push('opzoeken zonder token: geen uitleg');
+          await page.waitForFunction(() => /kon niet worden toegevoegd/.test(document.getElementById('note').textContent), null, { timeout: 8000 })
+            .catch(() => errs.push('opzoeken als beheerder: toevoegen bereikt GitHub niet (geen melding)'));
+          if (!(await page.$('.b-card .rm'))) errs.push('opzoeken als beheerder: knop verwijderen ontbreekt');
+        }
+        if (pg === 'opzoeken.html' && !admin) {            // bezoeker: geen zoekveld, wel uitleg
+          if (!(await page.$eval('#q', e => e.hidden))) errs.push('opzoeken als bezoeker: zoekveld staat er nog');
+          if (!/Alleen-lezen/.test(await page.textContent('#note'))) errs.push('opzoeken als bezoeker: geen uitleg');
+        }
+        if (pg === 'opzoeken.html') {                      // kaart openklappen: de 12 stappen
           await page.click('.b-card .b-head .toggle');
           await page.waitForSelector('.b-card .b-body .s12-step', { timeout: 8000 });
         }
@@ -168,9 +191,24 @@ const WIDTHS = [390, 1280];
           await page.click('.seg.world button[data-world="zoek"]');
           if (!(await page.$('iframe#zoek.active'))) errs.push('tab Opzoeken opent niet');
         }
+        // Kijkmodus (bezoeker): nergens een knop om iets te wijzigen, en geen verkeer naar de GitHub-API
+        const edits = await page.$$eval(EDIT_CONTROLS, els => els.map(e => e.id ? '#' + e.id : '.' + String(e.className).split(' ')[0] || e.tagName));
+        const hasShared = await page.evaluate(() => typeof Shared !== 'undefined');
+        if (!admin) {
+          if (edits.length) errs.push('kijkmodus: bewerkknoppen aanwezig: ' + [...new Set(edits)].join(', '));
+          if (api.length) errs.push('kijkmodus: verkeer naar de GitHub-API: ' + [...new Set(api)].join(', '));
+          if (hasShared && !(await page.evaluate(() => document.documentElement.classList.contains('kijk') && !Shared.isAdmin()))) errs.push('kijkmodus: pagina staat niet in de kijkmodus');
+        } else {
+          if (hasShared && await page.evaluate(() => document.documentElement.classList.contains('kijk') || !Shared.isAdmin())) errs.push('beheerder: pagina staat in de kijkmodus');
+          if (pg === 'portfolio.html' && !['#add', '.remove'].every(c => edits.includes(c))) errs.push('beheerder: + Positie of verwijder ontbreekt (' + [...new Set(edits)].join(', ') + ')');
+          if (pg === 'portfolio.html' && seeded && !edits.includes('.edit-cost')) errs.push('beheerder: Aankoop aanpassen ontbreekt');
+          if (pg === 'beoordeling.html' && await page.$('.b-body') && !edits.includes('.notes')) {
+            if (!(await page.$('.notes textarea'))) errs.push('beheerder: notities ontbreken op Beoordeling');
+          }
+        }
       } catch (e) { errs.push('interactie: ' + e.message.split('\n')[0]); }
       await page.waitForTimeout(300);
-      if (errs.length) problems.push(`${w}px ${pg}${seeded ? ' (met posities)' : ''}:\n    ` + [...new Set(errs)].join('\n    '));
+      if (errs.length) problems.push(`${w}px ${pg}${admin ? ' (beheerder' + (seeded ? ', met posities' : '') + ')' : ''}:\n    ` + [...new Set(errs)].join('\n    '));
       n++;
       await ctx.close();
     }

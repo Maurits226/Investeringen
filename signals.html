@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Nk0B1qCbPeS6nc8RlJ24p9NRCK29K3vus549atjGqxI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -822,7 +822,7 @@ function card(it) {
          <span class="since">${ei.reason}</span>`;
   const tr = tradeFor(it.symbol);
   const followBtn = tr ? `<span class="badge followed" title="Je hebt dit advies opgevolgd: zie bovenaan">OPGEVOLGD</span>`
-    : sig && ei && ei.kind === 'in' ? `<button class="toggle follow" data-follow="${esc(it.symbol)}" title="Heb je dit advies uitgevoerd? Dan blijft het bovenaan staan">✓ Opgevolgd</button>` : '';
+    : sig && ei && ei.kind === 'in' && Shared.isAdmin() ? `<button class="toggle follow" data-follow="${esc(it.symbol)}" title="Heb je dit advies uitgevoerd? Dan blijft het bovenaan staan">✓ Opgevolgd</button>` : '';
 
   const badge = !sig ? `<span class="badge hold">geen actie</span>`
     : `<span class="badge up">KOOPSIGNAAL</span>`;
@@ -1010,7 +1010,7 @@ function crashCard() {
       </div>
       <div class="chips">${on.length ? on.map(k => `<span class="chip on">${esc(names[k] || k)}</span>`).join('') : '<span class="chip">geen waarschuwingssignalen</span>'}</div>
       <div class="cc-basis">${n.k} van ${(c.signals || []).length} signalen aan · <b>${(c.bears || []).length} berenmarkten</b> sinds 1950 nagerekend ·
-        <a href="#" role="button" onclick="event.preventDefault(); const d=document.querySelector('details.crashx'); d.open=true; d.scrollIntoView({behavior:'smooth', block:'start'})">historie bekijken</a></div>
+        <a href="#" role="button" data-crash-hist>historie bekijken</a></div>
     </div>`;
 }
 // Grafiek: hoe ver de S&P 500 onder de top stond (rood) en wanneer 3+ signalen tegelijk brandden (amber)
@@ -1368,6 +1368,8 @@ let tradesSha = null, syncState = '', tradesPlain = false;
 const saveTradesLocal = () => { try { localStorage.setItem(TRADES_KEY, JSON.stringify(trades)); } catch (e) {} };
 // Andere pagina (bv. Vandaag) heeft nieuwere opgevolgde adviezen opgehaald: overnemen
 window.addEventListener('storage', e => {
+  // ingelogd of uitgelogd als beheerder op een andere pagina: knoppen om op te volgen tonen of weghalen
+  if (e.key === 'gh_token' || e.key === 'gh_denied') { Shared.applyMode(); render(); syncTrades(); return; }
   if (e.key !== TRADES_KEY || !e.newValue) return;
   try { trades = mergeTrades(JSON.parse(e.newValue), trades); render(); } catch (err) {}
 });
@@ -1377,8 +1379,9 @@ const tradeFor = sym => openTrades().find(t => t.symbol === sym);
 
 const mergeTrades = Shared.mergeTrades;   // shared.js: zelfde samenvoeging als Vandaag
 async function fetchRemoteTrades() {
+  if (!ghToken()) return [];                         // bezoeker: niets van GitHub lezen (versleuteld, alleen met je token)
   const headers = { Accept: 'application/vnd.github+json' };
-  if (ghToken()) headers.Authorization = 'Bearer ' + ghToken();
+  headers.Authorization = 'Bearer ' + ghToken();
   const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_TRADES_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`, { headers, cache: 'no-store' });
   if (r.status === 404) { tradesSha = null; return []; }
   if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -1414,7 +1417,7 @@ async function syncTrades() {
       const merged = mergeTrades(remote, trades);
       const changed = JSON.stringify(merged) !== JSON.stringify(mergeTrades(remote, [])) || (tradesPlain && remote.length > 0);
       trades = merged; saveTradesLocal();
-      if (!changed || !ghToken()) break;
+      if (!changed || !Shared.isAdmin()) break;
       try { await pushTrades(); break; } catch (e) { if (poging) throw e; }   // tegelijk gewijzigd op ander apparaat: opnieuw
     }
     syncState = ghToken() ? 'ok' : 'local';
@@ -1429,7 +1432,7 @@ function showSync() {
   el.title = syncState === 'local' ? 'Stel Sync in op het tabblad Investeringen om opgevolgde adviezen op al je apparaten te zien' : '';
   el.style.color = syncState === 'error' ? 'var(--warn)' : '';
 }
-function touch(t) { t.updated = new Date().toISOString(); saveTradesLocal(); render(); syncTrades(); }
+function touch(t) { if (!Shared.isAdmin()) return; t.updated = new Date().toISOString(); saveTradesLocal(); render(); syncTrades(); }
 
 function followAdvice(sym) {
   const it = itemOf(sym);
@@ -1495,10 +1498,10 @@ function tradeCard(t) {
       ${pos == null ? '' : `<div class="t-range"><span class="dot" style="left:${(pos * 100).toFixed(1)}%"></span></div>
       <div class="t-range-l"><span>stop ${fmt(p.stop, cur)}</span><span>doel ${fmt(p.target, cur)}</span></div>`}
     </div>
-    <div class="t-btns">
+    ${Shared.isAdmin() ? `<div class="t-btns">
       <button class="toggle" data-close="${esc(t.id)}" title="Positie gesloten: gaat naar het Archief">Afronden</button>
       <button class="toggle" data-del="${esc(t.id)}" title="Verwijderen">✕</button>
-    </div>`;
+    </div>` : ''}`;
   return el;
 }
 
@@ -1517,7 +1520,7 @@ function renderPinned() {
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-follow],[data-close],[data-del]');
-  if (!b) return;
+  if (!b || !Shared.isAdmin()) return;               // opvolgen, afronden en verwijderen: alleen de beheerder (met je token)
   if (b.dataset.follow) followAdvice(b.dataset.follow);
   else if (b.dataset.close) closeTrade(b.dataset.close);
   else if (b.dataset.del) deleteTrade(b.dataset.del);
@@ -1681,6 +1684,14 @@ document.addEventListener('click', e => {
   const sym = t.dataset.sym;
   ui.open = ui.open.includes(sym) ? ui.open.filter(x => x !== sym) : [...ui.open, sym];
   saveUI(); render();
+});
+// 'historie bekijken' in de crashradar-tegel: de historie openklappen en ernaartoe schuiven
+// (via een luisteraar: het beveiligingsbeleid staat geen onclick-attribuut in de pagina toe)
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-crash-hist]')) return;
+  e.preventDefault();
+  const d = document.querySelector('details.crashx');
+  if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 });
 // 'Toon nog … zonder signaal': die groep voortaan helemaal tonen (render houdt de scrollpositie vast)
 document.addEventListener('click', e => {

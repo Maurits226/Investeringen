@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-s+BIsTemXUVZzZSbla/w+RjSYC+NTFLXDX2skuQfMgU='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -394,13 +394,15 @@ async function loadTrades() {
   let local = [];
   try { local = JSON.parse(localStorage.getItem('radar_trades') || '[]'); } catch (e) {}
   let remote = [];
-  if (!DEMO) try {
-    const headers = { Accept: 'application/vnd.github+json' };
-    const tk = localStorage.getItem('gh_token'); if (tk) headers.Authorization = 'Bearer ' + tk;
+  // alleen met je token: het bestand is versleuteld, een bezoeker heeft er niets aan (en praat dan niet met de GitHub-API)
+  let tk = '';
+  try { tk = localStorage.getItem('gh_token') || ''; } catch (e) {}
+  if (!DEMO && tk) try {
+    const headers = { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + tk };
     const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/radar.json?ref=${GH_BRANCH}&t=${Date.now()}`, { headers, cache: 'no-store' });
     if (r.ok) {
       let parsed = JSON.parse(Vault.b64ToText((await r.json()).content));
-      if (Vault.isLocked(parsed)) parsed = tk ? await Vault.unlock(parsed, tk) : {};   // versleuteld: alleen met je token
+      if (Vault.isLocked(parsed)) parsed = await Vault.unlock(parsed, tk);            // versleuteld: alleen met je token
       remote = parsed.trades || [];
     }
   } catch (e) {}

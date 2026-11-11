@@ -12,26 +12,52 @@ const Shared = (() => {
 
   const api = file => `https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${file}`;
   const ghHeaders = () => Object.assign({ Accept: 'application/vnd.github+json' }, token() ? { Authorization: 'Bearer ' + token() } : {});
-  // Bestand uit de repository lezen en (met je token) ontsleutelen.
-  // status: 'ok' | 'missing' (bestaat niet) | 'locked' (niet te openen met deze token) | 'error'
+
+  // ── Beheerder of bezoeker. Iets wijzigen (positie toevoegen of weghalen, aankoop aanpassen, notities, adviezen opvolgen,
+  // aandelen opzoeken) kan alleen met de token die je versleutelde gegevens op GitHub opent. Zonder token, of met de
+  // token van iemand anders, is het dashboard alleen-lezen ('kijkmodus'): de knoppen staan er dan niet.
+  // De harde grens ligt bij GitHub: zonder jouw token kan niemand iets in de repository opslaan, en je bedragen zijn
+  // versleuteld met die token. De kijkmodus zorgt dat een bezoeker ook in zijn eigen browser niets kan aanpassen.
+  const fp = t => { let h = 5381; for (const ch of String(t)) h = ((h << 5) + h + ch.charCodeAt(0)) >>> 0; return h.toString(36); };
+  const isAdmin = () => !!token() && lsGet('gh_denied', null) !== fp(token());
+  let authExpired = false;                       // GitHub kent de token niet (meer): verlopen of ingetrokken
+  const tokenExpired = () => !!token() && authExpired;
+  const refreshers = [];                         // pagina's die opnieuw tekenen als er iets verandert (onRefresh)
+  const applyMode = () => { try { document.documentElement.classList.toggle('kijk', !isAdmin()); } catch (e) {} };
+  // Uitkomst van het openen van state.json met de token van nu: 'locked' = niet jouw gegevens, dus geen beheerder
+  function noteAccess(status, encrypted) {
+    if (!token()) return;
+    const was = isAdmin();
+    if (status === 'locked') lsSet('gh_denied', fp(token()));
+    else if (status === 'missing' || (status === 'ok' && encrypted)) { try { localStorage.removeItem('gh_denied'); } catch (e) {} }
+    if (was !== isAdmin()) { applyMode(); refreshers.forEach(f => f()); }
+  }
+  applyMode();
+
+  // Bestand uit de repository lezen en (met je token) ontsleutelen. Zonder token lezen we niets van GitHub: de gegevens
+  // zijn versleuteld, dus een bezoeker heeft er niets aan (en zijn browser praat dan helemaal niet met de GitHub-API).
+  // status: 'ok' | 'missing' (bestaat niet) | 'locked' (niet te openen met deze token) | 'error'; plain = niet versleuteld
   async function ghReadFull(file) {
+    if (!token()) return { status: 'locked', sha: null, data: null };
+    const done = (res, encrypted) => { if (file === 'state.json') noteAccess(res.status, encrypted); return res; };
     try {
       const r = await fetch(`${api(file)}?ref=${GH.branch}&t=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
-      if (r.status === 404) return { status: 'missing', sha: null, data: null };
-      if (!r.ok) return { status: 'error', sha: null, data: null };
+      authExpired = r.status === 401;
+      if (r.status === 404) return done({ status: 'missing', sha: null, data: null });
+      if (!r.ok) return { status: 'error', sha: null, data: null, http: r.status };
       const j = await r.json();
       let parsed = JSON.parse(Vault.b64ToText(j.content));
-      if (Vault.isLocked(parsed)) {
-        if (!token()) return { status: 'locked', sha: j.sha, data: null };
-        try { parsed = await Vault.unlock(parsed, token()); } catch (e) { return { status: 'locked', sha: j.sha, data: null }; }
+      const encrypted = Vault.isLocked(parsed);
+      if (encrypted) {
+        try { parsed = await Vault.unlock(parsed, token()); } catch (e) { return done({ status: 'locked', sha: j.sha, data: null }, true); }
       }
-      return { status: 'ok', sha: j.sha, data: parsed };
+      return done({ status: 'ok', sha: j.sha, data: parsed, plain: !encrypted }, encrypted);
     } catch (e) { return { status: 'error', sha: null, data: null }; }
   }
   async function ghRead(file) { return (await ghReadFull(file)).data; }
   // Versleuteld (met de token van nu) naar de repository schrijven. sha = de versie die je overschrijft (null = nieuw bestand).
   async function ghWrite(file, data, sha, message) {
-    if (!token()) return false;
+    if (!isAdmin()) return false;
     try {
       const locked = await Vault.lock(data, token());
       const body = { message: message || `Update ${file} (versleuteld) ${new Date().toISOString()}`,
@@ -56,6 +82,10 @@ const Shared = (() => {
       const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}`, { headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + t }, cache: 'no-store' });
       if (r.status === 401) return 'GitHub kent deze token niet (verlopen of niet volledig gekopieerd).';
       if (r.status === 404 || r.status === 403) return 'Deze token heeft geen toegang tot de repository Investeringen.';
+      // De repository is openbaar, dus GitHub laat elke geldige token meelezen. Schrijven mag alleen de beheerder:
+      // zegt GitHub dat het account achter deze token dat niet mag, dan is het niet jouw token.
+      const j = await r.json().catch(() => null);
+      if (j && j.permissions && j.permissions.push === false) return 'Deze token hoort niet bij de beheerder van dit dashboard: alleen de eigenaar van de repository kan synchroniseren.';
     } catch (e) {}                                   // geen netwerk: niet tegenhouden
     return null;
   }
@@ -128,7 +158,8 @@ const Shared = (() => {
   }
   // Portefeuille-state wijzigen vanaf elke pagina: eerst de nieuwste versie (lokaal + GitHub), dan de wijziging,
   // dan lokaal én versleuteld naar GitHub. Schrijft NIET naar GitHub als de versie daar niet te openen is
-  // (andere token): anders zou je gegevens van een ander apparaat wissen. Geeft 'synced' | 'local' | 'error'.
+  // (andere token): anders zou je gegevens van een ander apparaat wissen. Geeft 'synced' | 'local' | 'error', of
+  // 'readonly' als je geen beheerder bent (kijkmodus).
   // Opslaan gaat één voor één (een notitie en meteen daarna een vinkje mogen elkaar niet overschrijven);
   // is de versie op GitHub intussen veranderd, dan nog één keer opnieuw lezen, samenvoegen en schrijven.
   async function saveOnce(change) {
@@ -143,6 +174,7 @@ const Shared = (() => {
   }
   let saveQueue = Promise.resolve(), saving = 0;
   function saveState(change) {
+    if (!isAdmin()) return Promise.resolve('readonly');   // kijkmodus: niets wijzigen, ook niet op dit apparaat
     saving++;
     const run = saveQueue.then(async () => {
       const res = await saveOnce(change);
@@ -569,7 +601,7 @@ const Shared = (() => {
   // Een openbaar tekstbestand in de repository wijzigen met je token: nieuwste versie lezen, change(oud) → nieuw (null = niets),
   // terugschrijven. Tussendoor gewijzigd (409/422): opnieuw lezen en nog één keer. create: het bestand mag nog niet bestaan.
   async function editRepoFile(file, change, message, create = false) {
-    if (!token()) return 'no-token';
+    if (!isAdmin()) return 'no-token';
     for (let i = 0; i < 2; i++) {
       try {
         const r = await fetch(`${api(file)}?ref=${GH.branch}&t=${Date.now()}`, { headers: ghHeaders(), cache: 'no-store' });
@@ -680,16 +712,18 @@ const Shared = (() => {
   const lookClean = () => lookEdit(items => items, 'Stock opzoeken: aandelen ouder dan 30 dagen weggehaald');
 
   // ── Opnieuw tonen als een andere pagina iets wijzigt, of als dit tabblad weer zichtbaar wordt
-  const WATCH = ['portfolio_state', 'portfolio_positions', 'radar_trades', 'buy_mode', 'gh_token'];
+  const WATCH = ['portfolio_state', 'portfolio_positions', 'radar_trades', 'buy_mode', 'gh_token', 'gh_denied'];
   function onRefresh(fn) {
     let t = null;
     const later = () => { clearTimeout(t); t = setTimeout(fn, 150); };
-    window.addEventListener('storage', e => { if (!e.key || WATCH.includes(e.key)) later(); });
+    refreshers.push(later);
+    window.addEventListener('storage', e => { if (e.key === 'gh_token' || e.key === 'gh_denied') applyMode(); if (!e.key || WATCH.includes(e.key)) later(); });
     window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.type === 'dashboard-shown') later(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) later(); });
   }
 
-  return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
+  return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP,
+           isAdmin, tokenExpired, applyMode, noteAccess, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
            sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, BUY_STEPS, stillFalling, buyLadder, badMonth, hotExt, riskView, toEur, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
            editRepoFile, TICKER_OK, dashboardTickers, mergeDashboard, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
 })();

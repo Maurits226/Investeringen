@@ -2,7 +2,8 @@
   * alle Python-scripts compileren
   * alle JavaScript (losse .js en de scripts in elke .html) is geldige syntaxis (via node --check)
   * alle JSON-databestanden zijn geldige JSON zoals een browser die leest (geen NaN of Infinity)
-  * elke pagina heeft het beveiligingsbeleid (CSP), de anti-inbed-regels en laadt niets van buiten
+  * elke pagina heeft het beveiligingsbeleid (CSP) met de vingerafdruk van zijn script (tests/csp.py), de
+    anti-inbed-regels en laadt niets van buiten
   * de rekenregels in shared.js (tests/test_rules.js): winstnemingstrap en samenvoegen van je state
 """
 import glob
@@ -15,6 +16,8 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import csp as CSP  # noqa: E402  (vingerafdrukken van de scripts in het beveiligingsbeleid)
 fails = []
 
 
@@ -67,6 +70,12 @@ for f in sorted(glob.glob(os.path.join(ROOT, "*.html"))):
         fail(f"{name}: CSP niet zoals afgesproken (font-src 'self', connect-src 'self' https://api.github.com)")
     if '<style id="af">' not in head or 'src="antiframe.js"' not in head:
         fail(f"{name}: anti-inbedregels ontbreken")
+    # het script in de pagina draait alleen met zijn vingerafdruk in het beleid; ingevoegde code (XSS) dus niet
+    for msg in CSP.problems(name, html):
+        fail(msg)
+    for part in ("default-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-src 'self'"):
+        if part not in head:
+            fail(f"{name}: CSP mist {part}")
     for url in re.findall(r"""<(?:script|img|iframe|link|source|video|audio)\b[^>]*?(?:src|href)=["'](https?://[^"']+)""", html):
         fail(f"{name}: laadt iets van buiten: {url}")
     if re.search(r"@import\s+url\(\s*['\"]?https?://", html):

@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-1j2gFEbiZJGQmrgTImyq18TKDpo1hNprucn5At0xx8M='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -209,6 +209,8 @@
 <script src="steps.js"></script>
 <script>
 const OWN = new URLSearchParams(location.search).get('set') !== 'top';   // standaard: je eigen aandelen
+// Notities, vinkjes en de kwartaalcheck: alleen voor de beheerder (met je token); bezoekers zien de beoordeling alleen-lezen
+const EDIT = () => OWN && Shared.isAdmin();
 const $ = id => document.getElementById(id);
 const esc = Steps.esc;
 const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (steps.js)
@@ -325,7 +327,7 @@ function bodyHTML(r, it, q) {
         <div class="advice"><b class="${r.v.cls}">${esc(r.v.label)}.</b> ${esc(r.v.text)}</div>
         <div class="d-k">Scorecard <span>stap 6</span></div>
         ${it ? Steps.cardTable(c) : `<div class="empty">${esc(r.missing || 'Nog niet gescand.')}</div>`}
-        ${OWN ? `<div class="notes">
+        ${EDIT() ? `<div class="notes">
           <div><label for="why-${esc(r.key)}">Waarom ik dit bezit</label><textarea id="why-${esc(r.key)}" data-field="why" maxlength="2000" placeholder="Bijv. marktleider in AI-chips, groeit 30%+ met hoge marges">${esc(rv.why || '')}</textarea></div>
           <div><label for="exit-${esc(r.key)}">Wat me zou laten verkopen</label><textarea id="exit-${esc(r.key)}" data-field="exit" maxlength="2000" placeholder="Bijv. marge zakt onder 40%, CEO vertrekt, fraude">${esc(rv.exit || '')}</textarea></div>
         </div>
@@ -333,13 +335,13 @@ function bodyHTML(r, it, q) {
         ${it && it.earnings ? `<div class="qcheck" style="margin-top:8px">Volgende kwartaalcijfers: <b style="color:var(--text)">${esc(new Date(it.earnings).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</b>${Number.isInteger(it.earn_days) ? ` (over ${it.earn_days} d)` : ''}. Lees daarna de cijfers en vink hierboven af.</div>` : ''}` : ''}
       </div>
       <div><div class="d-k">De 12 stappen <span>${it && it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : 'zelf beoordelen'}</span></div>
-        ${Steps.panel(it ? it.s12 : BLANK, { ticks: rv.ticks || {}, tickable: OWN })}</div>
+        ${Steps.panel(it ? it.s12 : BLANK, { ticks: rv.ticks || {}, tickable: EDIT() })}</div>
     </div>`;
   return body;
 }
 
 async function save(r, change) {
-  if (!OWN) return;
+  if (!EDIT()) return;
   $('sync').textContent = '☁ opslaan…';
   const res = await Shared.saveState(st => {
     st[r.key] = st[r.key] || {};

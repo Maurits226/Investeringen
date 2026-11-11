@@ -72,6 +72,8 @@ function serve(keys) {
       await ctx.addInitScript(p => {
         if (sessionStorage.getItem('xss-seeded')) return;
         sessionStorage.setItem('xss-seeded', '1');
+        // als beheerder (neptoken; GitHub is in de test onbereikbaar): dan staan ook je notities en alle knoppen in de pagina
+        localStorage.setItem('gh_token', 'github_pat_TEST1234567890abcdefghijklmnopqrstuvwxyz');
         localStorage.setItem('portfolio_positions', JSON.stringify([{ ticker: 'AMD.DE', section: 'Stocks', label: 'AMD' + p, thresh: 20, cur: 'native' },
           { ticker: 'NVD.DE', section: 'Watchlist', label: 'NV' + p, thresh: 20, watch: true, cur: 'native' }]));
         localStorage.setItem('portfolio_version', '999');

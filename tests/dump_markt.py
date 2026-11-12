@@ -17,94 +17,98 @@ if os.environ.get("SYNTH"):
 else:
     rows = {key: T.yahoo_daily(sym, date(1985, 1, 1)) for key, (sym, _) in B.SRC.items()}
 R = B.reeks(rows)
-dates, ndx, x, sig, cnt = R["dates"], R["ndx"], R["x"], R["sig"], R["cnt"]
+dates, ndx, x, sig = R["dates"], R["ndx"], R["x"], R["sig"]
 n, c0 = len(ndx), R["c0"]
-dd, dd_low, low, top = x["dd"], x["dd_low"], x["low"], x["top"]
-H = 60
+dd, dd_low, low, top, ratio = x["dd"], x["dd_low"], x["low"], x["top"], x["ratio"]
+vix, v250 = R["al"]["vix"], x["v250"]
 
 
 def fmin(i, h):
     return min(ndx[i + 1:i + h + 1]) if i + h < n else None
 
 
-def first_reach(cond, start=c0, need_dip=True):
-    """Per dal (index van het laagste slot sinds de top) de eerste dag waarop cond(i) waar is."""
+def final(i):
+    """Was dit het dal van de dip? True = de koers kwam terug op de top zonder lager slot, False = lager slot, None = loopt nog."""
+    lo, hi = ndx[low[i]], ndx[top[i]]
+    for j in range(i + 1, n):
+        if ndx[j] < lo:
+            return False
+        if ndx[j] >= hi:
+            return True
+    return None
+
+
+def troughs(start, age):
+    """Alle dalen (5%+ onder de top) die 'age' handelsdagen standhielden: de dag waarop ze die leeftijd bereikten."""
     seen, out = set(), []
     for i in range(max(start, 252), n):
-        if dd_low[i] > -B.DIP or (need_dip and dd[i] > -B.DIP):
-            continue
-        if low[i] in seen or i == low[i]:               # op de dag van een nieuw dal kan het dal niet 'bereikt' zijn
-            continue
-        if cond(i):
+        if dd_low[i] <= -B.DIP and i - low[i] == age and low[i] not in seen:
             seen.add(low[i])
             out.append(i)
     return out
 
 
-def base_age(a, h=H, start=c0):
-    """Kans dat een dal dat al 'a' handelsdagen niet gebroken is, ook de h dagen daarna standhoudt (alle dalen in een dip)."""
-    seen, ok, tot = set(), 0, 0
-    for i in range(max(start, 252), n):
-        if dd_low[i] > -B.DIP or i - low[i] != a or low[i] in seen:
-            continue
-        seen.add(low[i])
-        m = fmin(i, h)
-        if m is None:
-            continue
-        tot += 1
-        ok += m >= ndx[low[i]]
-    return (100 * ok / tot if tot else None), tot
+def panic(i, w=5):
+    """Paniekdal: rond het dal (5 handelsdagen ervoor t/m de dag zelf... en erna tot dag i) stond de VIX boven de VIX3M."""
+    L = low[i]
+    return any(ratio[j] is not None and ratio[j] > 1.0 for j in range(max(0, L - w), i + 1))
 
 
-BA = {a: base_age(a) for a in range(0, 41)}
-print("Basis: kans dat het dal 60 d standhoudt naar leeftijd van het dal (handelsdagen): "
-      + " · ".join(f"{a}d {BA[a][0]:.0f}% (n={BA[a][1]})" for a in (0, 1, 2, 3, 4, 5, 7, 10, 15, 20, 30) if BA[a][0] is not None))
+def spike(i, w=5):
+    L = low[i]
+    return any(vix[j] is not None and v250[j] and vix[j] >= 1.5 * v250[j] for j in range(max(0, L - w), i + 1))
 
 
-def report(name, cond, **kw):
-    ev = first_reach(cond, **kw)
-    known = [i for i in ev if fmin(i, H) is not None]
-    if not known:
-        print(f"{name:<34} geen gevallen")
-        return
-    hold = [fmin(i, H) >= ndx[low[i]] for i in known]
-    k120 = [i for i in known if fmin(i, 120) is not None]
-    h120 = [fmin(i, 120) >= ndx[low[i]] for i in k120]
-    age = sorted(i - low[i] for i in known)
-    above = sorted((ndx[i] / ndx[low[i]] - 1) * 100 for i in known)
-    fwd = sorted((ndx[i + H] / ndx[i] - 1) * 100 for i in known)
-    matched = [BA[min(40, i - low[i])][0] for i in known if BA[min(40, i - low[i])][0] is not None]
-    deep = [h for i, h in zip(known, hold) if dd_low[i] <= -20]
-    shal = [h for i, h in zip(known, hold) if dd_low[i] > -20]
-    miss = sorted((fmin(i, H) / ndx[low[i]] - 1) * 100 for i, h in zip(known, hold) if not h)
-    print(f"{name:<34} n={len(known):>3} · hield {100 * sum(hold) / len(hold):>3.0f}% (zelfde leeftijd dal: {sum(matched) / len(matched):.0f}%) · 120d {100 * sum(h120) / max(1, len(h120)):.0f}%"
-          f" · dal {age[len(age) // 2]} d oud, +{above[len(above) // 2]:.1f}% boven dal · 60d later mediaan {fwd[len(fwd) // 2]:+.1f}%"
-          f" · dal <20%: {sum(shal)}/{len(shal)} · dal 20%+: {sum(deep)}/{len(deep)}"
-          f" · mis: mediaan {miss[len(miss) // 2] if miss else 0:.1f}% lager")
+def rate(days, f):
+    xs = [f(i) for i in days]
+    xs = [v for v in xs if v is not None]
+    return (f"{100 * sum(xs) / len(xs):>3.0f}% (n={len(xs)})" if xs else "  —")
 
 
-fast = lambda i: sum(1 for k in ("termijn", "angstpiek", "rsi") if sig[k][i])  # noqa: E731
-print("\n== Eerste keer per dal dat de stand bereikt werd (in een dip, vanaf 2006) ==")
-for k in R["use"]:
-    report(k, lambda i, k=k: bool(sig[k][i]))
-report("termijn, dal 10%+", lambda i: bool(sig["termijn"][i]) and dd_low[i] <= -10)
-for c in (1, 2, 3, 4):
-    report(f"{c}+ signalen", lambda i, c=c: cnt[i] is not None and cnt[i] >= c)
-report("snel: 1+ van termijn/angst/rsi", lambda i: fast(i) >= 1)
-report("snel: 2+ van termijn/angst/rsi", lambda i: fast(i) >= 2)
-report("snel: alle 3", lambda i: fast(i) >= 3)
-report("dal_houdt & boven_20d", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]))
-report("dal_houdt & boven_20d & snel 1+", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]) and fast(i) >= 1)
-report("boven_20d & snel 1+", lambda i: bool(sig["boven_20d"][i]) and fast(i) >= 1)
-report("boven_20d & termijn", lambda i: bool(sig["boven_20d"][i] and sig["termijn"][i]))
+h60 = lambda i: None if fmin(i, 60) is None else fmin(i, 60) >= ndx[low[i]]  # noqa: E731
+h20 = lambda i: None if fmin(i, 20) is None else fmin(i, 20) >= ndx[low[i]]  # noqa: E731
+h120 = lambda i: None if fmin(i, 120) is None else fmin(i, 120) >= ndx[low[i]]  # noqa: E731
+print("== Kans dat het dal standhoudt, naar leeftijd van het dal (alle dalen 5%+ onder de top) ==")
+for label, start in (("sinds 2006", c0), ("sinds 1986", 252)):
+    print(f"-- {label}")
+    for a in (1, 2, 3, 5, 7, 10, 15, 20, 30, 40):
+        ds = troughs(start, a)
+        deep = [i for i in ds if dd_low[i] <= -20]
+        mid = [i for i in ds if -20 < dd_low[i] <= -10]
+        shal = [i for i in ds if dd_low[i] > -10]
+        print(f"{a:>3} d: 20d {rate(ds, h20)} · 60d {rate(ds, h60)} · 120d {rate(ds, h120)} · was het dal {rate(ds, final)}"
+              f" | 60d naar diepte: 5-10% {rate(shal, h60)} · 10-20% {rate(mid, h60)} · 20%+ {rate(deep, h60)}"
+              f" | was het dal: 5-10% {rate(shal, final)} · 10-20% {rate(mid, final)} · 20%+ {rate(deep, final)}")
+print("\n== Paniekdal (VIX boven VIX3M rond het dal) tegenover dal zonder paniek, sinds 2006 ==")
+for a in (2, 3, 5, 10, 15, 20):
+    ds = troughs(c0, a)
+    p, q = [i for i in ds if panic(i)], [i for i in ds if not panic(i)]
+    s, t = [i for i in ds if spike(i)], [i for i in ds if not spike(i)]
+    print(f"{a:>3} d: omkering ja 60d {rate(p, h60)} dal {rate(p, final)} · nee 60d {rate(q, h60)} dal {rate(q, final)}"
+          f" || VIX-piek ja 60d {rate(s, h60)} dal {rate(s, final)} · nee 60d {rate(t, h60)} dal {rate(t, final)}")
+print("\n== Paniekdal en diepte 10%+ ==")
 for a in (3, 5, 10, 15, 20):
-    report(f"dal {a} d oud (zonder signaal)", lambda i, a=a: i - low[i] >= a)
-for p in (3, 5, 8):
-    report(f"{p}% boven het dal", lambda i, p=p: ndx[i] >= ndx[low[i]] * (1 + p / 100))
-print("\n== Zelfde, hele historie van de koerssignalen (vanaf 1986) ==")
-for k in ("rsi", "dal_houdt", "boven_20d"):
-    report(k, lambda i, k=k: bool(sig[k][i]), start=252)
-report("dal_houdt & boven_20d", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]), start=252)
-print("\n== Ook buiten een dip gerekend vanaf het herstel (dal 5%+, nu binnen 5% van de top telt mee) ==")
-report("dal_houdt & boven_20d", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]), need_dip=False)
-report("termijn", lambda i: bool(sig["termijn"][i]), need_dip=False)
+    ds = [i for i in troughs(c0, a) if dd_low[i] <= -10]
+    p, q = [i for i in ds if panic(i)], [i for i in ds if not panic(i)]
+    print(f"{a:>3} d: omkering ja 60d {rate(p, h60)} dal {rate(p, final)} · nee 60d {rate(q, h60)} dal {rate(q, final)}")
+
+print("\n== Termijnstructuur weer normaal: de dag zelf (eerste keer per dal), sinds 2006 ==")
+seen, ev = set(), []
+for i in range(max(c0, 252), n):
+    if sig["termijn"][i] and not sig["termijn"][i - 1] and dd_low[i] <= -B.DIP and i > low[i] and low[i] not in seen:
+        seen.add(low[i])
+        ev.append(i)
+BA = {}
+for a in range(0, 131):
+    ds = troughs(c0, a)
+    BA[a] = ([h60(i) for i in ds if h60(i) is not None], [final(i) for i in ds if final(i) is not None])
+m60 = [sum(BA[min(130, i - low[i])][0]) / max(1, len(BA[min(130, i - low[i])][0])) for i in ev if h60(i) is not None]
+mfin = [sum(BA[min(130, i - low[i])][1]) / max(1, len(BA[min(130, i - low[i])][1])) for i in ev if final(i) is not None]
+print(f"n={len(ev)} · 60d {rate(ev, h60)} (zelfde leeftijd dal: {100 * sum(m60) / max(1, len(m60)):.0f}%) · was het dal {rate(ev, final)} (zelfde leeftijd: {100 * sum(mfin) / max(1, len(mfin)):.0f}%)"
+      f" · diepte 10%+: 60d {rate([i for i in ev if dd_low[i] <= -10], h60)} dal {rate([i for i in ev if dd_low[i] <= -10], final)}"
+      f" · 20%+: {rate([i for i in ev if dd_low[i] <= -20], h60)}")
+print("missers (60 d): " + " · ".join(f"{dates[i]} (dal {dd_low[i]:.0f}%, {((fmin(i, 60) / ndx[low[i]] - 1) * 100):.1f}% lager)" for i in ev if h60(i) is False))
+print("niet het dal: " + " · ".join(f"{dates[i]}" for i in ev if final(i) is False))
+print("\n== Nu ==")
+i = n - 1
+print(f"{dates[i]}: dal {dates[low[i]]} ({dd_low[i]:.1f}%), {i - low[i]} d oud, nu {dd[i]:.1f}% · omkering rond het dal: {panic(i)} · VIX-piek: {spike(i)} · termijn aan: {sig['termijn'][i]}")

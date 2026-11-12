@@ -99,6 +99,7 @@ W_FORMULE = 0.75            # totaalscore = 75% formuleblad + 25% kwaliteit
 MIN_ANALYSTS = 3            # vanaf zoveel analisten telt hun koersdoel
 SLEEP = 0.35                # pauze tussen Yahoo-verzoeken
 MAX_FAILS = 25              # zoveel fouten achter elkaar = Yahoo blokkeert, stoppen voor deze run
+PM_CATCHUP_MIN = 15         # maandkoersen inhalen (aandelen die ze nog missen): hooguit zoveel minuten per run
 
 SP500_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1100,23 +1101,69 @@ def needs_refresh(c, region):
     return False
 
 
+def month_no(d):
+    """Maandnummer (jaar × 12 + maand − 1): rekent makkelijk en blijft klein in de cache."""
+    return d.year * 12 + d.month - 1
+
+
+def monthly(y, sym):
+    """Maandreeks over 5 jaar in één verzoek: (punten, pm).
+    punten = [(tijdstip, slot)] zoals chart(); pm = de afgesloten maanden, voor het bewijs per pijler:
+    {"m": maandnummer van de eerste, "c": slotkoersen, "a": slotkoersen incl. dividend (alleen als die afwijken)}.
+    De lopende maand telt niet mee (nog geen slotkoers); een maand zonder koers is None."""
+    j = y.get(f"https://query2.finance.yahoo.com/v8/finance/chart/{quote(sym)}?range=5y&interval=1mo&includePrePost=false")
+    res = j["chart"]["result"][0]
+    stamps, ind = res.get("timestamp") or [], res.get("indicators") or {}
+    closes = (ind.get("quote") or [{}])[0].get("close") or []
+    adj = (ind.get("adjclose") or [{}])[0].get("adjclose") or []
+    if len(adj) != len(closes):
+        adj = []
+    pts = [(t, c) for t, c in zip(stamps, closes) if c]
+    # Yahoo zet een maand op de eerste dag om middernacht plaatselijke tijd (voor Xetra is dat in UTC nog de dag ervoor).
+    # 'gmtoffset' is het tijdsverschil van nu: in het andere seizoen (zomer-/wintertijd) scheelt dat een uur, vandaar
+    # 6 uur speling. Zonder tijdsverschil 12 uur: dan valt middernacht overal ter wereld op de goede dag.
+    off = (res.get("meta") or {}).get("gmtoffset")
+    known = isinstance(off, (int, float)) and not isinstance(off, bool) and abs(off) <= 14 * 3600
+    shift = off + 6 * 3600 if known else 12 * 3600
+    cur = month_no(now() + timedelta(seconds=off if known else 0))
+    by = {}
+    for i, (t, c) in enumerate(zip(stamps, closes)):
+        if not t or not c or c <= 0:
+            continue
+        m = month_no(datetime.fromtimestamp(t + shift, tz=timezone.utc))
+        if m < cur:                                   # dubbele regel voor dezelfde maand: de laatste telt
+            by[m] = (c, adj[i] if adj and adj[i] and adj[i] > 0 else None)
+    pm = None
+    if by:
+        m0, m1 = min(by), max(by)
+        cs = [by[m][0] if m in by else None for m in range(m0, m1 + 1)]
+        ad = [by[m][1] if m in by else None for m in range(m0, m1 + 1)]
+        pm = {"m": m0, "c": cs}
+        if any(a is not None and c and abs(a / c - 1) > 0.0005 for a, c in zip(ad, cs)):
+            pm["a"] = [a if a is not None else c for a, c in zip(ad, cs)]
+    return pts, pm
+
+
 def five_year(y, sym):
-    """Koersrendement over (maximaal) 5 jaar, maandreeks. 'yrs' = hoe lang de reeks echt is."""
-    pts, _ = chart(y, sym, "5y", "1mo")
-    if len(pts) < 12:
-        return None
-    return {"r": round(pts[-1][1] / pts[0][1] - 1, 4), "yrs": round((pts[-1][0] - pts[0][0]) / 31557600, 2)}
+    """Koersrendement over (maximaal) 5 jaar uit de maandreeks ('yrs' = hoe lang de reeks echt is), plus die maandreeks
+    zelf (pm, zie monthly). Eén verzoek voor allebei."""
+    pts, pm = monthly(y, sym)
+    r5 = None
+    if len(pts) >= 12:
+        r5 = {"r": round(pts[-1][1] / pts[0][1] - 1, 4), "yrs": round((pts[-1][0] - pts[0][0]) / 31557600, 2)}
+    return r5, pm or {"m": 0, "c": []}               # leeg = wel geprobeerd (jonge notering), niet elke run opnieuw
 
 
 def sp500_5y(y):
-    """S&P 500 over 5 jaar: in dollars (VS-bedrijven) en omgerekend naar euro (eurozone-bedrijven)."""
+    """S&P 500 over 5 jaar: in dollars (VS-bedrijven) en omgerekend naar euro (eurozone-bedrijven).
+    'pm' = de maandreeksen van de S&P 500 en van EUR/USD (voor het bewijs per pijler)."""
     try:
-        pts, _ = chart(y, "^GSPC", "5y", "1mo")
+        pts, sp_pm = monthly(y, "^GSPC")
         r = pts[-1][1] / pts[0][1] - 1
         time.sleep(SLEEP)
-        fpts, _ = chart(y, "EURUSD=X", "5y", "1mo")
+        fpts, fx_pm = monthly(y, "EURUSD=X")
         fxr = fpts[-1][1] / fpts[0][1] - 1
-        return {"VS": r, "EU": (1 + r) / (1 + fxr) - 1, "lvl": pts[-1][1]}
+        return {"VS": r, "EU": (1 + r) / (1 + fxr) - 1, "lvl": pts[-1][1], "pm": {"sp": sp_pm, "fx": fx_pm}}
     except Exception as e:  # noqa: BLE001
         print(f"  S&P 500 (5 jaar) niet opgehaald: {e}")
         return None
@@ -1151,9 +1198,9 @@ def fetch_stock(y, sym, meta, old, fx, convert=False):
     c["ts"] = timeseries(y, sym)
     time.sleep(SLEEP)
     try:
-        c["r5"] = five_year(y, sym)
+        c["r5"], c["pm"] = five_year(y, sym)
     except Exception:  # noqa: BLE001
-        c["r5"] = (old or {}).get("r5")
+        c["r5"], c["pm"] = (old or {}).get("r5"), (old or {}).get("pm")
     time.sleep(SLEEP)
     c["first"] = (old or {}).get("first")
     if not c["first"]:
@@ -2330,9 +2377,9 @@ def main():
     y = Yahoo()
     try:
         raw = json.load(open(CACHE, encoding="utf-8"))
-        cache, dyn = raw.get("stocks", {}), raw.get("dyn")
+        cache, dyn, raw_ref = raw.get("stocks", {}), raw.get("dyn"), raw.get("ref_pm")
     except Exception:  # noqa: BLE001
-        cache, dyn = {}, None
+        cache, dyn, raw_ref = {}, None, None
     uni, dyn = load_universe(cache, y, dyn)
     own = owned_positions()
     # Elke eigen aandelenpositie met een dollarnotering hoort erin (ook als hij te klein is voor de brede scan),
@@ -2403,6 +2450,27 @@ def main():
             if fails >= MAX_FAILS:
                 print("Te veel fouten achter elkaar — Yahoo blokkeert waarschijnlijk; stoppen voor deze run.")
                 break
+
+    # 1b. Maandkoersen over 5 jaar (voor het bewijs per pijler): komen mee bij elke verversing. Wie ze nog mist
+    # (cijfers van vóór deze uitbreiding) halen we hier in: één verzoek per aandeel, binnen hetzelfde tijdsbudget.
+    miss = [s for s in uni if (cache.get(s) or {}).get("ts") and not cache[s].get("skip") and "pm" not in cache[s]
+            and age_h(cache[s].get("pm_err")) > ERROR_RETRY_H]
+    filled, t1 = 0, time.time()
+    for sym in miss:
+        if fails >= MAX_FAILS or time.time() - t0 > TIME_BUDGET_MIN * 60 or time.time() - t1 > PM_CATCHUP_MIN * 60:
+            break
+        try:
+            r5, cache[sym]["pm"] = five_year(y, sym)
+            cache[sym]["r5"] = r5 or cache[sym].get("r5")
+            cache[sym].pop("pm_err", None)
+            fails, filled = 0, filled + 1
+        except Exception as e:  # noqa: BLE001
+            fails += 1
+            cache[sym]["pm_err"] = iso()
+            print(f"  {sym:<10} maandkoersen niet opgehaald: {e}")
+        time.sleep(SLEEP)
+    if miss:
+        print(f"Maandkoersen ingehaald: {filled} van {len(miss)}")
 
     # 2. Actuele koersen (dollar- en euro-noteringen)
     # Valuta van de cijfers onbekend: een andere notering van hetzelfde bedrijf rapporteert wel zijn valuta
@@ -2603,8 +2671,8 @@ def main():
     except Exception as e:  # noqa: BLE001
         print(f"  koopmoment niet bijgewerkt: {e}")
     with open(CACHE, "w", encoding="utf-8") as f:
-        json.dump({"updated": iso(), "dyn": dyn, "stocks": compact(dict(sorted(cache.items())))}, f,
-                  ensure_ascii=False, separators=(",", ":"))
+        json.dump({"updated": iso(), "dyn": dyn, "ref_pm": compact((sp5 or {}).get("pm") or raw_ref),
+                   "stocks": compact(dict(sorted(cache.items())))}, f, ensure_ascii=False, separators=(",", ":"))
     try:                                             # zoekindex; mag de Top 250 nooit laten vastlopen
         print(f"Zoekindex: {write_search_index(cache, dyn)} namen")
     except Exception as e:  # noqa: BLE001

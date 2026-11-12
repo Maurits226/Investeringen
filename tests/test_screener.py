@@ -286,6 +286,58 @@ try:
 finally:
     S.summary, S.timeseries, S.time.sleep = _sum, _ts, _sleep
 
+# Maandkoersen over 5 jaar (voor het bewijs per pijler): alleen afgesloten maanden, één regel per maand, de maand volgens
+# de plaatselijke tijd van de beurs, een ontbrekende maand als None, dividendreeks alleen als die afwijkt
+from datetime import datetime as _dt, timezone as _tz  # noqa: E402
+_utc = lambda *a: int(_dt(*a, tzinfo=_tz.utc).timestamp())  # noqa: E731
+
+
+class FakeYahoo:
+    def __init__(self, res):
+        self.res = res
+
+    def get(self, url, **_):
+        return {"chart": {"result": [self.res]}}
+
+
+_now = S.now
+S.now = lambda: _dt(2026, 11, 12, 16, 0, tzinfo=_tz.utc)
+try:
+    # Xetra: de maand begint om middernacht plaatselijke tijd = 22:00 of 23:00 UTC de dag ervoor
+    stamps = [_utc(2026, 6, 30, 22), _utc(2026, 7, 31, 22), _utc(2026, 9, 30, 22), _utc(2026, 10, 31, 23),
+              _utc(2026, 11, 12, 15, 30)]
+    res = {"meta": {"gmtoffset": 3600}, "timestamp": stamps,
+           "indicators": {"quote": [{"close": [100.0, 110.0, 121.0, 120.0, 118.0]}],
+                          "adjclose": [{"adjclose": [98.0, 108.0, 120.0, 120.0, 118.0]}]}}
+    pts, pm = S.monthly(FakeYahoo(res), "TEST.DE")
+    check(len(pts) == 5, f"maandkoersen: alle punten terug voor het 5-jaarsrendement ({len(pts)})")
+    check(pm and pm["m"] == S.month_no(_dt(2026, 7, 1)) and pm["c"] == [100.0, 110.0, None, 121.0],
+          f"maandkoersen: juli, augustus, (september ontbreekt), oktober en niet de lopende maand: {pm}")
+    check(pm.get("a") == [98.0, 108.0, None, 120.0], f"maandkoersen: dividendreeks klopt niet: {pm.get('a')}")
+    # zonder dividend: geen aparte reeks (scheelt ruimte); dubbele regel voor dezelfde maand: de laatste telt
+    res2 = {"meta": {"gmtoffset": -18000}, "timestamp": [_utc(2026, 9, 1, 4), _utc(2026, 10, 1, 4), _utc(2026, 10, 30, 20)],
+            "indicators": {"quote": [{"close": [50.0, 55.0, 56.0]}], "adjclose": [{"adjclose": [50.0, 55.0, 56.0]}]}}
+    _, pm2 = S.monthly(FakeYahoo(res2), "TEST")
+    check(pm2 == {"m": S.month_no(_dt(2026, 9, 1)), "c": [50.0, 56.0]}, f"maandkoersen zonder dividend: {pm2}")
+    # jonge notering: te kort voor een 5-jaarsrendement, de maandreeks komt er wel; helemaal niets = lege reeks
+    r5, pm3 = S.five_year(FakeYahoo(res2), "TEST")
+    check(r5 is None and pm3 == pm2, f"jonge notering: geen 5-jaarsrendement, wel maandkoersen ({r5}, {pm3})")
+    _, pm4 = S.five_year(FakeYahoo({"meta": {}, "timestamp": [], "indicators": {"quote": [{}]}}), "LEEG")
+    check(pm4 == {"m": 0, "c": []}, f"geen koersen: lege reeks als teken dat het geprobeerd is ({pm4})")
+    # zonder tijdsverschil van de beurs: 12 uur speling, dan klopt de maand voor New York, Frankfurt en Tokio
+    for name, hh in (("New York", (1, 4)), ("Frankfurt", (0, 22)), ("Tokio", (0, 15))):
+        st = [_utc(2026, 8, 31, hh[1]) if not hh[0] else _utc(2026, 9, 1, hh[1]), _utc(2026, 9, 30, hh[1]) if not hh[0] else _utc(2026, 10, 1, hh[1])]
+        _, pmx = S.monthly(FakeYahoo({"meta": {}, "timestamp": st, "indicators": {"quote": [{"close": [10.0, 11.0]}]}}), "X")
+        check(pmx == {"m": S.month_no(_dt(2026, 9, 1)), "c": [10.0, 11.0]}, f"maandkoersen zonder tijdsverschil ({name}): {pmx}")
+    check(S.compact({"pm": pm}).get("pm", {}).get("c") == [100, 110, None, 121], "maandkoersen: None in de reeks moet in de cache blijven staan")
+    # 60 maanden: het 5-jaarsrendement blijft wat het was (eerste en laatste punt van de reeks)
+    long_ = {"meta": {"gmtoffset": -18000}, "timestamp": [_utc(2021 + (10 + i) // 12, (10 + i) % 12 + 1, 1, 4) for i in range(61)],
+             "indicators": {"quote": [{"close": [100.0 + i for i in range(61)]}]}}
+    r5l, pml = S.five_year(FakeYahoo(long_), "LANG")
+    check(r5l == {"r": 0.6, "yrs": 5.0} and len(pml["c"]) == 60 and "a" not in pml, f"5 jaar: rendement of maandreeks klopt niet ({r5l}, {len(pml['c'])})")
+finally:
+    S.now = _now
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten, "
       f"{sum(1 for it in items if (it.get('gap') or {}).get('ok'))} gaps · "

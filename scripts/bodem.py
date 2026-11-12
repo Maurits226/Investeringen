@@ -305,18 +305,24 @@ def build(rows, errors):
         stop = end if end is not None else last
         ok = [j for j in range(h10, stop + 1) if lv[j] is not None and lv[j] >= LV_OK]
         f = ok[0] if ok else None
-        dips.append({"peak": iso(pk), "trough": iso(tr), "depth": T.r((ndx[tr] / ndx[pk] - 1) * 100), "days": tr - pk,
-                     "end": iso(end) if end is not None else None,
-                     "sig": iso(f) if f is not None else None,
-                     "na_dal": f - tr if f is not None else None,            # handelsdagen na het dal (negatief = ervoor)
-                     "boven_dal": T.r((ndx[f] / ndx[tr] - 1) * 100) if f is not None else None,
-                     "onder_top": T.r((ndx[f] / ndx[pk] - 1) * 100) if f is not None else None,
-                     "hield": R["hold"][f] if f is not None else None,       # None = uitkomst nog niet bekend
-                     "lager": R["lager"][f] if f is not None else None})
-    met = [d for d in dips if d["sig"] and d["hield"] is not None]
+        e = {"peak": iso(pk), "trough": iso(tr), "depth": T.r((ndx[tr] / ndx[pk] - 1) * 100), "days": tr - pk,
+             "end": iso(end) if end is not None else None,
+             "top": dd[pk] > -DIP,                    # begon bij de 52-weekse top (anders: golf in een langere daling)
+             "sig": iso(f) if f is not None else None}
+        if f is not None:
+            lo = min(ndx[pk:f + 1])                   # het dal van deze correctie tot en met de signaaldag
+            na = min(ndx[f + 1:f + H + 1]) if f + H < n else None
+            e.update({"na_dal": f - tr,               # handelsdagen na het uiteindelijke dal (negatief = ervoor)
+                      "boven_dal": T.r((ndx[f] / lo - 1) * 100), "onder_top": T.r((ndx[f] / ndx[pk] - 1) * 100),
+                      "hield": None if na is None else na >= lo,            # None = de 60 dagen zijn nog niet om
+                      "lager": None if na is None else T.r(min(0.0, (na / lo - 1) * 100)),
+                      "na60": T.r((ndx[f + H] / ndx[f] - 1) * 100) if f + H < n else None})
+        dips.append(e)
+    met = [d for d in dips if d.get("hield") is not None]
     goed = [d for d in met if d["hield"]]
     dip_sum = {"n": len(dips), "met": len(met), "goed": len(goed),
                "na_dal": median([d["na_dal"] for d in goed]), "boven_dal": T.r(median([d["boven_dal"] for d in goed])),
+               "lager": T.r(median([d["lager"] for d in met if not d["hield"]])),
                "geen": sum(1 for d in dips if not d["sig"] and d["end"])}
 
     # 4. hoe lang duurden correcties van top tot dal (handelsdagen), sinds 1985

@@ -197,8 +197,22 @@ def reeks(rows):
             "ratio": ratio, "term": termijn(ratio)}
 
 
+def oplopend(ps, ws):
+    """Reeks laten oplopen (isotone regressie, gewogen): waar een latere waarde lager uitvalt dan een eerdere, nemen we
+    die buren samen tot hun gewogen gemiddelde. Zo zakt een kans niet door toeval in een kleine groep."""
+    blocks = []                                      # [waarde, gewicht, aantal]
+    for p, w in zip(ps, ws):
+        blocks.append([p, w, 1])
+        while len(blocks) > 1 and blocks[-2][0] > blocks[-1][0]:
+            v2, w2, l2 = blocks.pop()
+            v1, w1, l1 = blocks.pop()
+            blocks.append([(v1 * w1 + v2 * w2) / (w1 + w2), w1 + w2, l1 + l2])
+    return [v for v, _, k in blocks for _ in range(k)]
+
+
 def kans_tabel(R):
-    """Per klasse (diepte van het dal) en leeftijd: hoe vaak bleek dit het dal (en hield het 60 dagen stand)?"""
+    """Per klasse (diepte van het dal) en leeftijd: hoe vaak bleek dit het dal (en hield het 60 dagen stand)?
+    'p' loopt op met de leeftijd (zie oplopend); 'ruw' is het getelde percentage van die ene groep."""
     out = {}
     for age in AGES:
         ds = dalen(R["low"], R["dd_low"], age)
@@ -206,7 +220,11 @@ def kans_tabel(R):
             part = [i for i in ds if lo <= -R["dd_low"][i] < hi]
             p, n = pct([R["was"][i] for i in part])
             p60, n60 = pct([R["h60"][i] for i in part])
-            out[(k, age)] = {"age": age, "p": p, "n": n, "p60": p60, "n60": n60}
+            out[(k, age)] = {"age": age, "p": p, "ruw": p, "n": n, "p60": p60, "n60": n60}
+    for k, _, _, _ in KLASSEN:
+        cells = [out[(k, a)] for a in AGES if out[(k, a)]["n"]]
+        for c, v in zip(cells, oplopend([c["ruw"] for c in cells], [c["n"] for c in cells])):
+            c["p"] = T.r(v)
     return out
 
 

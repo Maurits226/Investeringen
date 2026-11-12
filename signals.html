@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-V3no8lUxTu0mgC5xVW/PXAmcnUR/W0maSUIwXyVWUMw='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gRn8riNXAaYgBoYl5TOdEjPXiWSoZWpe0j7SiuD/Uw0='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -676,6 +676,7 @@ const extLink = (u, text) => { const s = safeUrl(u); return s ? `<a href="${esc(
 let data = null;
 let crash = null;              // crash.json: crashradar sinds 1950 (scripts/crash.py)
 let tech = null;               // tech.json: techradar, dreigt een terugval in tech en chips (scripts/tech.py)
+let bodem = null;              // bodem.json: bodemsignaal, is het dal van de dip bereikt (scripts/bodem.py)
 let ui = { sort: 'section', cat: 'all', status: 'all', mkt: 'all', open: [], more: [] };
 // Filters blijven bewaard zolang dit browsertabblad open is (ook bij verversen); tabblad of browser dicht = standaard
 try { ui = { ...ui, ...JSON.parse(sessionStorage.getItem(UI_KEY) || '{}') }; } catch (e) {}
@@ -732,6 +733,10 @@ async function load() {
   try {
     const t = await fetch('tech.json', { cache: 'no-cache' });
     if (t.ok) tech = await t.json();
+  } catch (e) {}
+  try {
+    const b = await fetch('bodem.json', { cache: 'no-cache' });
+    if (b.ok) bodem = await b.json();
   } catch (e) {}
   try {
     const r = await fetch(CFG.file, { cache: 'no-cache' });
@@ -918,11 +923,13 @@ function renderWorld() {
   const vix = byKey.vix, nd = byKey.nasdaq;
   const open = box.querySelector('details.heads') && box.querySelector('details.heads').open;
   const cxOpen = box.querySelector('details.crashx') && box.querySelector('details.crashx').open;
-  const twOpen = box.querySelector('details.tw-det') && box.querySelector('details.tw-det').open;
+  const twOpen = box.querySelector('details.tw-det:not(.bd-det)') && box.querySelector('details.tw-det:not(.bd-det)').open;
+  const bdOpen = box.querySelector('details.bd-det') && box.querySelector('details.bd-det').open;
   const wk = weekOutlook();
   const clim = climateCards(reg, byKey, wk);
   box.innerHTML = `
     ${clim}
+    ${bodemBlock(bdOpen)}
     ${crashDetails(cxOpen)}
     ${techDetails(twOpen)}
     <div class="factors">${facs}</div>
@@ -978,6 +985,12 @@ function techCard() {
 function techDetails(isOpen) {
   if (!tech || !tech.level || typeof TechWarn === 'undefined') return '';
   return `<div class="tw-full">${TechWarn.details(tech, isOpen)}</div>`;
+}
+
+// Bodemsignaal (techwarn.js): is het dal van de dip bereikt? Over de volle breedte onder de tegels; zonder dip één regel
+function bodemBlock(isOpen) {
+  if (!bodem || !bodem.dip || typeof TechWarn === 'undefined' || !TechWarn.bodem) return '';
+  return TechWarn.bodem(bodem, { open: isOpen });
 }
 
 // ── Crashradar: wanneer cash klaarzetten om een dip te kopen (S&P 500 sinds 1950) ──

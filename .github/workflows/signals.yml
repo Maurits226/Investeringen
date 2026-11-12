@@ -22,6 +22,7 @@ on:
       - 'tickers.txt'
       - 'scripts/crash.py'
       - 'scripts/tech.py'
+      - 'scripts/bodem.py'
       - '.github/workflows/signals.yml'
 
 permissions:
@@ -63,7 +64,9 @@ jobs:
               timeout 12m python3 scripts/signals.py || echo "Run mislukt, volgende poging over 15 min"
               timeout 5m python3 scripts/crash.py || echo "Crashradar niet bijgewerkt"   # zelf hooguit eens per uur
               timeout 5m python3 scripts/tech.py || echo "Techradar niet bijgewerkt"     # idem
+              timeout 5m python3 scripts/bodem.py || echo "Bodemsignaal niet bijgewerkt" # idem
               git add signals.json; [ -d archive ] && git add archive; [ -f crash.json ] && git add crash.json; [ -f tech.json ] && git add tech.json
+              [ -f bodem.json ] && git add bodem.json
               if ! git diff --cached --quiet; then
                 git commit -q -m "Patroonradar $(TZ=Europe/Amsterdam date +'%Y-%m-%d %H:%M') NL"
                 for i in 1 2 3 4 5; do

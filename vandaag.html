@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kWvRxj5o46rv0sQXip2ZZXJN8YMKAd80qXcaQdg92zQ='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0hdxrCh+vby4jwBNkZcCAsvBFt2e+8EV6NzvaMnxEXQ='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -261,7 +261,7 @@ function drawTodo() {
 }
 
 async function render() {
-  const [data, sig, scr, pos, trades, tech, these, agenda] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese(), getJSON('marktagenda.json')]);
+  const [data, sig, scr, pos, trades, tech, these, agenda, bodem] = await Promise.all([getJSON('data.json'), getJSON('signals.json'), getJSON('screener.json'), loadPositions(), Shared.loadTrades(), getJSON('tech.json'), Shared.loadThese(), getJSON('marktagenda.json'), getJSON('bodem.json')]);
   // de Top 250-radar (1,2 MB) alleen als je een Top 250-advies opvolgt: daar komt dan de actuele koers vandaan
   const sigTop = (trades || []).some(t => t && !t.deleted && t.status === 'open' && t.set === 'top250') ? await getJSON('signals_top250.json') : null;
   const idx = Shared.stockIndex(scr, sig, data);
@@ -323,7 +323,7 @@ async function render() {
   if (typeof TechWarn !== 'undefined') {
     TechWarn.css();
     const exposure = Shared.techExposure(held.map(x => ({ p: x.p, value: val(x) })), idx.find);
-    $('techwarn').innerHTML = tech ? TechWarn.banner(tech, exposure, { compact: true, open: twOpen }) : '';
+    $('techwarn').innerHTML = tech ? TechWarn.banner(tech, exposure, { compact: true, open: twOpen, bodem }) : '';
     const d = $('techwarn').querySelector('details');
     if (d) {
       if (first) { d.classList.add('rise'); d.style.setProperty('--i', 1); }

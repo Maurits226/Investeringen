@@ -3,6 +3,9 @@
 // de 52-weekse top en de nagerekende historie. TechWarn.tile(data) is de tegel naast de crashradar,
 // TechWarn.banner(data, exposure) de waarschuwing; met { compact: true } één regel die je openklapt voor de uitleg
 // (Vandaag). Elke pagina gebruikt TechWarn.css() eenmalig.
+// Bodemsignaal (bodem.json, scripts/bodem.py): is het dal van een dip bereikt, en wanneer weten we dat? TechWarn.bodem(b)
+// is het blok voor de Patroonradar (kans, tijdpad, grafiek van de VIX-termijnstructuur en de historie); op Vandaag
+// staat het als één regel in de techradar-kaart (banner met opts.bodem).
 const TechWarn = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = v => v == null || v === '' || !isFinite(v) ? null : Number(v);
@@ -181,18 +184,27 @@ const TechWarn = (() => {
     tips.push('Check per positie je these (en je stop): is er iets aan het bedrijf veranderd? Een koersdaling alleen is nooit een reden om een goed bedrijf te verkopen.');
     if (exposure && num(exposure.pct) != null && exposure.pct >= 50 && tips.length < 4) tips.push('Zit je zwaar in tech, stuur nieuwe inleg dan liever naar andere sectoren dan te verkopen.');
     const sxOud = d.sox && d.sox.oud ? ' · verouderd' : '';
+    // Bodemsignaal (bodem.json): in een dip één regel over het dal, en bovenaan de tips wat dat betekent
+    const bk = opts.bodem ? bodemKort(opts.bodem) : null;
+    if (bk) {
+      const bl = opts.bodem.level, bd = opts.bodem.dip, kp = bl.kans && num(bl.kans.p) != null ? pc(bl.kans.p) : null;
+      tips.unshift(bl.k === 'loopt' ? 'Vandaag een nieuw dal: de daling loopt nog. Koop alleen wat je koopladder aangeeft.'
+        : bl.k === 'bereikt' ? `Het dal van ${dag(bd.low)} houdt ${dagen(bd.days_low)} stand${kp ? `: in ${kp} van de vergelijkbare gevallen was dat het dal van de dip` : ''}. De diepere treden van je koopladder komen dan meestal niet meer.`
+        : `Het dal van ${dag(bd.low)} houdt ${dagen(bd.days_low)} stand${kp ? ` (${kp} kans dat dit het dal was)` : ''}${bl.wanneer ? `; houdt het stand tot rond ${dag(bl.wanneer.date)}, dan is het waarschijnlijk bereikt` : ''}.`);
+    }
     if (opts.compact) {
       // kaart voor Vandaag: niveau, signalen als stippen en een ring voor je deel in tech; uitleg en tips na 'Wat te doen'
       const word = inDal ? S[1] : L[1].toLowerCase();
       const nOn = Math.max(0, num(lv.n_on) || 0), nMax = Math.max(nOn, num(lv.n_max) || 6);
       const dots = Array.from({ length: nMax }, (_, i) => `<i${i < nOn ? ' class="on"' : ''}></i>`).join('');
       const ex = exposure && num(exposure.pct) > 0 ? Math.min(100, num(exposure.pct)) : null;
-      return `<details class="tw2 ${tone}" data-tw="banner"${opts.open ? ' open' : ''}>
+      return `<details class="tw2 ${tone}${bk ? ' has-bd' : ''}" data-tw="banner"${opts.open ? ' open' : ''}>
         <summary>
           <span class="tw2-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 12 18.4 5.6"/><path d="M19.8 12a7.8 7.8 0 1 1-2.3-5.5"/><path d="M15.6 12a3.6 3.6 0 1 1-1-2.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span>
           <span class="tw2-m"><span class="tw2-k">${inDal ? 'Tech' : 'Techradar'}</span><b class="tw2-v">${esc(word.charAt(0).toUpperCase() + word.slice(1))}</b>
             <span class="tw2-dots" role="img" aria-label="${nOn} van ${nMax} signalen">${dots}</span></span>
           ${ex == null ? '' : `<span class="tw2-ex"><span class="tw2-ring" style="--p:${Math.round(ex)}" role="img" aria-label="${esc(pc(ex))} van je portefeuille in tech"><b>${esc(pc(ex))}</b></span><small>van je portefeuille in tech</small></span>`}
+          ${bk ? `<span class="tw2-bd ${bk.tone}" data-tw="bodem"><b>${esc(bk.label)}</b> · ${esc(bk.text)}</span>` : ''}
           <span class="tw2-more">Wat te doen</span>
         </summary>
         <div class="tw2-body">
@@ -212,9 +224,155 @@ const TechWarn = (() => {
       <div class="tw-pills"><span class="tw-pill ${L[0].split(' ')[0]}">radar ${esc(L[1].toLowerCase())} · ${esc(nf(lv.n_on, 0))}/${esc(nf(lv.n_max, 0))} signalen</span>
         <span class="tw-pill ${S[0]}">Nasdaq-100 ${under(nd.dd52)} · ${esc(S[1])}</span>${d.sox ? `<span class="tw-pill ${stOf(d.sox.status)[0]}">chips ${under(d.sox.dd52)} · ${esc(stOf(d.sox.status)[1])}${sxOud}</span>` : ''}</div>
       ${text ? `<div class="tw-bt">${esc(text)}</div>` : ''}
+      ${bk ? `<div class="tw-bt" data-tw="bodem"><b>${esc(bk.label)}</b> · ${esc(bk.text)}</div>` : ''}
       ${exp ? `<div class="tw-bt">${exp}</div>` : ''}
       <ul class="tw-bl">${tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
       <div class="tw-bf">Techradar · data t/m ${esc(dag(d.asof))}${stale(d) ? ' (verouderd)' : ''} · hulpmiddel, geen beleggingsadvies</div>
+    </div>`;
+  }
+
+  // ── Bodemsignaal ──────────────────────────────────────────────────────
+  // niveau → kleur en naam (vaste lijst: klassen komen nooit rechtstreeks uit de data)
+  const BD = { geen_dip: ['good', 'Geen dip'], loopt: ['bad', 'Daling loopt nog'], geen: ['bad', 'Nog geen bodem'], maak: ['mid', 'Bodem in de maak'],
+    bereikt: ['good', 'Dal waarschijnlijk bereikt'], onbekend: ['', 'Te weinig vergelijkbare dalen'] };
+  const KL = { terugval: 'terugval van 5–10%', correctie: 'correctie van 10–20%', berenmarkt: 'berenmarkt (20% of meer)' };
+  const bdOf = b => BD[b && b.level && b.level.k] || BD.onbekend;
+  const dagen = n => `${nf(n, 0)} ${num(n) === 1 ? 'handelsdag' : 'handelsdagen'}`;
+  const onder = v => num(v) == null ? '—' : nf(Math.abs(v), 1) + '%';                 // 14,7% (met 'onder de top' erachter)
+  const inDip = b => !!(b && b.dip && b.level && (b.dip.state === 'dip' || b.dip.state === 'herstel'));
+
+  // Eén regel voor Vandaag: stand, kans en wanneer het dal bevestigd is
+  function bodemKort(b) {
+    if (!inDip(b)) return null;
+    const L = bdOf(b), d = b.dip, k = b.level.kans, w = b.level.wanneer;
+    const parts = [`dal ${dag(d.low)}`];
+    if (b.level.k === 'loopt') parts.push('vandaag een nieuw dal');
+    else {
+      parts.push(`houdt ${dagen(d.days_low)} stand`);
+      if (k && num(k.p) != null) parts.push(`${pc(k.p)} kans dat dit het dal was`);
+    }
+    if (w) parts.push(`rond ${dag(w.date)} waarschijnlijk bereikt als het standhoudt`);
+    return { tone: L[0], label: L[1], text: parts.join(' · ') };
+  }
+
+  // Bovenin de termijnstructuur van de angstindex (VIX3M − VIX: grijs = normaal, rood = omgekeerd), daaronder de
+  // Nasdaq-100; de stippellijn is het dal van deze dip
+  function bodemChart(sp) {
+    const c = ((sp && sp.ndx) || []).map(num), v = ((sp && sp.spread) || []).map(num), n = c.length;
+    if (n < 2 || c.some(x => x == null)) return '';
+    const W = 300, H1 = 44, G = 8, H2 = 62, X = i => i / (n - 1) * W;
+    const vs = v.filter(x => x != null);
+    const hi = Math.max(0.5, ...vs), lo = Math.min(-0.5, ...vs), Y0 = hi / (hi - lo) * H1, bw = Math.max(1, W / n * 0.72);
+    const bars = v.map((x, i) => {
+      if (x == null) return '';
+      const h = Math.max(0.6, Math.abs(x) / (hi - lo) * H1);
+      return `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${(x >= 0 ? Y0 - h : Y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" class="${x >= 0 ? 'bd-bp' : 'bd-bn'}"/>`;
+    }).join('');
+    let a = Math.min(...c), z = Math.max(...c);
+    const pad = (z - a || 1) * 0.08; a -= pad; z += pad;
+    const Y = x => H1 + G + (z - x) / (z - a) * H2;
+    const line = c.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(x).toFixed(1)).join('');
+    const li = num(sp.low), mark = li != null && li >= 0 && li < n
+      ? `<line x1="${X(li).toFixed(1)}" x2="${X(li).toFixed(1)}" y1="0" y2="${H1 + G + H2}" class="bd-lm"/>` : '';
+    return `<svg class="bd-svg" viewBox="0 0 ${W} ${H1 + G + H2}" preserveAspectRatio="none" role="img" aria-label="Termijnstructuur van de angstindex en de Nasdaq-100, laatste ${n} handelsdagen">
+      ${bars}<line x1="0" x2="${W}" y1="${Y0.toFixed(1)}" y2="${Y0.toFixed(1)}" class="bd-z"/>
+      <path d="${line}L${W},${H1 + G + H2}L0,${H1 + G + H2}Z" class="tw-sa"/><path d="${line}" class="tw-sl"/>${mark}</svg>`;
+  }
+
+  function termTekst(t) {
+    if (!t || !t.state) return 'Geen actuele stand van de angstindex.';
+    const inv = t.inv, span = inv ? (inv.from === inv.to ? dag(inv.from) : `${dag(inv.from)} t/m ${dag(inv.to)}`) : '';
+    if (t.state === 'omgekeerd') return `<b class="bad">Omgekeerd${inv ? ` sinds ${esc(dag(inv.from))}` : ''}</b>: de angstindex voor 1 maand (VIX ${esc(nf(t.vix, 1))}) staat boven die voor 3 maanden (${esc(nf(t.v3m, 1))}). Dat is paniek; het bodemsignaal komt pas als hij er weer onder zakt.`;
+    if (t.on) return `<b class="good">Weer normaal sinds ${esc(dag(t.since))}</b>${inv ? `, na een omkering (${esc(span)})` : ''}: de VIX (${esc(nf(t.vix, 1))}) staat weer onder de VIX3M (${esc(nf(t.v3m, 1))}).${t.dal_erna ? ' Daarna kwam wel nog een lager dal.' : ''}`;
+    return `Normaal: de VIX (${esc(nf(t.vix, 1))}) staat onder de VIX3M (${esc(nf(t.v3m, 1))})${inv ? `; laatste omkering ${esc(span)}` : ''}.`;
+  }
+  function termStat(t) {
+    const st = t && t.stat;
+    if (!st || !num(st.n)) return '';
+    const plus = num(st.p) != null && num(st.base) != null ? st.p - st.base : null;
+    const oordeel = plus == null ? '' : plus >= 10 ? 'Een duidelijke plus.' : plus >= 3 ? 'Een kleine plus, geen zekerheid.' : 'Dat voegt weinig toe.';
+    return `Nagerekend sinds ${esc(String(st.from || '').slice(0, 4))}: van de <b>${esc(nf(st.n, 0))}</b> keer dat de termijnstructuur in een dip weer normaal werd, was het dal toen
+      <b>${esc(nf(st.goed, 0))}</b> keer al bereikt (<b>${pc(st.p)}</b>), tegen ${pc(st.base)} voor een even oud dal zonder dit signaal. ${oordeel}${(st.mis || []).length
+      ? ` Te vroeg in ${esc(st.mis.join(', '))}.` : ''}`;
+  }
+
+  function bodemDetails(b, open) {
+    const d = b.dip || {}, k = (b.level && b.level.kans) || {}, h = b.horizon || {}, minN = num(h.min_n) || 10;
+    const ages = ((b.tabel || [])[0] || { rows: [] }).rows.map(r => r.age);
+    const cell = (kl, age) => {
+      const r = (kl.rows || []).find(x => x.age === age) || {};
+      const cur = kl.k === d.klasse && age === k.age;
+      return `<td class="${cur ? 'cur' : ''}">${num(r.n) >= minN ? pc(r.p) : '<span class="weak">—</span>'}<small>${esc(nf(r.n || 0, 0))} dalen</small></td>`;
+    };
+    const tRows = ages.map(a => `<tr><td class="l">${esc(nf(a, 0))}</td>${(b.tabel || []).map(kl => cell(kl, a)).join('')}</tr>`).join('');
+    const KH = { terugval: ['terugval', '5–10%'], correctie: ['correctie', '10–20%'], berenmarkt: ['berenmarkt', '20% of meer'] };   // koppen op twee regels
+    const sig = c => {
+      if (!c.sig) return '<small>geen omkering</small>';
+      if (c.na_dal >= 0) return c.end ? `<span class="ok">${esc(c.na_dal)} d na het dal</span><small>${esc(dag(c.sig))} · ${signed(c.boven_dal)} boven het dal</small>`
+        : `<span class="mid">${esc(c.na_dal)} d na het dal tot nu toe</span><small>${esc(dag(c.sig))} · loopt nog</small>`;
+      return `<span class="weak">${esc(-c.na_dal)} d te vroeg</span><small>${esc(dag(c.sig))} · daarna nog ${onder(c.lager)} lager</small>`;
+    };
+    const cRows = (b.dips || []).slice().reverse().map(c => `<tr class="${c.top === false ? 'golf' : ''}"><td class="l">${esc(maand(c.peak))} → ${esc(maand(c.trough))}<small>${esc(c.days)} d omlaag${c.end ? '' : ' · loopt nog'}${c.top === false ? ' · golf' : ''}</small></td>
+      <td class="dn">${under(c.depth)}</td><td class="bd-vb">${esc(nf(c.vals, 0))}</td><td class="l r">${sig(c)}</td></tr>`).join('');
+    const typ = (b.typ || []).filter(t => num(t.n) >= minN).map(t => `${esc(KL[t.k] || t.k)}: meestal ${esc(nf(t.q1, 0))}–${esc(nf(t.q3, 0))} handelsdagen van top tot dal (mediaan ${esc(nf(t.med, 0))}, ${esc(nf(t.n, 0))} keer)`).join(' · ');
+    const errs = (b.source_errors || []).map(e => `<li>${esc(e)}</li>`).join('');
+    return `<details class="tw-det bd-det"${open ? ' open' : ''}><summary>Bodemsignaal · onderbouwing en historie<span class="tw-btn"></span></summary><div class="tw-dbody">
+      <div class="tw-dk">Kans dat dit het dal was <span>naar handelsdagen dat het dal standhoudt en diepte van de dip · sinds ${esc(String(h.from || '').slice(0, 4) || '—')}</span></div>
+      <div class="tw-tw"><table class="tw-t bd-t"><tr><th>dagen</th>${(b.tabel || []).map(kl => `<th>${esc((KH[kl.k] || [kl.label])[0])}<small>${esc((KH[kl.k] || ['', ''])[1])}</small></th>`).join('')}</tr>${tRows}</table></div>
+      <div class="tw-dk">Correcties Nasdaq-100 <span>≥10% onder de top · nieuwste eerst</span></div>
+      <div class="tw-tw"><table class="tw-t"><tr><th>top → dal</th><th>daling</th><th class="bd-vb" title="Dalen die 10 handelsdagen standhielden en daarna toch braken">valse bodems</th><th>angstindex weer normaal</th></tr>${cRows}</table></div>
+      <div class="tw-note">${typ ? `Duur sinds 1985: ${typ}. ` : ''}<b>Dit was het dal</b> = de Nasdaq-100 sloot daarna niet meer lager tot hij terug was op zijn 52-weekse top. Per dal telt één keer: de dag dat het die leeftijd bereikte.
+        Onder ${esc(nf(minN, 0))} vergelijkbare dalen noemen we geen percentage. <b>Valse bodems</b>: dalen die 10 handelsdagen standhielden en daarna toch braken.
+        De angstpiek, de RSI en het 20-daags gemiddelde zijn ook nagerekend: ze voegden niets toe aan de leeftijd van het dal en doen daarom niet mee.
+        Een kans is geen voorspelling: in een berenmarkt braken ook dalen die weken standhielden.</div>
+      ${errs ? `<ul class="tw-err">${errs}</ul>` : ''}
+      <div class="tw-note">Bronnen: Nasdaq-100, VIX en VIX3M via Yahoo. Bijgewerkt ${esc(dag(b.updated))} ${esc(String(b.updated || '').slice(11, 16))} UTC. Geen beleggingsadvies.</div>
+    </div></details>`;
+  }
+
+  // Blok voor de Patroonradar. Zonder dip één rustige regel; in een dip de kans, het tijdpad en de termijnstructuur.
+  function bodem(b, opts = {}) {
+    if (!b || !b.dip || !b.level) return '';
+    css();
+    const L = bdOf(b), d = b.dip, k = b.level.kans, w = b.level.wanneer, t = b.term || {};
+    const oud = stale(b) ? ' <b class="old">(verouderd)</b>' : '';
+    const chart = bodemChart(b.spark);
+    const term = `<div class="bd-term">
+        <div class="bd-ck"><span><i class="bp"></i>normaal</span><span><i class="bn"></i>omgekeerd (paniek)</span><span class="bd-cr">VIX3M − VIX</span></div>
+        ${chart}
+        <div class="tw-sk"><span>Nasdaq-100 · ${esc(nf(((b.spark || {}).ndx || []).length, 0))} handelsdagen</span><span>${esc(nf(d.close, 0))}${num((b.spark || {}).low) != null ? ' · <i class="bd-li"></i>dal ' + esc(dag(d.low)) : ''}</span></div>
+        <div class="bd-tt"><b>Termijnstructuur van de angstindex.</b> ${termTekst(t)}</div>
+        ${termStat(t) ? `<div class="bd-tt bd-ts">${termStat(t)}</div>` : ''}
+      </div>`;
+    if (!inDip(b)) {
+      return `<div class="bd good bd-rust"><div class="bd-top"><div class="tw-k"><i></i>Bodemsignaal · Nasdaq-100</div>
+          <div class="bd-main"><span class="bd-verdict">${L[1]}</span></div>
+          <div class="tw-sub">De Nasdaq-100 staat ${onder(d.dd)} onder zijn 52-weekse top: geen dip, dus geen dal om te bevestigen. Zakt hij 5% of meer, dan zie je hier de kans dat het dal bereikt is.</div></div>
+        ${term}${opts.details === false ? '' : bodemDetails(b, opts.open)}
+        <div class="tw-basis">Data t/m ${esc(dag(b.asof))}${oud}.</div></div>`;
+    }
+    const kl = KL[d.klasse] || 'dip';
+    const hasP = k && num(k.p) != null;
+    const uitleg = b.level.k === 'loopt'
+      ? `De Nasdaq-100 sloot vandaag op een nieuw dal: <b>${onder(d.low_dd)}</b> onder de top van ${esc(dag(d.top))}. Zolang er nieuwe dalen komen, is er geen bodem.`
+      : `Dal tot nu toe: <b>${esc(dag(d.low))}</b>, ${onder(d.low_dd)} onder de top. Het houdt <b>${esc(dagen(d.days_low))}</b> stand${num(d.from_low) != null ? ` en de koers staat er ${signed(d.from_low)} boven` : ''}.`
+        + (hasP ? ` Van de ${esc(nf(k.n, 0))} vergelijkbare dalen sinds ${esc(String((b.horizon || {}).from || '').slice(0, 4))} (${esc(kl)}, even oud) bleek <b>${pc(k.p)}</b> het dal van de dip.`
+          : ` Te weinig vergelijkbare dalen (${esc(nf((k || {}).n || 0, 0))}) om een kans te noemen.`);
+    const steps = [{ nu: true, age: d.days_low, p: hasP ? k.p : null, k: b.level.k }].concat((b.pad || []).slice(0, 5));
+    const tone = x => (BD[x] || BD.onbekend)[0];
+    const pad = b.level.k === 'loopt' && !(b.pad || []).length ? '' : `<div class="bd-pad" role="list">${steps.map(x => `<div class="bd-st ${tone(x.k)}${x.nu ? ' nu' : ''}" role="listitem">
+        <div class="bd-sa">${x.nu ? 'nu' : 'dag ' + esc(nf(x.age, 0))}</div><div class="bd-sp">${num(x.p) == null ? '—' : pc(x.p)}</div>
+        <div class="bd-sd">${x.nu ? esc(dagen(x.age)) : 'rond ' + esc(dag(x.date))}</div></div>`).join('')}</div>
+      <div class="bd-pn">Kans dat dit het dal was, als het blijft standhouden; vanaf ${pc((b.horizon || {}).p_ok)} waarschijnlijk bereikt. Data bij benadering.</div>`;
+    return `<div class="bd ${L[0]}">
+      <div class="bd-top"><div class="tw-k"><i></i>Bodemsignaal · Nasdaq-100 · ${esc(kl)}</div>
+        <div class="bd-main"><span class="bd-verdict">${L[1]}</span>${hasP ? `<span class="bd-num">${pc(k.p)}<small>kans dat dit het dal was</small></span>` : ''}</div>
+        <div class="tw-sub">${uitleg}</div>
+        ${w ? `<div class="bd-when">Houdt het dal stand tot rond <b>${esc(dag(w.date))}</b> (${esc(dagen(w.age))}), dan is het <b>waarschijnlijk bereikt</b>: ${pc(w.p)}.</div>` : ''}
+        ${b.level.k === 'bereikt' ? '<div class="bd-when">Meestal bleek een dal dat zo lang standhield het dal van de dip. Geen garantie: breekt het alsnog, dan begint de telling opnieuw.</div>' : ''}
+      </div>
+      ${pad}${term}${opts.details === false ? '' : bodemDetails(b, opts.open)}
+      <div class="tw-basis">Nasdaq-100 nu ${onder(d.dd)} onder zijn 52-weekse top (${esc(nf(d.close, 0))}). Data t/m ${esc(dag(b.asof))}${oud}. Hulpmiddel, geen beleggingsadvies.</div>
     </div>`;
   }
 
@@ -342,15 +500,61 @@ const TechWarn = (() => {
       /* waarom (cijfers en uitleg) onder de tips, kleiner en rustiger */
       .tw2-why { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
       .tw2-why .tw-bt { font-size: 11.5px; color: var(--muted, #83888d); line-height: 1.5; } .tw2-why .tw-bt b { color: #c8cbcf; }
+      /* Bodemsignaal: blok over de volle breedte (Patroonradar) */
+      .bd { position: relative; overflow: hidden; border-radius: 14px; padding: 16px 18px 14px; min-width: 0; margin: 0 0 14px;
+        background: linear-gradient(180deg, var(--panel, #1a1c1e), var(--ink, #141517)); border: 1px solid var(--line, #2a2c2f);
+        display: flex; flex-direction: column; gap: 12px; --mark: #a78bfa; --tone: var(--muted, #83888d); color: var(--text, #eceef0); }
+      .bd::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--mark); }
+      .bd.good { --tone: var(--up, #3ecf8e); } .bd.mid { --tone: var(--warn, #f5b544); } .bd.bad { --tone: var(--down, #f0595f); }
+      .bd .tw-k i { background: var(--mark); box-shadow: 0 0 0 3px rgba(167,139,250,.22); }
+      .bd-top { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+      .bd-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .bd-verdict { font-size: 22px; font-weight: 700; letter-spacing: -.4px; color: var(--tone); line-height: 1.1; }
+      .bd-num { font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); font-size: 22px; font-weight: 600; color: var(--tone); white-space: nowrap; }
+      .bd-num small { font-size: 11px; font-weight: 500; color: var(--muted, #83888d); margin-left: 6px; }
+      .bd .tw-sub { margin-top: 0; } .bd .tw-sub b { color: var(--text, #eceef0); font-weight: 600; }
+      .bd-when { font-size: 13px; line-height: 1.5; color: #c8cbcf; background: rgba(255,255,255,.03); border: 1px solid var(--line, #2a2c2f);
+        border-left: 3px solid var(--tone); border-radius: 10px; padding: 8px 11px; } .bd-when b { color: var(--text, #eceef0); }
+      .bd-pad { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 6px; }
+      .bd-st { --c: var(--muted, #83888d); border: 1px solid var(--line, #2a2c2f); border-top: 2px solid var(--c); border-radius: 10px; padding: 7px 9px 8px;
+        background: rgba(255,255,255,.02); min-width: 0; }
+      .bd-st.good { --c: var(--up, #3ecf8e); } .bd-st.mid { --c: var(--warn, #f5b544); } .bd-st.bad { --c: var(--down, #f0595f); }
+      .bd-st.nu { background: color-mix(in srgb, var(--c) 10%, transparent); border-color: color-mix(in srgb, var(--c) 45%, transparent); border-top-color: var(--c); }
+      .bd-sa { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted, #83888d); }
+      .bd-sp { font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); font-size: 17px; font-weight: 600; color: var(--c); line-height: 1.25; }
+      .bd-sd { font-size: 11px; color: var(--muted, #83888d); font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); white-space: nowrap; }
+      .bd-pn { font-size: 11px; color: var(--muted, #83888d); line-height: 1.5; margin-top: -6px; }
+      .bd-term { border: 1px solid var(--line, #2a2c2f); border-radius: 10px; padding: 10px 11px; background: rgba(255,255,255,.015); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      .bd-ck { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted, #83888d); font-family: var(--mono, 'IBM Plex Mono', ui-monospace, monospace); }
+      .bd-ck i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; } .bd-ck i.bp { background: #6b7178; } .bd-ck i.bn { background: var(--down, #f0595f); }
+      .bd-cr { margin-left: auto; }
+      .bd-svg { display: block; width: 100%; height: 132px; }
+      .bd-bp { fill: #6b7178; } .bd-bn { fill: var(--down, #f0595f); }
+      .bd-z { stroke: #3a3e43; stroke-width: 1; vector-effect: non-scaling-stroke; }
+      .bd-lm { stroke: var(--mark); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; opacity: .8; }
+      .bd .tw-sl { stroke: #2dd4bf; }
+      .bd-li { display: inline-block; width: 10px; border-top: 1px dashed var(--mark); vertical-align: middle; margin-right: 4px; }
+      .bd-tt { font-size: 12.5px; line-height: 1.5; color: #c8cbcf; } .bd-tt b { color: var(--text, #eceef0); font-weight: 600; }
+      .bd-tt b.good { color: var(--up, #3ecf8e); } .bd-tt b.bad { color: var(--down, #f0595f); }
+      .bd-ts { font-size: 12px; color: var(--muted, #83888d); } .bd-ts b { color: #c8cbcf; }
+      .bd-det > summary { font-size: 12.5px; } .bd .tw-btn { color: var(--mark); border-color: rgba(167,139,250,.45); }
+      .bd-t td.cur { color: var(--warn, #f5b544); font-weight: 600; background: rgba(245,181,68,.07); }
+      .bd-t td, .bd-t th { padding-right: 6px; } .tw-t th small { display: block; font-weight: 400; }
+      /* één regel in de techradar-kaart op Vandaag */
+      .tw2-bd { grid-area: bd; font-size: 12px; line-height: 1.45; color: var(--muted, #83888d); border-top: 1px solid rgba(255,255,255,.06); padding-top: 9px; }
+      .tw2-bd b { font-weight: 600; } .tw2-bd.good b { color: var(--up, #3ecf8e); } .tw2-bd.mid b { color: var(--warn, #f5b544); } .tw2-bd.bad b { color: var(--down, #f0595f); }
+      .tw2.has-bd > summary { grid-template-areas: "ic m ex" "bd bd bd" "more more more"; }
       @media (prefers-reduced-motion: reduce) { .tw2-ic svg { animation: none !important; } }
       @media (max-width: 480px) {
         .tw-cc { padding: 14px 13px 12px; } .tw-verdict, .tw-num { font-size: 20px; }
         .tw-ms2 { gap: 8px; } .tw-m { padding: 7px 8px; }
         .tw-sigs li { flex-wrap: wrap; } .tw-sigs li em { margin-left: auto; }
         .tw-dbody { padding: 0 8px 8px; } .tw-t { font-size: 11px; } .tw-t td, .tw-t th, .tw-t td.l.r { padding-left: 10px; }
+        .bd { padding: 14px 13px 12px; } .bd-verdict, .bd-num { font-size: 20px; } .bd-pad { grid-template-columns: repeat(3, 1fr); } .bd-svg { height: 116px; }
+        .bd-vb { display: none; }
       }`;
     document.head.appendChild(st);
   }
 
-  return { tile, details, banner, css, esc };
+  return { tile, details, banner, bodem, bodemKort, css, esc };
 })();

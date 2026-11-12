@@ -1,6 +1,5 @@
-"""TIJDELIJK (alleen op de werkbranch): rekent het bodemsignaal door op de echte historie en zet een verslag in het
-logboek, zodat de uitkomst nagekeken kan worden voordat het live gaat. Wordt verwijderd voordat dit naar main gaat."""
-import json
+"""TIJDELIJK (alleen op de werkbranch): rekent het bodemsignaal door op de echte historie en zet een kort verslag in het
+logboek. Wordt verwijderd voordat dit naar main gaat."""
 import os
 import sys
 from datetime import date
@@ -11,112 +10,101 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import bodem as B  # noqa: E402
 import tech as T  # noqa: E402
 
-
-def load():
-    if os.environ.get("SYNTH"):
-        sys.path.insert(0, os.path.join(ROOT, "tests"))
-        from test_bodem import synth  # noqa: E402
-        return synth()
-    rows = {}
-    for key, (sym, name) in B.SRC.items():
-        rows[key] = T.yahoo_daily(sym, date(1985, 1, 1))
-        print(f"{name}: {len(rows[key])} dagen, {rows[key][0][0]} t/m {rows[key][-1][0]}, laatste {rows[key][-1][1]:.2f}")
-    return rows
-
-
-rows = load()
-out = B.build(rows, [])
-print("JSON:" + json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+if os.environ.get("SYNTH"):
+    sys.path.insert(0, os.path.join(ROOT, "tests"))
+    from test_bodem import synth  # noqa: E402
+    rows = synth()
+else:
+    rows = {key: T.yahoo_daily(sym, date(1985, 1, 1)) for key, (sym, _) in B.SRC.items()}
 R = B.reeks(rows)
-dates, ndx, x, sig, cnt, lv = R["dates"], R["ndx"], R["x"], R["sig"], R["cnt"], R["lv"]
-n = len(ndx)
+dates, ndx, x, sig, cnt = R["dates"], R["ndx"], R["x"], R["sig"], R["cnt"]
+n, c0 = len(ndx), R["c0"]
 dd, dd_low, low, top = x["dd"], x["dd_low"], x["low"], x["top"]
-print(f"\nc0 (alle signalen bestaan) = {dates[R['c0']] if R['c0'] < n else None} · in gebruik: {R['use']} · kort: {R['kort']} · oud: {R['oud']}")
-in_dip = [i for i in range(252, n) if dd[i] <= -B.DIP]
-print(f"dagen in een dip: {len(in_dip)} van {n - 252} ({100 * len(in_dip) / (n - 252):.0f}%)")
+H = 60
 
-print("\n== Per signaal, dagen in een dip (hele eigen historie) ==")
-for s in out["signals"]:
-    print({k: s.get(k) for k in ("k", "on", "since", "from", "n", "n_ep", "hold", "hold_ep", "base", "lift", "lift_ep", "fwd", "pos", "lager")})
-print("\n== Per signaal, zelfde periode (vanaf c0) ==")
-comp = [i for i in in_dip if i >= R["c0"] and cnt[i] is not None]
-for k in R["use"]:
-    st = B.stats([i for i in comp if sig[k][i]], comp, R)
-    print(k, st)
-print("\n== Per niveau ==")
-for l in out["levels"]:
-    print(l["k"], "dip", l["dip"])
-    print("   herstel", l["herstel"])
-print("\n== Per aantal signalen (in een dip) ==")
-for c in out["per_cnt"]:
-    print(c)
 
-# Andere horizonnen (alleen ter controle: verandert het beeld?)
-print("\n== Robuustheid: andere horizon voor 'dal hield stand' ==")
-for h in (20, 40, 60, 120, 250):
-    B.H = h
-    hold, lager, fwd = B.uitkomst(ndx, low)
-    R2 = dict(R, hold=hold, lager=lager, fwd=fwd)
-    row = []
-    for li in range(len(B.LEVELS)):
-        st = B.stats([i for i in comp if lv[i] == li], comp, R2)
-        row.append(f"{B.LEVELS[li][0]}: {st['hold']}% (ep {st['hold_ep']}%, n_ep {st['n_ep']}, fwd {st['fwd']}%)")
-    print(f"H={h}: basis {st['base']}% · " + " · ".join(row))
-B.H = 60
+def fmin(i, h):
+    return min(ndx[i + 1:i + h + 1]) if i + h < n else None
 
-print("\n== Omkeringen van de termijnstructuur (VIX boven VIX3M) ==")
-ratio = x["ratio"]
-inv = [i for i in range(n) if ratio[i] is not None and ratio[i] > 1.0]
-eps, cur = [], []
-for i in inv:
-    if cur and i - cur[-1] > B.INV_WIN:
-        eps.append(cur)
-        cur = []
-    cur.append(i)
-if cur:
-    eps.append(cur)
-hold, lager, fwd = B.uitkomst(ndx, low)
-print(f"{len(eps)} omkeringen sinds {dates[next(i for i in range(n) if ratio[i] is not None)]}")
-good = tot = 0
-for e in eps:
-    a, b = e[0], e[-1]
-    u = next((j for j in range(b + 1, min(n, b + 30)) if sig["termijn"][j]), None)   # eerste dag 'weer normaal'
-    if u is None:
-        print(f"{dates[a]} t/m {dates[b]} ({len(e)} d, max {max(ratio[i] for i in e):.2f}) · geen 'weer normaal' gevonden")
-        continue
-    lo_i = low[u]
-    after = min(ndx[u + 1:u + 61]) if u + 60 < n else None
-    held = None if after is None else after >= ndx[lo_i]
-    if held is not None and dd_low[u] <= -B.DIP:
+
+def first_reach(cond, start=c0, need_dip=True):
+    """Per dal (index van het laagste slot sinds de top) de eerste dag waarop cond(i) waar is."""
+    seen, out = set(), []
+    for i in range(max(start, 252), n):
+        if dd_low[i] > -B.DIP or (need_dip and dd[i] > -B.DIP):
+            continue
+        if low[i] in seen or i == low[i]:               # op de dag van een nieuw dal kan het dal niet 'bereikt' zijn
+            continue
+        if cond(i):
+            seen.add(low[i])
+            out.append(i)
+    return out
+
+
+def base_age(a, h=H, start=c0):
+    """Kans dat een dal dat al 'a' handelsdagen niet gebroken is, ook de h dagen daarna standhoudt (alle dalen in een dip)."""
+    seen, ok, tot = set(), 0, 0
+    for i in range(max(start, 252), n):
+        if dd_low[i] > -B.DIP or i - low[i] != a or low[i] in seen:
+            continue
+        seen.add(low[i])
+        m = fmin(i, h)
+        if m is None:
+            continue
         tot += 1
-        good += held
-    print(f"{dates[a]} t/m {dates[b]} ({len(e):>3} d, max {max(ratio[i] for i in e):.2f}) · normaal {dates[u]} · NDX {dd[u]:+.1f}% t.o.v. top, dal {dd_low[u]:+.1f}% op {dates[lo_i]} "
-          f"({u - lo_i} d eerder) · 60 d later {'—' if fwd[u] is None else f'{fwd[u]:+.1f}%'} · dal hield: {held}"
-          f"{'' if held or held is None else f' (nog {lager[u]:.1f}% lager)'}")
-print(f"In een dip (5%+): dal hield in {good} van {tot} omkeringen")
+        ok += m >= ndx[low[i]]
+    return (100 * ok / tot if tot else None), tot
 
-print("\n== Alle correcties >= 10% vanaf c0 ==")
-for pk, tr, h10, end in T.correcties(ndx):
-    if pk < R["c0"]:
-        continue
-    stop = end if end is not None else n - 1
-    ok = [j for j in range(h10, stop + 1) if lv[j] is not None and lv[j] >= B.LV_OK]
-    mk = [j for j in range(h10, stop + 1) if lv[j] is not None and lv[j] >= 1]
-    f = ok[0] if ok else None
-    line = f"{dates[pk]} → {dates[tr]} {((ndx[tr] / ndx[pk] - 1) * 100):+.1f}% in {tr - pk} d (top52w: {dd[pk] > -B.DIP})"
-    if f is None:
-        line += " · geen 'bereikt'" + (f" · 'in de maak' {dates[mk[0]]} ({mk[0] - tr:+d} d t.o.v. dal)" if mk else "")
-    else:
-        lo = min(ndx[pk:f + 1])
-        na = min(ndx[f + 1:f + 61]) if f + 60 < n else None
-        line += (f" · bereikt {dates[f]} ({f - tr:+d} d t.o.v. dal, {((ndx[f] / lo - 1) * 100):+.1f}% boven dal, signalen "
-                 f"{[k for k in R['use'] if sig[k][f]]}) · hield: {None if na is None else na >= lo}"
-                 f"{'' if na is None or na >= lo else f' ({((na / lo - 1) * 100):.1f}% lager)'}"
-                 f" · 60 d later {'—' if f + 60 >= n else f'{((ndx[f + 60] / ndx[f] - 1) * 100):+.1f}%'}")
-    print(line)
 
-print("\n== Laatste 30 handelsdagen ==")
-for i in range(n - 30, n):
-    v, m = R["al"]["vix"][i], R["al"]["v3m"][i]
-    print(f"{dates[i]} NDX {ndx[i]:>9.1f} dd {dd[i]:+6.1f}% dal {dd_low[i]:+6.1f}% · VIX {v} VIX3M {m} ratio {ratio[i] if ratio[i] is None else round(ratio[i], 3)} · RSI {x['rsi'][i]:.0f} · "
-          f"signalen {[k for k in sig if sig[k][i]]} · niveau {lv[i]}")
+BA = {a: base_age(a) for a in range(0, 41)}
+print("Basis: kans dat het dal 60 d standhoudt naar leeftijd van het dal (handelsdagen): "
+      + " · ".join(f"{a}d {BA[a][0]:.0f}% (n={BA[a][1]})" for a in (0, 1, 2, 3, 4, 5, 7, 10, 15, 20, 30) if BA[a][0] is not None))
+
+
+def report(name, cond, **kw):
+    ev = first_reach(cond, **kw)
+    known = [i for i in ev if fmin(i, H) is not None]
+    if not known:
+        print(f"{name:<34} geen gevallen")
+        return
+    hold = [fmin(i, H) >= ndx[low[i]] for i in known]
+    k120 = [i for i in known if fmin(i, 120) is not None]
+    h120 = [fmin(i, 120) >= ndx[low[i]] for i in k120]
+    age = sorted(i - low[i] for i in known)
+    above = sorted((ndx[i] / ndx[low[i]] - 1) * 100 for i in known)
+    fwd = sorted((ndx[i + H] / ndx[i] - 1) * 100 for i in known)
+    matched = [BA[min(40, i - low[i])][0] for i in known if BA[min(40, i - low[i])][0] is not None]
+    deep = [h for i, h in zip(known, hold) if dd_low[i] <= -20]
+    shal = [h for i, h in zip(known, hold) if dd_low[i] > -20]
+    miss = sorted((fmin(i, H) / ndx[low[i]] - 1) * 100 for i, h in zip(known, hold) if not h)
+    print(f"{name:<34} n={len(known):>3} · hield {100 * sum(hold) / len(hold):>3.0f}% (zelfde leeftijd dal: {sum(matched) / len(matched):.0f}%) · 120d {100 * sum(h120) / max(1, len(h120)):.0f}%"
+          f" · dal {age[len(age) // 2]} d oud, +{above[len(above) // 2]:.1f}% boven dal · 60d later mediaan {fwd[len(fwd) // 2]:+.1f}%"
+          f" · dal <20%: {sum(shal)}/{len(shal)} · dal 20%+: {sum(deep)}/{len(deep)}"
+          f" · mis: mediaan {miss[len(miss) // 2] if miss else 0:.1f}% lager")
+
+
+fast = lambda i: sum(1 for k in ("termijn", "angstpiek", "rsi") if sig[k][i])  # noqa: E731
+print("\n== Eerste keer per dal dat de stand bereikt werd (in een dip, vanaf 2006) ==")
+for k in R["use"]:
+    report(k, lambda i, k=k: bool(sig[k][i]))
+report("termijn, dal 10%+", lambda i: bool(sig["termijn"][i]) and dd_low[i] <= -10)
+for c in (1, 2, 3, 4):
+    report(f"{c}+ signalen", lambda i, c=c: cnt[i] is not None and cnt[i] >= c)
+report("snel: 1+ van termijn/angst/rsi", lambda i: fast(i) >= 1)
+report("snel: 2+ van termijn/angst/rsi", lambda i: fast(i) >= 2)
+report("snel: alle 3", lambda i: fast(i) >= 3)
+report("dal_houdt & boven_20d", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]))
+report("dal_houdt & boven_20d & snel 1+", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]) and fast(i) >= 1)
+report("boven_20d & snel 1+", lambda i: bool(sig["boven_20d"][i]) and fast(i) >= 1)
+report("boven_20d & termijn", lambda i: bool(sig["boven_20d"][i] and sig["termijn"][i]))
+for a in (3, 5, 10, 15, 20):
+    report(f"dal {a} d oud (zonder signaal)", lambda i, a=a: i - low[i] >= a)
+for p in (3, 5, 8):
+    report(f"{p}% boven het dal", lambda i, p=p: ndx[i] >= ndx[low[i]] * (1 + p / 100))
+print("\n== Zelfde, hele historie van de koerssignalen (vanaf 1986) ==")
+for k in ("rsi", "dal_houdt", "boven_20d"):
+    report(k, lambda i, k=k: bool(sig[k][i]), start=252)
+report("dal_houdt & boven_20d", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]), start=252)
+print("\n== Ook buiten een dip gerekend vanaf het herstel (dal 5%+, nu binnen 5% van de top telt mee) ==")
+report("dal_houdt & boven_20d", lambda i: bool(sig["dal_houdt"][i] and sig["boven_20d"][i]), need_dip=False)
+report("termijn", lambda i: bool(sig["termijn"][i]), need_dip=False)

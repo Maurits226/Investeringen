@@ -162,6 +162,30 @@ check(!M.changed && M.list.length === 2, 'net zelf toegevoegd (nog niet in ticke
 M = S.mergeDashboard(ownAdd, dash([{ ticker: 'ZETA', section: 'Stocks', label: null }], true));
 check(M.changed && M.list.find(p => p.ticker === 'ZETA').sync === 'txt' && M.list.length === 2, 'eigen toevoeging gezien in tickers.txt: gemarkeerd, niet dubbel');
 check(S.mergeDashboard(fixed, null).list === fixed, 'tickers.txt niet te lezen: lijst ongewijzigd');
+// Stresstest: per positie de gevoeligheid (beta) voor de Nasdaq-100 en chips, samengesteld gerekend en gewogen naar waarde
+{
+  const near = (a, b, e = 0.01) => Math.abs(a - b) < e;
+  check(near(S.shockPct(1, -20), -20) && near(S.shockPct(2, -20), -36) && near(S.shockPct(0, -30), 0) && S.shockPct(5, -30) > -100,
+    'schok samengesteld: beta 1 = de index, beta 2 bij −20% = −36%, nooit meer dan alles');
+  const q = (price) => ({ price });
+  // 100 x €10 met beta 2, 50 x €20 met beta 1, één positie zonder meting (€1000)
+  const held = [{ id: 'a', name: 'A', q: q(10), qty: 100, st: { ndx: 2, sox: 1, corr: -30 } },
+    { id: 'b', name: 'B', q: q(20), qty: 50, st: { ndx: 1, corr: -10 } }, { id: 'c', name: 'C', q: q(10), qty: 100 }];
+  const T = S.stressTest(held, { from: '2026-10-06', to: '2026-11-05', pct: -14.7 });
+  const n20 = T.scen.find(x => x.f === 'ndx' && x.pct === -20), sx = T.scen.find(x => x.f === 'sox');
+  check(T.scen.length === 4 && near(n20.loss, -28) && near(n20.eur, -840) && near(n20.cover, 66.67) && n20.n === 2,
+    `Nasdaq −20%: (−36% + −20%) / 2 = −28% over de gemeten posities, toegepast op het geheel (${JSON.stringify(n20 && [n20.loss, n20.eur, n20.cover])})`);
+  check(n20.pos[0].id === 'a' && near(n20.pos[0].pct, -36) && near(n20.pos[0].eur, -360) && near(n20.pos[0].part, -12),
+    'grootste bijdrage voorop: positie, verlies in procent, euro en procentpunten van het geheel');
+  check(sx && sx.n === 1 && near(sx.loss, -30) && near(sx.cover, 33.33), 'chips −30%: alleen posities met een chipmeting tellen, de rest als gemiddelde');
+  check(T.last && near(T.last.loss, -20) && T.last.from === '2026-10-06' && near(T.last.pct, -14.7), `herhaling van de laatste correctie: gemiddelde van −30% en −10% (${JSON.stringify(T.last && T.last.loss)})`);
+  const E = S.stressTest(held.map(x => ({ ...x, qty: 1 })), null);
+  check(E.equal && E.total === null && E.scen[1].eur === null && near(E.scen[1].loss, -28) && E.last === null, 'zonder aantallen: elke positie even zwaar, geen bedragen; zonder correctie geen herhaling');
+  check(S.stressTest([], null) === null && S.stressTest([{ id: 'x', name: 'X', q: q(5), qty: 1 }], null) === null, 'zonder posities of zonder metingen: geen stresstest');
+  const fx = S.stressTest([{ id: 'u', name: 'U', q: q(10), qty: 10, rate: 0.5, st: { ndx: 1 } }, { id: 'e', name: 'E', q: q(10), qty: 10, st: { ndx: 3 } }], null);
+  check(near(fx.scen[0].loss, (50 * -10 + 100 * S.shockPct(3, -10)) / 150), 'dollarpositie telt mee in euro (rate)');
+}
+
 (async () => {
   // tickers.txt lezen (zonder token: de versie van de website)
   ctx.fetch = async u => ({ ok: u === 'tickers.txt', text: async () => '# kop\nAMD.DE\nSNDK, Sandisk Corporation, Stocks  # via dashboard\nLLY.DE, Eli Lilly and Company, Watchlist  # via dashboard\nbad ticker!, X, Stocks # via dashboard\n' });

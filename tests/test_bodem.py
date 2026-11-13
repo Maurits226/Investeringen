@@ -132,6 +132,56 @@ check(o2["level"]["k"] == "loopt" and o2["dip"]["days_low"] == 0, f"nieuw dal va
 o3 = B.build({"ndx": reeks_van(up, date(2013, 1, 1))}, [])
 check(o3["level"]["k"] == "geen_dip" and o3["dip"]["state"] == "geen" and o3["pad"] == [], f"op de top is er geen dip: {o3['level']}")
 
+# 10. De run zelf (met nagebootste bronnen): bestand schrijven, niet vaker dan eens per uur, en bij een storing blijft
+#     het oude bestand staan; valt alleen de angstindex weg, dan is er wel een kans maar geen termijnstructuur
+import contextlib  # noqa: E402
+import io  # noqa: E402
+import tempfile  # noqa: E402
+
+SYM = {"^NDX": "ndx", "^VIX": "vix", "^VIX3M": "v3m"}
+storing = set()
+
+
+def fake_yahoo(sym, start=None):
+    if sym in storing:
+        raise RuntimeError(f"{sym}: gesimuleerde storing")
+    return rows[SYM[sym]]
+
+
+_yd, _out = B.T.yahoo_daily, B.OUT
+B.T.yahoo_daily = fake_yahoo
+with tempfile.TemporaryDirectory() as tmp:
+    B.OUT = os.path.join(tmp, "bodem.json")
+    try:
+        with contextlib.redirect_stdout(io.StringIO()) as log:
+            B.run()
+            first = json.load(open(B.OUT, encoding="utf-8"))
+            B.run()                                          # net geschreven: niets te doen
+            check("niets te doen" in log.getvalue(), "een verse bodem.json moet niet opnieuw berekend worden")
+            storing.add("^VIX3M")
+            B.run(force=True)
+            zonder = json.load(open(B.OUT, encoding="utf-8"))
+            storing.add("^NDX")
+            with contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    B.main()                                 # leest sys.argv: geen --force, dus eerst het bestand oud maken
+                except SystemExit as e:
+                    check(e.code in (0, None), f"met een oud bestand moet een storing de lus niet breken (code {e.code})")
+                zonder["updated"] = "2020-01-01T00:00:00+00:00"
+                json.dump(zonder, open(B.OUT, "w", encoding="utf-8"))
+                try:
+                    B.main()
+                    check(False, "storing van de Nasdaq-100 moet de run afbreken")
+                except SystemExit as e:
+                    check(e.code == 0, f"storing met een bestaand bestand: code 0 verwacht, kreeg {e.code}")
+            na = json.load(open(B.OUT, encoding="utf-8"))
+        check(first["version"] == B.VERSION and first["level"]["k"] == out["level"]["k"], "de run schrijft niet dezelfde uitkomst als build")
+        check(zonder["term"]["state"] is None and zonder["level"]["k"] == first["level"]["k"] and any("VIX3M" in e for e in zonder["source_errors"]),
+              f"zonder VIX3M: wel een kans, geen termijnstructuur, en de storing gemeld ({zonder['source_errors']})")
+        check(na["updated"] == "2020-01-01T00:00:00+00:00", "bij een storing van de Nasdaq-100 moet het oude bestand blijven staan")
+    finally:
+        B.T.yahoo_daily, B.OUT = _yd, _out
+
 print(f"BODEM: {len(fails)} fout(en)" if fails else
       f"BODEM: alles in orde · synthetisch: {out['dip']['state']}, {out['level']['k']}, "
       f"{sum(r['n'] for kl in out['tabel'] for r in kl['rows'] if r['age'] == 1)} dalen")

@@ -45,6 +45,10 @@ SIGNAL_SCORE = 60     # |score| vanaf hier is er een richting (schaal -100..100)
                       # deden koopadviezen met score 60+ het in beide sets minder slecht (eigen aandelen gem. -0,7%
                       # tegen -2,9%, Top 250 -0,6% tegen -1,0%), dus minder en betere adviezen
 CHIP_CORR = 0.5       # chipgevoelig: dagkoersen bewogen het afgelopen jaar met samenhang 0,5+ mee met de chipindex
+STRESS_DAYS = 250     # stresstest: gevoeligheid voor de Nasdaq-100 en chips uit de laatste 250 handelsdagen
+STRESS_MIN = 120      # ... met minstens zoveel gezamenlijke handelsdagen
+STRESS_T = 2.0        # ... en de dag-erna telt mee als die duidelijk meeweegt (t-waarde 2+): Europese noteringen
+CORR_MIN = 8.0        # stresstest 'herhaling': de laatste daling van de Nasdaq-100 van minstens 8% (top tot dal)
 PIVOT_K = 5           # bars links/rechts voor een swing-top/-bodem
 SPARK_BARS = 120
 RETRACE = 0.5         # na het koersdoel: terugveer-/terugvalniveau (50% van de beweging)
@@ -492,7 +496,81 @@ def load_world(prev_world):
         if got:
             headlines, checked = got, now_iso()
     return {"factors": factors, "regime": {"state": last, "text": text},
-            "headlines": headlines, "news_checked": checked}, regime, returns
+            "headlines": headlines, "news_checked": checked, "correctie": last_correction(closes.get("nasdaq"))}, regime, returns
+
+
+def last_correction(closes):
+    """De laatste daling van de Nasdaq-100 van CORR_MIN% of meer, top tot dal op slotkoersen, binnen het afgelopen jaar:
+    {"from": dag van de top, "to": dag van het dal, "pct": daling}. None als er geen was."""
+    ds = sorted(closes or {})[-STRESS_DAYS:]
+    out, pk, tr = None, None, None
+    for d in ds:
+        if pk is None or closes[d] >= closes[pk]:
+            pk, tr = d, d                              # nieuwe top: een nieuwe daling begint hier
+        elif closes[d] < closes[tr]:
+            tr = d
+            if closes[tr] / closes[pk] - 1 <= -CORR_MIN / 100:
+                out = {"from": pk, "to": tr, "pct": round((closes[tr] / closes[pk] - 1) * 100, 1)}
+    return out
+
+
+def stress_beta(stock, rets):
+    """Gevoeligheid (beta) van een koers voor een index: hoeveel procent beweegt hij mee per 1% van de index? Uit
+    dagrendementen. Een Europese notering sluit vóór New York en verwerkt een deel van de Amerikaanse beweging pas de
+    volgende ochtend; met alleen dezelfde dag valt haar gevoeligheid te laag uit. Daarom telt de indexbeweging van de dag
+    ervoor mee (Dimson) zodra die duidelijk meeweegt (t-waarde STRESS_T+). Geeft (beta, dag-erna gebruikt, dagen) of None."""
+    fd = sorted(rets)
+    prev = dict(zip(fd[1:], fd))                       # per indexdag de indexdag ervoor
+    rows = []
+    for d in sorted(stock):
+        if d not in rets:
+            continue                                   # geen indexkoers die dag (bv. beursvrije dag in de VS)
+        p = prev.get(d)
+        if p is not None:
+            rows.append((stock[d], rets[d], rets[p]))
+    n = len(rows)
+    if n < STRESS_MIN:
+        return None
+    my, m0, m1 = (sum(r[k] for r in rows) / n for k in range(3))
+    s00 = sum((r[1] - m0) ** 2 for r in rows)
+    s11 = sum((r[2] - m1) ** 2 for r in rows)
+    s01 = sum((r[1] - m0) * (r[2] - m1) for r in rows)
+    s0y = sum((r[1] - m0) * (r[0] - my) for r in rows)
+    s1y = sum((r[2] - m1) * (r[0] - my) for r in rows)
+    syy = sum((r[0] - my) ** 2 for r in rows)
+    if not s00 or not syy:
+        return None
+    simple, det = s0y / s00, s00 * s11 - s01 * s01
+    if det > 1e-18 * s00 * s11 and s11:
+        b0, b1 = (s0y * s11 - s1y * s01) / det, (s1y * s00 - s0y * s01) / det
+        res = max(0.0, syy - b0 * s0y - b1 * s1y) / max(1, n - 3)
+        se1 = math.sqrt(res * s00 / det) if res > 0 else 0.0
+        if se1 and b1 / se1 >= STRESS_T:
+            return round(b0 + b1, 2), True, n
+    return round(simple, 2), False, n
+
+
+def stress_of(S, returns, corr=None):
+    """Voor de stresstest op het dashboard: gevoeligheid voor de Nasdaq-100 ('ndx') en de chipindex ('sox') over het
+    afgelopen jaar, en wat deze koers deed tijdens de laatste correctie van de Nasdaq-100 ('corr', hoogste slot rond de
+    top tot laagste slot rond het dal). Wat niet te meten is, ontbreekt."""
+    dates = [day_key(t) for t in S.t]
+    lo = max(1, len(dates) - STRESS_DAYS)
+    stock = {dates[j]: S.c[j] / S.c[j - 1] - 1 for j in range(lo, len(dates)) if S.c[j - 1]}
+    out = {}
+    for key, name in (("nasdaq", "ndx"), ("chips", "sox")):
+        b = stress_beta(stock, (returns or {}).get(key) or {})
+        if b:
+            out[name] = b[0]
+            out["lag"] = bool(out.get("lag") or b[1])
+            out["n"] = b[2]
+    if corr and corr.get("from") and corr.get("to"):
+        # ±1 handelsdag: een Europese notering sluit vóór New York (de top en het dal vallen er een dag later)
+        hi = [S.c[j] for j in range(len(dates)) if dates[j] <= corr["from"]][-2:] + [S.c[j] for j in range(len(dates)) if dates[j] > corr["from"]][:1]
+        lo_ = [S.c[j] for j in range(len(dates)) if corr["to"] <= dates[j]][:2]
+        if hi and lo_ and dates[0] <= corr["from"]:
+            out["corr"] = round((min(lo_) / max(hi) - 1) * 100, 1)
+    return out or None
 
 
 def now_iso():
@@ -1156,6 +1234,7 @@ def analyse(tk, bars, meta, world=None):
         "new_signal": new_signal,
         "rem": rem,
         "context": ctx,
+        "stress": stress_of(S, world.get("returns"), world.get("correctie")),
         "prev_signal": prev_signal,
         "rsi": round(S.rsi[i], 1) if S.rsi[i] is not None else None,
         "patterns": P,
@@ -1476,6 +1555,7 @@ def main():
             bars_by_sym[tk["symbol"]] = eu_bars[-40:]
             us = find_us_listing(tk, eu_bars[-1][4], fx, cache) if fx else None
             wctx = {"regime": regime, "returns": returns, "factors": world["factors"], "tech": tech,
+                    "correctie": world.get("correctie"),
                     "stock_ctx": stock_context(tk, us, prev_ctx.get(tk["symbol"], {}))}
             item = None
             if us:

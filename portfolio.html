@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-PtBqOmxzkEDbootUF6iK6ihI3YF6RzgDuc/iBTHRViA='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kKR2B2ph+h0+vMFonqK6V1qQQiFA2nqYfnrTU+Nl+Ag='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -888,6 +888,30 @@ function renderCheck() {
         <div class="pc-note">${g.names.slice(0, 6).map(esc).join(', ')}${g.n > 6 ? ` en ${g.n - 6} meer` : ''}.${RV.warn ? ` <b style="color:var(--warn)">Meer dan ${RV.max}% in één groep</b>: in een crash vallen ze samen (okt-nov 2026: −30%).` : ''}</div>` : ''}
       ${RV.hot.map(h => `<div class="pc-row"><span>${esc(h.name)}</span><small style="color:var(--warn)">+${Math.round(h.ext)}% boven 200d · deel verkopen?</small></div>`).join('')}
       <div class="pc-note">Uit de beweeglijkheid van het afgelopen jaar en hoe sterk je posities samen bewegen${RV.equal ? '; zonder aantallen telt elke positie even zwaar' : ''}. In een echte crash kan het meer zijn.</div></div>`);
+  }
+
+  // 0b. Stresstest: wat doet de portefeuille bij een klap in de Nasdaq-100 of in chips, en bij een herhaling van de
+  //     laatste correctie? Gevoeligheid per positie uit de Patroonradar (shared.js: stressTest).
+  const stressOf = {};
+  (sig.items || []).forEach(i => { if (i.stress) stressOf[i.symbol.toUpperCase()] = i.stress; });
+  const ST = Shared.stressTest(positions.filter(p => !p.watch && p.cost != null).map(p => {
+    const q = getQuote(p.ticker);
+    return q && { id: posId(p), name: shortName(q.name || p.ticker), q, qty: p.qty, rate: Shared.toEur(q, usd && usd.last), st: stressOf[p.ticker.toUpperCase()] };
+  }).filter(Boolean), (sig.world || {}).correctie);
+  if (ST) {
+    const pc0 = v => (v > 0 ? '+' : '−') + Math.round(Math.abs(v)) + '%';
+    const res = r => `${pc0(r.loss)}${r.eur != null ? ' · ' + (r.eur > 0 ? '+' : '−') + fmt0(Math.abs(r.eur), 'EUR') : ''}`;
+    const hard = r => r.loss <= -30 ? ' style="color:var(--down)"' : r.loss <= -15 ? ' style="color:var(--warn)"' : '';
+    const dm = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${+m[3]} ${['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'][+m[2] - 1]}` : ''; };
+    const n20 = ST.scen.find(x => x.f === 'ndx' && x.pct === -20) || ST.scen[0];
+    const top = n20 ? n20.pos.filter(x => x.pct < 0).slice(0, 4) : [];
+    const mis = n20 ? ST.n - n20.n : 0;
+    cards.push(`<div class="pc" data-stress><div class="pc-k">Stresstest <span>schatting, per positie gerekend</span></div>
+      ${ST.scen.map(r => `<div class="pc-row"><span>${r.f === 'ndx' ? 'Nasdaq-100' : 'Chips (SOX)'} ${pc0(r.pct)}</span><small${hard(r)}>${res(r)}</small></div>`).join('')}
+      ${ST.last ? `<div class="pc-row"><span>Herhaling ${esc(dm(ST.last.from))} – ${esc(dm(ST.last.to))} <small style="color:var(--muted)">(Nasdaq ${pc0(ST.last.pct)})</small></span><small${hard(ST.last)}>${res(ST.last)}</small></div>` : ''}
+      ${top.length ? `<div class="pc-note">Grootste klappen bij Nasdaq −20%: ${top.map(x => `${esc(x.name)} ${pc0(x.pct)}`).join(', ')}.</div>` : ''}
+      <div class="pc-note">Uit hoe sterk elke positie het afgelopen jaar meebewoog met de Nasdaq-100 en de chipindex${ST.equal ? '; zonder aantallen telt elke positie even zwaar' : ''}${mis > 0 ? `; ${mis} ${mis === 1 ? 'positie' : 'posities'} zonder meting ${mis === 1 ? 'telt' : 'tellen'} mee als het gemiddelde` : ''}.
+        Zonder wisselkoerseffect. In een echte crash bewegen aandelen vaak sterker samen: zie het als schatting, niet als ondergrens.</div></div>`);
   }
 
   // 1. ETF-doorkijk

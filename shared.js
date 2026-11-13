@@ -534,6 +534,37 @@ const Shared = (() => {
              warn: !!(group && group.share > GROUP_MAX), hot: pos.filter(p => p.hot).sort((a, b) => b.ext - a.ext), max: GROUP_MAX };
   }
 
+  // ── Stresstest: wat doet je portefeuille bij een klap in de Nasdaq-100 of in chips? Per positie de gevoeligheid (beta)
+  // uit de Patroonradar (signals.json: stress.ndx en stress.sox, dagkoersen van het afgelopen jaar; bij Europese
+  // noteringen telt de dag erna mee). Samengesteld gerekend: een positie die 2x meebeweegt verliest bij −20% geen 40%
+  // maar 36% (0,8²), en nooit meer dan alles. Posities zonder meting bewegen mee als het gemiddelde van de rest.
+  // 'last' = wat je posities deden tijdens de laatste correctie van de Nasdaq-100 (stress.corr), toegepast op nu.
+  // Geen wisselkoerseffect, en in een echte crash bewegen aandelen vaak sterker samen: een schatting, geen ondergrens.
+  const STRESS = [['ndx', -10], ['ndx', -20], ['ndx', -30], ['sox', -30]];
+  const shockPct = (beta, pct) => (Math.pow(1 + pct / 100, beta) - 1) * 100;
+  // held: [{ id, name, q, qty, rate, st }] zoals riskView, met st = stress van die positie (of niets)
+  function stressTest(held, corr) {
+    const xs = (held || []).filter(x => x && x.q && x.q.price > 0);
+    if (!xs.length) return null;
+    const equal = !xs.some(x => +x.qty > 0 && +x.qty !== 1);
+    const val = xs.map(x => equal ? 1 : x.q.price * (+x.qty > 0 ? +x.qty : 1) * (x.rate > 0 ? x.rate : 1)), tot = val.reduce((a, b) => a + b, 0);
+    const num = v => typeof v === 'number' && isFinite(v);
+    // één scenario: per positie het verlies (move(st) in %), gewogen; wie geen meting heeft telt mee als het gemiddelde
+    const run = move => {
+      const pos = xs.map((x, i) => ({ i, m: x.st ? move(x.st) : null })).filter(p => num(p.m));
+      const w = pos.reduce((a, p) => a + val[p.i], 0);
+      if (!w) return null;
+      const loss = pos.reduce((a, p) => a + val[p.i] * p.m, 0) / w;
+      return { loss, eur: equal ? null : tot * loss / 100, cover: w / tot * 100, n: pos.length,
+        pos: pos.map(p => ({ id: xs[p.i].id, name: xs[p.i].name, pct: p.m, share: val[p.i] / tot * 100, part: val[p.i] / tot * p.m,
+          eur: equal ? null : val[p.i] * p.m / 100 })).sort((a, b) => a.part - b.part) };
+    };
+    const scen = STRESS.map(([f, pct]) => { const r = run(st => num(st[f]) ? shockPct(st[f], pct) : null); return r && { f, pct, ...r }; }).filter(Boolean);
+    const last = corr && num(corr.pct) ? (r => r && { ...corr, ...r })(run(st => num(st.corr) ? Math.max(-100, st.corr) : null)) : null;
+    if (!scen.length && !last) return null;
+    return { equal, total: equal ? null : tot, n: xs.length, scen, last };
+  }
+
   // ── Aandeel zoeken (positie toevoegen). zoek.json komt uit de Top 250-run: elk bedrijf dat de scan kent, met zijn
   // noteringen in euro en dollar. Per bedrijf gegroepeerd, de handigste notering voorop: de thuisbeurs van een
   // Europees bedrijf, dan Xetra (.DE), dan de Amerikaanse hoofdbeurs, dan Frankfurt/Düsseldorf en Wenen.
@@ -724,6 +755,6 @@ const Shared = (() => {
 
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP,
            isAdmin, tokenExpired, applyMode, noteAccess, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
-           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, BUY_STEPS, stillFalling, buyLadder, badMonth, hotExt, riskView, toEur, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
+           sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, BUY_STEPS, stillFalling, buyLadder, badMonth, hotExt, riskView, stressTest, shockPct, toEur, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
            editRepoFile, TICKER_OK, dashboardTickers, mergeDashboard, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
 })();

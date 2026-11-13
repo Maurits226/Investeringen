@@ -338,6 +338,37 @@ try:
 finally:
     S.now = _now
 
+# Eigen posities: tickers.txt is de lijst. Een positie uit de startlijst (portfolio.html) die daar niet meer in staat is
+# verwijderd en telt niet meer als eigen positie, ook niet op naam; een regel '# via dashboard' telt wel
+import tempfile as _tf  # noqa: E402
+_root = S.ROOT
+with _tf.TemporaryDirectory() as _tmp:
+    S.ROOT = _tmp
+    try:
+        open(os.path.join(_tmp, "portfolio.html"), "w", encoding="utf-8").write("""const DEFAULT = [
+  { ticker: 'SPX.DE',  section: 'Watchlist', watch: true, thresh: 20, cur: 'native' },
+  { ticker: 'AMD.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'UU2.DE',  section: 'Stocks', thresh: 20, cur: 'native' },
+  { ticker: 'QDVE.DE', section: "ETF's", label: 'S&P 500 Information Technology', thresh: 10, cur: 'native' }
+];""")
+        open(os.path.join(_tmp, "tickers.txt"), "w", encoding="utf-8").write(
+            "# kop\nAMD.DE\nSPX.DE\nQDVE.DE\nSNDK, Sandisk Corporation, Stocks  # via dashboard\nARM, Arm Holdings plc, Watchlist  # via dashboard\n")
+        json.dump({"items": [{"symbol": "AMD.DE", "pattern_symbol": "AMD"}, {"symbol": "UU2.DE", "pattern_symbol": "BLK"}]},
+                  open(os.path.join(_tmp, "signals.json"), "w"))
+        json.dump({"quotes": {"AMD.DE": {"name": "Advanced Micro Devices, Inc."}, "UU2.DE": {"name": "BlackRock, Inc."},
+                              "ARM": {"name": "Arm Holdings plc"}}}, open(os.path.join(_tmp, "data.json"), "w"))
+        o = S.owned_positions()
+        check(o["own"] == {"AMD.DE", "AMD", "QDVE.DE", "SNDK"}, f"eigen posities volgen tickers.txt niet: {sorted(o['own'])}")
+        check(o["watch"] == {"SPX.DE", "ARM"}, f"watchlist klopt niet: {sorted(o['watch'])}")
+        check(o["stock_us"] == {"AMD": "AMD.DE", "SNDK": "SNDK"}, f"aandelen met dollarnotering: {o['stock_us']}")
+        check(o["names_own"] == {S.norm_name("Advanced Micro Devices, Inc.")} and o["names_watch"] == {S.norm_name("Arm Holdings plc")},
+              f"een verwijderde positie mag ook op naam niet meer als eigen gelden: {o['names_own']} {o['names_watch']}")
+        os.remove(os.path.join(_tmp, "tickers.txt"))      # geen lijst: de startlijst uit portfolio.html
+        o2 = S.owned_positions()
+        check(o2["own"] >= {"AMD.DE", "UU2.DE", "QDVE.DE", "BLK"} and o2["watch"] == {"SPX.DE"}, f"zonder tickers.txt telt de startlijst: {sorted(o2['own'])}")
+    finally:
+        S.ROOT = _root
+
 surv = sum(1 for it in items if it["s12"] and it["s12"]["survivor"])
 print(f"TOP 250: {len(items)} bedrijven gescoord, {surv} survivors, {sum(1 for it in items if it['koop'])} koopmomenten, "
       f"{sum(1 for it in items if (it.get('gap') or {}).get('ok'))} gaps · "

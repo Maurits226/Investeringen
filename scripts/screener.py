@@ -931,36 +931,40 @@ def write_search_index(cache, dyn, path=None):
 
 
 def owned_positions():
-    """Eigen posities (uitsluiten) en watchlist (markeren) uit portfolio.html, tickers.txt,
-    signals.json (Amerikaanse tegenhanger van euro-noteringen) en data.json (namen).
+    """Eigen posities (uitsluiten) en watchlist (markeren). De lijst is tickers.txt: daar zet het dashboard een nieuwe
+    positie in en haalt het een verwijderde uit, ook een uit de startlijst. portfolio.html geeft alleen het kopje (Stocks,
+    ETF's, Watchlist) van de tickers uit die startlijst. Is tickers.txt er niet of leeg, dan de startlijst zelf.
+    Verder signals.json (Amerikaanse tegenhanger van euro-noteringen) en data.json (namen).
     stock_us: dollarnotering van elke eigen aandelenpositie -> de ticker die je hebt (voor het universum)."""
-    own, watch, stocks, in_html = set(), set(), set(), set()
+    own, watch, stocks, meta = set(), set(), set(), {}
     html_path = os.path.join(ROOT, "portfolio.html")
     if os.path.exists(html_path):
         html = open(html_path, encoding="utf-8").read()
         for m in re.finditer(r"\{[^{}]*?ticker:\s*['\"]([^'\"]+)['\"][^{}]*?\}", html):
-            t = m.group(1).upper()
-            in_html.add(t)
-            if "watch: true" in m.group(0):
-                watch.add(t)
-                continue
-            own.add(t)
             sec = re.search(r"section:\s*(?:'([^']*)'|\"([^\"]*)\")", m.group(0))
-            if sec and (sec.group(1) or sec.group(2)) == "Stocks":
-                stocks.add(t)
+            meta[m.group(1).upper()] = {"watch": "watch: true" in m.group(0),
+                                        "section": ((sec.group(1) or sec.group(2)) if sec else "") or ""}
+    rows = []                                            # (ticker, categorie) uit tickers.txt
     txt = os.path.join(ROOT, "tickers.txt")
     if os.path.exists(txt):
         for line in open(txt, encoding="utf-8-sig"):
             parts = [x.strip() for x in re.split(r"[,;|\t]", line.split("#")[0])]
             s = (parts[0].split() or [""])[0].upper()
-            cat = parts[2].lower() if len(parts) > 2 else ""   # 'TICKER, Naam, Categorie' (zo zet het dashboard ze erin)
-            if s and cat == "watchlist":
-                watch.add(s)
-                continue
-            if s and s not in watch:
-                own.add(s)
-                if s not in in_html and (cat == "stocks" or (not cat and "." not in s)):
-                    stocks.add(s)                  # geen sectie bekend: een dollarticker telt als aandeel (ETC's vallen hieronder af)
+            if s:
+                rows.append((s, parts[2].lower() if len(parts) > 2 else ""))   # 'TICKER, Naam, Categorie' (zo zet het dashboard ze erin)
+    if not rows:                                         # geen lijst: de startlijst uit portfolio.html
+        rows = [(t, "") for t in meta]
+    for s, cat in rows:
+        m = meta.get(s) or {}
+        if cat == "watchlist" or (not cat and m.get("watch")):
+            watch.add(s)
+            continue
+        if s in watch:
+            continue
+        own.add(s)
+        sec = cat or m.get("section", "").lower()
+        if sec == "stocks" or (not sec and "." not in s):
+            stocks.add(s)                                # geen kopje bekend: een dollarticker telt als aandeel (ETC's vallen hieronder af)
     # Amerikaanse notering van je euro-posities (door de Patroonradar gevonden)
     us_of = {}
     try:
@@ -973,10 +977,12 @@ def owned_positions():
     names_own, names_watch = set(), set()
     try:
         q = json.load(open(os.path.join(ROOT, "data.json"), encoding="utf-8")).get("quotes", {})
-        for k, v in q.items():
-            n = norm_name((v or {}).get("name"))
-            if n:
-                (names_watch if k.upper() in watch else names_own).add(n)
+        for k, v in q.items():                           # alleen tickers uit de lijst: data.json kan een net
+            n = norm_name((v or {}).get("name"))         # verwijderde positie nog een koersronde bevatten
+            if n and k.upper() in watch:
+                names_watch.add(n)
+            elif n and k.upper() in own:
+                names_own.add(n)
     except Exception:  # noqa: BLE001
         pass
     for s in list(own):

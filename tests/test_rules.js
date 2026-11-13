@@ -162,6 +162,53 @@ check(!M.changed && M.list.length === 2, 'net zelf toegevoegd (nog niet in ticke
 M = S.mergeDashboard(ownAdd, dash([{ ticker: 'ZETA', section: 'Stocks', label: null }], true));
 check(M.changed && M.list.find(p => p.ticker === 'ZETA').sync === 'txt' && M.list.length === 2, 'eigen toevoeging gezien in tickers.txt: gemarkeerd, niet dubbel');
 check(S.mergeDashboard(fixed, null).list === fixed, 'tickers.txt niet te lezen: lijst ongewijzigd');
+// tickers.txt is de gedeelde lijst: wat er niet meer in staat is verwijderd en verdwijnt hier ook, behalve een eigen
+// toevoeging die nog niet is weggeschreven. 'all' = alle tickers in tickers.txt, 'fixed' = de startlijst.
+{
+  const FX = new Set(['AMD.DE', 'UU2.DE', 'MSF.DE', 'TL0.DE', 'NVD.DE', 'ASML.AS']);
+  const D = (tickers, dashList, exact) => ({ all: new Set(tickers), list: dashList || [], exact: !!exact });
+  const P = t => ({ ticker: t, section: 'Stocks', thresh: 20 });
+  const tick = r => r.list.map(p => p.ticker).join(',');
+  // BlackRock (startlijst) staat niet meer in tickers.txt: weg met de echte versie
+  let R = S.mergeDashboard([P('AMD.DE'), P('UU2.DE')], D(['AMD.DE'], [], true), { fixed: FX });
+  check(R.changed && tick(R) === 'AMD.DE' && R.list[0].sync === 'txt', `positie uit de startlijst die niet meer in tickers.txt staat moet weg (${tick(R)})`);
+  // zonder startlijst weten we het niet zeker: laten staan
+  R = S.mergeDashboard([P('AMD.DE'), P('UU2.DE')], D(['AMD.DE'], [], true), {});
+  check(tick(R) === 'AMD.DE,UU2.DE', 'zonder startlijst: een nooit geziene positie blijft staan');
+  // eerder hier in tickers.txt gezien en nu weg: verwijderd, ook zonder startlijst
+  R = S.mergeDashboard([P('AMD.DE'), { ...P('ORCL'), sync: 'txt' }], D(['AMD.DE'], [], true), {});
+  check(tick(R) === 'AMD.DE', 'eerder gezien in tickers.txt en nu weg: verwijderd');
+  // net zelf toegevoegd en nog niet gezien: blijft staan, ook als de ticker in de startlijst zit
+  R = S.mergeDashboard([P('AMD.DE'), { ...P('MSF.DE'), added: 1 }, { ...P('IBM'), added: 1 }], D(['AMD.DE'], [], true), { fixed: FX });
+  check(tick(R) === 'AMD.DE,MSF.DE,IBM', `net toegevoegd en nog niet in tickers.txt: blijft staan (${tick(R)})`);
+  // eigen toevoeging van vroeger die nooit is weggeschreven (geen startlijst, nooit gezien): blijft staan
+  R = S.mergeDashboard([P('AMD.DE'), P('XYZ')], D(['AMD.DE'], [], true), { fixed: FX });
+  check(tick(R) === 'AMD.DE,XYZ', 'eigen toevoeging die nooit in tickers.txt stond: blijft staan');
+  // versie van de website, zonder token: ook weg; met token alleen op de echte versie afgaan
+  R = S.mergeDashboard([P('AMD.DE'), P('NVD.DE'), P('UU2.DE')], D(['AMD.DE', 'NVD.DE'], [], false), { fixed: FX });
+  check(tick(R) === 'AMD.DE,NVD.DE', 'zonder token gaat de versie van de website door');
+  store.gh_token = 'github_pat_x';
+  R = S.mergeDashboard([P('AMD.DE'), P('NVD.DE'), P('UU2.DE')], D(['AMD.DE', 'NVD.DE'], [], false), { fixed: FX });
+  check(tick(R) === 'AMD.DE,NVD.DE,UU2.DE', 'met token niets weghalen op de versie van de website');
+  delete store.gh_token;
+  // zou meer dan de helft (en meer dan 3) verdwijnen op de versie van de website: niets weghalen, volgorde blijft
+  const veel = ['AMD.DE', 'UU2.DE', 'MSF.DE', 'TL0.DE', 'NVD.DE', 'ASML.AS'].map(P);
+  R = S.mergeDashboard(veel, D(['AMD.DE'], [], false), { fixed: FX });
+  check(tick(R) === 'AMD.DE,UU2.DE,MSF.DE,TL0.DE,NVD.DE,ASML.AS', `te veel tegelijk weg op de versie van de website: niets doen (${tick(R)})`);
+  R = S.mergeDashboard(veel, D(['AMD.DE'], [], true), { fixed: FX });
+  check(tick(R) === 'AMD.DE', 'de echte versie telt altijd');
+  // lege lijst: nooit iets weghalen; elders toegevoegd komt erbij
+  R = S.mergeDashboard(veel, D([], [], true), { fixed: FX });
+  check(R.list.length === 6, 'lege tickers.txt: niets weghalen');
+  R = S.mergeDashboard([P('AMD.DE')], D(['AMD.DE', 'SNDK'], [{ ticker: 'SNDK', section: 'Stocks', label: 'Sandisk Corporation' }], false), { fixed: FX });
+  check(tick(R) === 'AMD.DE,SNDK' && R.list[1].sync === 'txt', 'elders via het dashboard toegevoegd: komt erbij');
+  // een regel uit de startlijst die hier ontbreekt komt niet vanzelf terug (die is hier verwijderd)
+  R = S.mergeDashboard([P('AMD.DE')], D(['AMD.DE', 'TL0.DE'], [], true), { fixed: FX });
+  check(tick(R) === 'AMD.DE', 'een hier verwijderde positie uit de startlijst komt niet vanzelf terug');
+  check(S.needsFixed([P('AMD.DE'), P('UU2.DE')], D(['AMD.DE'])) && !S.needsFixed([P('AMD.DE')], D(['AMD.DE']))
+    && !S.needsFixed([P('AMD.DE'), { ...P('IBM'), added: 1 }], D(['AMD.DE'])), 'de startlijst alleen ophalen als er een onbesliste positie is');
+}
+
 // Stresstest: per positie de gevoeligheid (beta) voor de Nasdaq-100 en chips, samengesteld gerekend en gewogen naar waarde
 {
   const near = (a, b, e = 0.01) => Math.abs(a - b) < e;
@@ -190,8 +237,12 @@ check(S.mergeDashboard(fixed, null).list === fixed, 'tickers.txt niet te lezen: 
   // tickers.txt lezen (zonder token: de versie van de website)
   ctx.fetch = async u => ({ ok: u === 'tickers.txt', text: async () => '# kop\nAMD.DE\nSNDK, Sandisk Corporation, Stocks  # via dashboard\nLLY.DE, Eli Lilly and Company, Watchlist  # via dashboard\nbad ticker!, X, Stocks # via dashboard\n' });
   const parsed = await S.dashboardTickers();
+  check(parsed && parsed.all && typeof parsed.all.has === 'function' && [...parsed.all].join(',') === 'AMD.DE,SNDK,LLY.DE,BAD', `alle tickers uit tickers.txt zoals de scripts ze lezen: het eerste woord van elke regel (${parsed && [...parsed.all]})`);
   check(parsed && !parsed.exact && parsed.list.map(x => `${x.section}|${x.ticker}|${x.label}`).join(';') === 'Stocks|SNDK|Sandisk Corporation;Watchlist|LLY.DE|Eli Lilly and Company',
     `tickers.txt gelezen: alleen geldige regels via het dashboard (${JSON.stringify(parsed)})`);
+
+  ctx.fetch = async () => ({ ok: true, text: async () => '<!DOCTYPE html><html><body>AMD.DE Service Unavailable</body></html>' });
+  check(await S.dashboardTickers() === null, 'een foutpagina in plaats van tickers.txt is geen lijst');
 
   console.log(fails.length ? `REGELS: ${fails.length} fout(en)` : 'REGELS: alles in orde');
   process.exit(fails.length ? 1 : 0);

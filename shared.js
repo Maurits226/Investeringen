@@ -212,7 +212,7 @@ const Shared = (() => {
       } catch (e) { pos = []; }
     }
     const [st, d] = await Promise.all([loadState(), dashboardTickers()]);
-    pos = mergeDashboard(pos, d).list;
+    pos = mergeDashboard(pos, d, { fixed: needsFixed(pos, d) ? await fixedTickers() : null }).list;
     return pos.filter(p => p && p.ticker).map(p => {
       const s = st[posId(p)] || {};
       return { ...p, id: posId(p), cost: s.cost ?? p.cost ?? null, qty: s.qty ?? p.qty ?? 1, sells: s.sells || [], buys: s.buys || [], review: s.review || {} };
@@ -624,8 +624,9 @@ const Shared = (() => {
     return groups.map(g => ({ g, s: hit(g) })).filter(x => x.s).sort((a, b) => b.s - a.s || b.g.mcap - a.g.mcap).slice(0, limit).map(x => x.g);
   }
 
-  // tickers.txt is openbaar (geen bedragen) en bepaalt van welke tickers de workflows koersen ophalen. Met je token zet het
-  // dashboard er een nieuwe positie in als 'TICKER, Naam, Categorie  # via dashboard'; verwijderen doet het alleen bij zulke regels.
+  // tickers.txt is openbaar (geen bedragen) en is de lijst van je posities voor alles: koersen, Patroonradar, scorebord
+  // (Beoordeling) en de Top 250-run. Met je token zet het dashboard er een nieuwe positie in als
+  // 'TICKER, Naam, Categorie  # via dashboard' en haalt het een verwijderde positie eruit, ook een regel uit de vaste lijst.
   const TICKER_OK = /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}$/;
   const txtSym = line => (line.trim().split(/[\s,;|#]/)[0] || '').toUpperCase();
   const plain = s => String(s || '').replace(/[,;|#\t\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -656,20 +657,25 @@ const Shared = (() => {
       : txt.replace(/\s*$/, '\n') + `${sym}, ${plain(name) || sym}, ${plain(section) || 'Stocks'}  # via dashboard\n`,
       `Ticker toegevoegd via het dashboard: ${sym}`);
   }
+  // Eén ticker of een lijst tickers uit tickers.txt halen: elke regel van die ticker, ook uit de vaste lijst
   function removeTicker(sym) {
-    sym = String(sym || '').toUpperCase();
-    if (!TICKER_OK.test(sym)) return Promise.resolve('error');
+    const syms = (Array.isArray(sym) ? sym : [sym]).map(x => String(x || '').toUpperCase());
+    if (!syms.length || !syms.every(x => TICKER_OK.test(x))) return Promise.resolve('error');
     return editTickers(txt => {
-      const lines = txt.split('\n'), keep = lines.filter(l => !(txtSym(l) === sym && /#\s*via dashboard\s*$/.test(l)));
+      const lines = txt.split('\n'), keep = lines.filter(l => l.trim().startsWith('#') || !syms.includes(txtSym(l)));
       return keep.length === lines.length ? null : keep.join('\n');
-    }, `Ticker verwijderd via het dashboard: ${sym}`);
+    }, `Ticker verwijderd via het dashboard: ${syms.join(', ')}`);
   }
 
-  // ── Je lijst met posities op elk apparaat. De lijst staat per apparaat (localStorage, plus de vaste lijst in
-  // portfolio.html); wat je via het dashboard toevoegt, komt ook in tickers.txt met '# via dashboard' (ticker, naam en
-  // kopje, geen bedragen). Zo komt zo'n positie terug op een ander apparaat, in een andere browser of in de app op je
-  // beginscherm (die heeft een eigen opslag). Met je token lezen we de echte versie via GitHub en verdwijnt ook wat op een
-  // ander apparaat is verwijderd; zonder token de versie van de website, en dan vullen we alleen aan.
+  // ── Je lijst met posities op elk apparaat. tickers.txt is de gedeelde lijst (ticker, naam en kopje, geen bedragen):
+  // de vaste startlijst als losse tickers, en wat je via het dashboard toevoegt met '# via dashboard' erachter. Elk
+  // apparaat bewaart zijn eigen kopie (localStorage; de startlijst staat ook in portfolio.html) en loopt daarmee gelijk:
+  //   * staat een positie niet meer in tickers.txt, dan is ze verwijderd en verdwijnt ze hier ook;
+  //   * een regel '# via dashboard' die hier ontbreekt, is elders toegevoegd en komt erbij;
+  //   * een positie die je net zelf toevoegde en die nog niet in tickers.txt te zien was, blijft staan.
+  // Met je token lezen we de echte versie via GitHub en gaan we alleen daarop af. Zonder token de versie van de website
+  // (die loopt na een wijziging een paar minuten achter); ziet die er niet uit als de lijst, of zou meer dan de helft
+  // van je posities verdwijnen, dan halen we niets weg.
   const SECTIONS = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
   async function dashboardTickers() {
     let txt = null, exact = false;
@@ -682,27 +688,56 @@ const Shared = (() => {
     if (txt == null) {
       try { const r = await fetch('tickers.txt', { cache: 'no-cache' }); if (r.ok) txt = await r.text(); } catch (e) {}
     }
-    if (txt == null) return null;
-    const list = txt.split('\n').filter(l => /#\s*via dashboard\s*$/.test(l)).map(l => {
+    if (txt == null || /<\s*(!doctype|html|body|head)\b/i.test(txt)) return null;  // een foutpagina is geen lijst
+    const rows = txt.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+    const all = new Set(rows.map(txtSym).filter(t => TICKER_OK.test(t)));          // elke ticker in de lijst, ook de vaste
+    const list = rows.filter(l => /#\s*via dashboard\s*$/.test(l)).map(l => {
       const [sym, name, section] = l.replace(/#.*$/, '').split(',').map(x => x.trim());
       const t = (sym || '').toUpperCase();
       return TICKER_OK.test(t) ? { ticker: t, label: name && name.toUpperCase() !== t ? name : null, section: SECTIONS.includes(section) ? section : 'Stocks' } : null;
     }).filter(Boolean);
-    return { list, exact };
+    return { list, all, exact };
   }
-  // Ontbrekende posities aanvullen. Weghalen alleen met de echte versie, en alleen wat hier al eens in tickers.txt gezien
-  // is (sync: 'txt'): een positie die je net toevoegde, of een uit de vaste lijst, blijft altijd staan.
-  function mergeDashboard(list, d) {
+  // De vaste startlijst (DEFAULT in portfolio.html). Alleen nodig om te beslissen over een positie die niet in tickers.txt
+  // staat en hier nog nooit in tickers.txt gezien is: stond ze in de startlijst, dan is ze elders verwijderd; anders is het
+  // een eigen toevoeging die (nog) niet is weggeschreven en blijft ze staan. portfolio.html bewaart de lijst voor de
+  // andere pagina's (portfolio_fixed); ontbreekt die, dan lezen we portfolio.html zelf.
+  const FIXED_RE = /\{[^{}]*?ticker:\s*'([^']+)'[^{}]*?\}/g;
+  const isSet = x => !!x && typeof x.has === 'function';              // een Set (ook uit een ander venster of een test)
+  let fixedJob = null;
+  function fixedTickers() {
+    const saved = lsGet('portfolio_fixed', null);
+    if (Array.isArray(saved) && saved.length) return Promise.resolve(new Set(saved.map(x => String(x).toUpperCase())));
+    return fixedJob || (fixedJob = fetch('portfolio.html', { cache: 'no-cache' }).then(r => r.ok ? r.text() : '')
+      .then(html => new Set([...html.matchAll(FIXED_RE)].map(m => m[1].toUpperCase()))).catch(() => new Set()));
+  }
+  // list = je posities hier, d = dashboardTickers(), opts.fixed = tickers van de startlijst (Set).
+  // Geeft { list, changed }. Zonder d (tickers.txt niet te lezen) verandert er niets.
+  function mergeDashboard(list, d, opts = {}) {
     if (!d) return { list, changed: false };
     const ids = new Set(d.list.map(x => x.section + '|' + x.ticker));
+    const all = isSet(d.all) ? d.all : null;                           // alle tickers in tickers.txt (ook de vaste)
+    const fixed = isSet(opts.fixed) ? opts.fixed : null;
     let changed = false;
-    const out = [];
+    const keep = [], weg = [];
     (list || []).forEach(p => {
       if (!p || !p.ticker) return;
-      if (ids.has(posId(p))) { if (p.sync !== 'txt') { p = { ...p, sync: 'txt' }; changed = true; } }
-      else if (p.sync === 'txt' && d.exact) { changed = true; return; }
-      out.push(p);
+      const t = String(p.ticker).toUpperCase();
+      if (all ? all.has(t) : ids.has(posId(p))) {                      // staat in tickers.txt: vanaf nu 'gezien'
+        if (p.sync !== 'txt') { p = { ...p, sync: 'txt' }; changed = true; }
+        return keep.push(p);
+      }
+      // niet in tickers.txt. Stond ze er ooit in (hier gezien, of uit de startlijst)? Dan is ze verwijderd; anders is het
+      // een eigen toevoeging die nog niet is weggeschreven.
+      (p.sync === 'txt' || (!p.added && !!fixed && fixed.has(t)) ? weg : keep).push(p);
     });
+    // weghalen: nooit bij een lege lijst; met de echte versie altijd; met de versie van de website alleen zonder token
+    // en als het er niet te veel zijn
+    const n = keep.length + weg.length;
+    const mag = weg.length && (!all || all.size > 0) && (d.exact || (!!all && !token() && (weg.length <= 3 || weg.length * 2 <= n)));
+    let out = keep;
+    if (mag) changed = true;
+    else if (weg.length) out = (list || []).filter(p => p && p.ticker).map(p => keep.find(k => posId(k) === posId(p)) || p);   // volgorde behouden
     const have = new Set(out.map(posId));
     d.list.forEach(x => {
       if (have.has(x.section + '|' + x.ticker)) return;
@@ -712,6 +747,9 @@ const Shared = (() => {
     });
     return { list: out, changed };
   }
+  // Heeft deze lijst een positie waarvoor de startlijst nodig is (niet in tickers.txt, hier nooit gezien, niet net toegevoegd)?
+  const needsFixed = (list, d) => !!(d && isSet(d.all) && d.all.size)
+    && (list || []).some(p => p && p.ticker && !d.all.has(String(p.ticker).toUpperCase()) && p.sync !== 'txt' && !p.added);
 
   // ── Stock opzoeken (tab Stock opzoeken): opzoeklijst.json is openbaar (alleen tickers, naam en datum, geen bedragen). Een wijziging
   // start de Top 250-run, die elk aandeel uit de lijst scoort (opzoeken.json). Nieuwste bovenaan; na LOOK_DAYS dagen valt
@@ -756,5 +794,5 @@ const Shared = (() => {
   return { normName, stockIndex, detShard, screenerDetail, fullItem, fullItemNow, loadThese, theseTrend, theseAlerts, techExposure, lsGet, lsSet, ghRead, ghReadFull, ghWrite, checkToken, TOKEN_HELP,
            isAdmin, tokenExpired, applyMode, noteAccess, mergeState, keepRemoteExtras, whenSaved, isSaving, mergeTrades, loadState, saveState, loadTrades, positions, posId,
            sellPctForStep, stepsReached, sellStatus, newRearms, smartOn, thresholdFor, BUY_STEPS, stillFalling, buyLadder, badMonth, hotExt, riskView, stressTest, shockPct, toEur, onRefresh, searchIndex, searchStocks, addTicker, removeTicker,
-           editRepoFile, TICKER_OK, dashboardTickers, mergeDashboard, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
+           editRepoFile, TICKER_OK, dashboardTickers, mergeDashboard, fixedTickers, needsFixed, LOOK_DAYS, lookFresh, lookAdd, lookRemove, lookClean };
 })();

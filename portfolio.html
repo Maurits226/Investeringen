@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-kKR2B2ph+h0+vMFonqK6V1qQQiFA2nqYfnrTU+Nl+Ag='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YaWN14QqcPdDO4wdy8nfwVGUtqc8uGmUOdxftKYITmI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -594,6 +594,11 @@ const DEFAULT = [
   { ticker: 'PHAU.AS', section: 'Gold & Silver', label: 'Gold', thresh: 10, cur: 'native' }
 ];
 
+// De tickers van de startlijst, ook voor de andere pagina's (shared.js: fixedTickers). Welke posities je nu hebt staat
+// in tickers.txt: haal je er hier een weg, dan verdwijnt ze daar en dus overal (koersen, radar, scorebord, Top 250).
+const FIXED = new Set(DEFAULT.map(p => p.ticker.toUpperCase()));
+try { localStorage.setItem('portfolio_fixed', JSON.stringify([...FIXED])); } catch (e) {}
+
 // Volgorde waarin de secties getoond worden
 const SECTION_ORDER = ['Watchlist', 'Stocks', "ETF's", 'Gold & Silver'];
 
@@ -787,18 +792,40 @@ function savePositions() {
 }
 
 let positions = loadPositions();
-// Posities die je op een ander apparaat via het dashboard toevoegde (tickers.txt, '# via dashboard') aanvullen, en met je
-// token ook weghalen wat daar verwijderd is (shared.js). Samenvoegen met de lijst van dát moment: een positie die je
-// intussen toevoegde, blijft staan.
+// Gelijklopen met de gedeelde lijst (tickers.txt, shared.js): wat daar niet meer in staat is verwijderd en verdwijnt
+// hier ook; wat je elders via het dashboard toevoegde komt erbij. Samenvoegen met de lijst van dát moment: een positie
+// die je intussen toevoegde, blijft staan.
+const pendingRm = new Set();          // tickers die nu uit tickers.txt gehaald worden
+let legacyAsked = false;
 function syncList() {
   Shared.dashboardTickers().then(d => {
-    const r = Shared.mergeDashboard(positions, d);
-    if (!r.changed) return;
-    positions = r.list;
+    const r = Shared.mergeDashboard(positions, d, { fixed: FIXED });
+    if (r.changed) {
+      positions = r.list;
+      positions.forEach(applyState);
+      savePositions();
+      render();
+    }
+    legacyRemovals(d);
+  }).catch(() => {});
+}
+// Een positie uit de startlijst die je op dit apparaat verwijderde toen de lijst nog niet gedeeld werd: ze staat nog in
+// tickers.txt (en dus in de radar en op het scorebord). Eén keer vragen: overal weg, of hier terugzetten.
+function legacyRemovals(d) {
+  if (legacyAsked || !d || !d.exact || !d.all || typeof d.all.has !== 'function' || !Shared.isAdmin() || !positions.length) return;
+  const have = new Set(positions.map(p => p.ticker.toUpperCase())), dash = new Set(d.list.map(x => x.ticker));
+  const gone = DEFAULT.filter(p => { const t = p.ticker.toUpperCase(); return d.all.has(t) && !dash.has(t) && !have.has(t) && !pendingRm.has(t); });
+  if (!gone.length) return;
+  legacyAsked = true;
+  const naam = p => { const q = getQuote(p.ticker); return `${p.label || (q && q.name) || p.ticker}${(p.label || (q && q.name)) ? ` (${p.ticker})` : ''}`; };
+  if (confirm(`Eerder op dit apparaat verwijderd, maar nog in je gedeelde lijst (koersen, radar en scorebord):\n\n${gone.map(naam).join('\n')}\n\nOK = overal verwijderen\nAnnuleren = hier terugzetten`)) {
+    Shared.removeTicker(gone.map(p => p.ticker)).catch(() => {});
+  } else {
+    gone.forEach(p => positions.push({ ...p }));
     positions.forEach(applyState);
     savePositions();
     render();
-  }).catch(() => {});
+  }
 }
 syncList();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) syncList(); });
@@ -1419,12 +1446,19 @@ function removePosition(id) {
   const q = pos && getQuote(pos.ticker);
   const naam = pos ? (pos.label || (q && q.name) || pos.ticker) : id;
   const tick = pos && pos.ticker !== naam ? ` (${pos.ticker})` : '';
-  if (!confirm(`Weet je zeker dat je ${naam}${tick} wilt verwijderen?`)) return;
+  if (!confirm(`Weet je zeker dat je ${naam}${tick} wilt verwijderen?\n\nDe positie verdwijnt op al je apparaten, uit de radar en van het scorebord.`)) return;
   positions = positions.filter(p => posId(p) !== id);
   savePositions();
   render();
-  // via het dashboard in tickers.txt gezet en nergens meer in je lijst: daar ook weer uit (handmatige regels blijven staan)
-  if (pos && !positions.some(p => p.ticker === pos.ticker)) Shared.removeTicker(pos.ticker).catch(() => {});
+  // nergens meer in je lijst: ook uit tickers.txt (de gedeelde lijst), dan verdwijnt ze overal
+  if (pos && !positions.some(p => p.ticker.toUpperCase() === pos.ticker.toUpperCase())) {
+    const t = pos.ticker.toUpperCase();
+    pendingRm.add(t);
+    Shared.removeTicker(t).then(res => {
+      pendingRm.delete(t);
+      if (res !== 'ok' && res !== 'same') addNote.textContent = `${t} kon niet uit de gedeelde lijst (tickers.txt) worden gehaald (GitHub gaf een fout); hij blijft daardoor nog in de radar en op het scorebord staan. Open deze pagina later opnieuw.`;
+    }).catch(() => pendingRm.delete(t));
+  }
 }
 
 // Dialog: zoeken op naam (zoek.json) of zelf een Yahoo-ticker invullen
@@ -1481,7 +1515,7 @@ document.getElementById('f-save').onclick = () => {
   const isWatch = section === 'Watchlist';
   const costVal = parseFloat(document.getElementById('f-cost').value);
   const name = picked && picked.sym === t ? picked.name : '';
-  const willAdd = !getQuote(t) && !positions.some(p => p.ticker.toUpperCase() === t);   // nog niet in tickers.txt (geen koers)
+  const hadQuote = !!getQuote(t);                 // al een koers: stond al in tickers.txt (of er net uit)
   const qtyVal = parseFloat(document.getElementById('f-qty').value) || 1;
   positions.push(Object.assign({
     ticker: t,
@@ -1491,19 +1525,20 @@ document.getElementById('f-save').onclick = () => {
     qty: qtyVal,
     thresh: parseInt(document.getElementById('f-thresh').value),
     cur: document.getElementById('f-cur').value
-  }, name ? { label: name } : {}, willAdd && getToken() ? { added: Date.now() } : {}));
+  }, name ? { label: name } : {}, { added: Date.now() }));       // net toegevoegd: blijft staan tot ze in tickers.txt gezien is
   // aankoopprijs en aantal meteen in je (versleutelde) state, zodat ze op je andere apparaten ook kloppen
   if (!isWatch && costVal > 0) { const st = touch(posId({ section, ticker: t })); st.cost = costVal; st.qty = qtyVal; saveState(); }
   ['f-ticker','f-cost','f-qty'].forEach(id => document.getElementById(id).value = '');
   dlg.close();
   savePositions();
   render();
-  // Koersen komen van GitHub (tickers.txt -> data.json): met je token zetten we de ticker er zelf in
-  if (!willAdd) return;
-  addNote.textContent = `${t} wordt aan tickers.txt toegevoegd…`;
+  // tickers.txt is de gedeelde lijst (koersen, radar, scorebord): met je token zetten we de ticker er altijd in
+  // (staat hij er al, dan gebeurt er niets)
+  if (!hadQuote) addNote.textContent = `${t} wordt aan tickers.txt toegevoegd…`;
   Shared.addTicker(t, name, section).then(res => {
-    addNote.textContent = res === 'ok' || res === 'same' ? `✓ ${t} staat in tickers.txt. De eerste koers komt binnen ±10 minuten (volgende koersupdate).`
-      : `${t} kon niet aan tickers.txt worden toegevoegd (GitHub gaf een fout). Probeer later opnieuw of voeg hem zelf toe.`;
+    if (res === 'ok') addNote.textContent = `✓ ${t} staat in je gedeelde lijst (tickers.txt). ${hadQuote ? '' : 'De eerste koers komt binnen ±10 minuten; '}radar en scorebord volgen vanzelf.`;
+    else if (res !== 'same') addNote.textContent = `${t} kon niet aan tickers.txt worden toegevoegd (GitHub gaf een fout). Probeer later opnieuw of voeg hem zelf toe.`;
+    else if (!hadQuote) addNote.textContent = `✓ ${t} staat in tickers.txt. De eerste koers komt binnen ±10 minuten (volgende koersupdate).`;
   });
 };
 

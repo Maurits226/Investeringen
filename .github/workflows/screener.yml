@@ -18,6 +18,7 @@ on:
       - 'screener_universe.txt'
       - 'kwaliteit.json'
       - 'opzoeklijst.json'             # tab Opzoeken: een nieuw aandeel meteen beoordelen
+      - 'tickers.txt'                  # positie toegevoegd of verwijderd: scorebord (Beoordeling) en eigen posities meteen bijwerken
       - '.github/workflows/screener.yml'
 
 permissions:

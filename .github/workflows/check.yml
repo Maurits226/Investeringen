@@ -67,5 +67,8 @@ jobs:
       - name: Aangepaste aankoopprijs blijft staan met Sync aan (nagebootste GitHub)
         run: node tests/test_sync.js
 
+      - name: Positie weghalen of toevoegen werkt door op elk apparaat en op het scorebord
+        run: node tests/test_lijst.js
+
       - name: Alleen de beheerder kan wijzigen; bezoekers alleen-lezen; ingevoegde code draait niet
         run: node tests/test_security.js

@@ -64,6 +64,7 @@ const marktSoon = () => {
 // signals.json, komt met de eerstvolgende run van de Patroonradar)
 const readJSON = f => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { return null; } };
 const hasBodem = !!(readJSON('bodem.json') || {}).dip;
+const hasBewijs = ((readJSON('bewijs.json') || {}).pijlers || []).length === 5;
 const hasStress = SEED.some(([t]) => ((readJSON('signals.json') || {}).items || []).some(i => i.symbol === t && i.stress && typeof i.stress.ndx === 'number'));
 
 const PAGES = ['index.html', 'vandaag.html', 'portfolio.html', 'beoordeling.html', 'beoordeling.html?set=top',
@@ -136,6 +137,10 @@ const WIDTHS = [390, 1280];
           await page.waitForTimeout(300);
         }
         if (pg === 'signals.html' && hasBodem && !(await page.$('.bd .bd-verdict'))) errs.push('Patroonradar: bodemsignaal ontbreekt');
+        if (pg === 'koopmoment.html' && hasBewijs) {            // bewijs per pijler: vijf rijen met een gewicht dat samen 100% is
+          const ws = await page.$$eval('[data-bewijs] .bw-p td.w b', els => els.map(e => parseFloat(e.textContent)));
+          if (ws.length !== 5 || Math.abs(ws.reduce((a, b) => a + b, 0) - 100) > 2) errs.push(`Koopmoment: bewijs per pijler ontbreekt of de gewichten zijn samen geen 100% (${ws.join(', ')})`);
+        }
         if (pg === 'screener.html' && await page.$('.stock')) {
           await page.click('.stock .toggle');
           await page.waitForSelector('.stock.open .detail', { timeout: 8000 });

@@ -20,7 +20,9 @@ Per stock:
   * De 12 stappen en de 125-punten scorecard uit 'How to Find the Best Stocks' (Tom Nash):
     alles wat uit de cijfers te halen is wordt nagerekend, de rest staat als checklist klaar.
     Moat, CEO e.d.: handmatig oordeel uit kwaliteit.json, anders een strenge schatting uit de cijfers.
-  * Marktrang (Score 2.0): scorecard + kwaliteit, groei, waardering en momentum t.o.v. de sector
+  * Marktrang (Score 2.0): scorecard + kwaliteit, groei, waardering en momentum t.o.v. de sector. De gewichten volgen
+    het bewijs: scripts/bewijs.py rekent de pijlers terug op 5 jaar maandkoersen en de jaarcijfers en volgt de
+    maandstanden die we vastleggen (bewijs.json voor de pagina's, bewijs_log.json voor de maandstanden)
   * Verwacht rendement komende 12 maanden (analisten-koersdoel + dividend)
 
 Amerikaanse bedrijven: cijfers komen van de dollarnotering, koers en koersdoel worden

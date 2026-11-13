@@ -107,6 +107,8 @@ def kenmerken(s, m, fx):
     if not c:
         return None
     out, A = {}, s.A
+    if s.sh_now:
+        out["_mc"] = c * s.sh_now                    # nog geen jaarcijfers bekend: het aantal aandelen van nu
     known = [k for k in s.fys if k + LAG <= m]
     if known:
         k, k1 = known[-1], (known[-2] if len(known) > 1 else None)

@@ -15,6 +15,7 @@ on:
     branches: [ main ]
     paths:
       - 'scripts/screener.py'
+      - 'scripts/bewijs.py'            # bewijs per pijler: een wijziging in de regels telt meteen mee in de gewichten
       - 'screener_universe.txt'
       - 'kwaliteit.json'
       - 'opzoeklijst.json'             # tab Opzoeken: een nieuw aandeel meteen beoordelen

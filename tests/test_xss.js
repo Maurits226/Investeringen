@@ -13,7 +13,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PAY = `"'><i data-xss="1"></i>`;
 const TEXT = new Set(['name', 'title', 'publisher', 'about', 'sector', 'industry', 'country', 'exch', 'us_exch', 'exchange', 'exchangeFull',
   'etf_name', 'label', 'err', 'noot', 'note', 'detail', 'plus', 'warn', 'why', 'text', 'uitleg', 'c', 'm', 'patterns', 'skip', 'topic',
-  'wijziging', 'rule', 'mult', 'oordeel', 'rem']);
+  'wijziging', 'rule', 'mult', 'oordeel', 'rem', 'naam', 'groepen']);
 const ENUM = new Set(['dir', 'direction', 'outcome', 'status', 's', 'kind', 'lvl', 'regime', 'val', 'state', 'rating', 'branch', 'region',
   'end_reason', 'trend', 'set', 'k', 'key', 'pre', 'at10', 'on']);
 const LINK = new Set(['link', 'url', 'href']);

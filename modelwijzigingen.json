@@ -114,5 +114,9 @@
  {
   "datum": "2026-11-13",
   "wijziging": "Positielijst gedeeld via tickers.txt: een positie die je weghaalt of toevoegt werkt door op elk apparaat, in koersen, Patroonradar, scorebord (Beoordeling) en de Top 250-run; BlackRock uit de lijst"
+ },
+ {
+  "datum": "2026-11-14",
+  "wijziging": "Marktrang: de gewichten van de pijlers volgen het bewijs. Teruggerekend op 5 jaar maandkoersen en de jaarcijfers (alleen wat toen bekend was) en live gevolgd via maandstanden; een pijler telt x1,25 als hij over een half jaar duidelijk hielp en ook in dalende maanden, x0,75 als hij in beide tegenwerkte. Eerste uitkomst: momentum 15% naar 18%, de rest schuift iets mee. Onderbouwing bij Koopmoment, Werkt het?"
  }
 ]

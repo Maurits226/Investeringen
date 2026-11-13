@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0wZSUl5qiIrKnFA3LoLvf4LYYh/ZmetwxfFyoZSQtYg='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xwgCZpurO9otRwdiVEKmJ274bh+AQBZho3U0AaTzFs8='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -370,7 +370,7 @@ function bewijsHTML() {
       <td data-l="${R.h || 6} mnd later" class="${h ? cls(h.spread) : ''}">${h ? pt(h.spread) : '—'}${h ? `<small>${esc(mndJaar(h.van))} – ${esc(mndJaar(h.tot))}</small>` : ''}</td>
       <td data-l="maanden beter" class="hide-s">${h && h.spread_pos != null ? nf(h.spread_pos, 0) + '%' : '—'}${h ? `<small>van ${nf(h.n, 0)} mnd</small>` : ''}</td>
       <td data-l="beurs" class="dir">▲ ${side(p.op)} <i>·</i> ▼ ${side(p.neer)}</td>
-      <td data-l="live" class="${l ? cls(l[1]) : ''}">${l ? pt(l[1]) : '—'}</td></tr>`;
+      <td data-l="live${lv ? ' · ' + esc(lv.t) : ''}" class="${l ? cls(l[1]) : ''}">${l ? pt(l[1]) : '—'}</td></tr>`;
   }).join('');
   const pil = `<div class="an-c wide" data-bewijs><div class="an-k">Bewijs per pijler van de marktrang <span>${nf(B.n || 0, 0)} bedrijven · t/m ${esc(mndJaar(B.last))}</span></div>
     <table class="an-t bw-t bw-p"><tr><th>pijler</th><th>gewicht</th><th title="Het beste vijfde deel min het slechtste vijfde deel, ${R.h || 6} maanden later, binnen de sector">${R.h || 6} mnd later<small>beste − slechtste vijfde</small></th>
@@ -379,7 +379,7 @@ function bewijsHTML() {
       deel daarna deed t.o.v. het slechtste (in euro, met dividend). Verwachtingen van analisten en de oordelen over moat en CEO zijn niet terug te halen, dus dit is een
       benadering; de scorecard is niet terug te rekenen. <b>Live</b> = de echte stand van alle bedrijven, sinds oktober 2026 elke maand vastgelegd en daarna gevolgd.
       Een pijler telt pas <b>zwaarder (×${nf(R.omhoog || 1.25, 2)})</b> als hij over een half jaar duidelijk hielp én ook in maanden dat de beurs daalde; lichter
-      (×${nf(R.omlaag || 0.75, 2)}) alleen als hij in beide tegenwerkte. Samen blijft het 100%, dus de andere schuiven dan iets mee. Zo loopt de marktrang niet achter de
+      (×${nf(R.omlaag || 0.75, 2)}) alleen als hij in beide tegenwerkte. Samen blijft het 100% (hier afgerond op hele procenten), dus de andere schuiven dan iets mee. Zo loopt de marktrang niet achter de
       laatste beweging aan. ▲ · ▼ = hielp in maanden dat de beurs steeg · daalde.</div></div>`;
   // per groep: wat deden de vastgelegde standen sindsdien, t.o.v. het gemiddelde van alle bedrijven van die stand
   const cols = keys.filter(k => live[k].nu).slice(-2);

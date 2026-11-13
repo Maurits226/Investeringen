@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WqZcHr6qoWaxw4LKQwHA2Ooh1dAh0rWFPBr0wwOKU+4='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0wZSUl5qiIrKnFA3LoLvf4LYYh/ZmetwxfFyoZSQtYg='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -122,6 +122,25 @@
   .an-t td { padding: 4px 0; border-top: 1px dashed #26282b; }
   .an-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
   .an-note b { color: var(--text); }
+  /* bewijs per pijler en per groep: kaart over de volle breedte */
+  .an-c.wide { grid-column: 1 / -1; }
+  .bw-t td, .bw-t th { vertical-align: top; }
+  .bw-t small { display: block; font-size: 11px; color: var(--muted); font-family: var(--sans, inherit); white-space: normal; font-weight: 400; }
+  .bw-t td:first-child { min-width: 150px; } .bw-t td:first-child small { max-width: 46ch; line-height: 1.4; margin-top: 2px; }
+  .bw-t .w b { color: var(--text); } .bw-t .w.up b { color: var(--up); } .bw-t .w.dn b { color: var(--down); }
+  .bw-t .dir { white-space: nowrap; } .bw-t .dir i { font-style: normal; color: var(--muted); }
+  .bw-t .dir .y { color: var(--up); } .bw-t .dir .n { color: var(--down); }
+  @media (max-width: 640px) {
+    .bw-t .hide-s { display: none; } .bw-t td:first-child { min-width: 104px; }
+    /* per pijler onder elkaar: naam en gewicht, daaronder de metingen met hun naam ervoor */
+    .bw-p tr:first-child { display: none; }
+    .bw-p tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; padding: 9px 0; border-top: 1px dashed #26282b; }
+    .bw-p td { border: 0; padding: 0; text-align: left !important; padding-left: 0 !important; white-space: normal !important; }
+    .bw-p td:nth-child(2) { grid-row: 1; grid-column: 2; text-align: right !important; }
+    .bw-p td:nth-child(n+3) { grid-column: 1 / -1; display: block !important; }
+    .bw-p td[data-l]::before { content: attr(data-l); color: var(--muted); font-family: var(--sans, inherit); margin-right: 6px; }
+    .bw-p td[data-l] small { display: inline; margin-left: 6px; }
+  }
 
   .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
   .foot { font-size: 11px; color: var(--muted); margin-top: 22px; line-height: 1.6; }
@@ -326,6 +345,57 @@ function followTable(log) {
   }).join('')}</table>`;
 }
 
+// Bewijs per pijler van de marktrang (bewijs.json, scripts/bewijs.py): teruggerekend op de maandkoersen en jaarcijfers,
+// en live uit de maandstanden. Plus per groep (scorecard, koopmoment, waardering) wat de vastgelegde standen sindsdien deden.
+let BEWIJS = null;
+const MND = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+const dagMnd = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${+m[3]} ${MND[+m[2] - 1]}` : '—'; };
+const mndJaar = ym => { const m = /^(\d{4})-(\d{2})/.exec(ym || ''); return m ? `${MND[+m[2] - 1]} ’${m[1].slice(2)}` : '—'; };
+const pt = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v), d) + ' pt';
+function bewijsHTML() {
+  const B = BEWIJS;
+  if (!B || !(B.pijlers || []).length) return '';
+  const R = B.regels || {}, live = B.live || {};
+  // laatste vastgezette uitslag na 1 maand per pijler, anders de lopende stand van de oudste maandstand
+  const keys = Object.keys(live).sort();
+  const froz = keys.filter(k => live[k]['1']).pop(), run = keys.find(k => live[k].nu);
+  const lv = froz ? { e: live[froz]['1'], t: `stand ${dagMnd(live[froz].date)}, na 1 mnd` } : run ? { e: live[run].nu, t: `sinds ${dagMnd(live[run].date)}` } : null;
+  // hielp de pijler in stijgende en in dalende maanden? Pas bij genoeg maanden; ≈ = geen verschil
+  const side = x => !x || x.ic == null || !(x.n >= (R.min_kant || 6)) ? '<i>—</i>' : x.ic >= 0.01 ? '<span class="y">ja</span>' : x.ic <= -0.01 ? '<span class="n">nee</span>' : '<i>≈</i>';
+  const rows = B.pijlers.map(p => {
+    const h = p['h' + (R.h || 6)], w = p.gewicht * 100, b = p.basis * 100, ch = nf(w, 0) !== nf(b, 0);
+    const l = lv && lv.e && lv.e.pijlers && lv.e.pijlers[p.k];
+    return `<tr><td>${esc(p.naam)}<small>${esc(p.oordeel)}</small></td>
+      <td class="w ${p.steun > 0 ? 'up' : p.steun < 0 ? 'dn' : ''}"><b>${nf(w, 0)}%</b>${ch ? `<small>was ${nf(b, 0)}%</small>` : ''}</td>
+      <td data-l="${R.h || 6} mnd later" class="${h ? cls(h.spread) : ''}">${h ? pt(h.spread) : '—'}${h ? `<small>${esc(mndJaar(h.van))} – ${esc(mndJaar(h.tot))}</small>` : ''}</td>
+      <td data-l="maanden beter" class="hide-s">${h && h.spread_pos != null ? nf(h.spread_pos, 0) + '%' : '—'}${h ? `<small>van ${nf(h.n, 0)} mnd</small>` : ''}</td>
+      <td data-l="beurs" class="dir">▲ ${side(p.op)} <i>·</i> ▼ ${side(p.neer)}</td>
+      <td data-l="live" class="${l ? cls(l[1]) : ''}">${l ? pt(l[1]) : '—'}</td></tr>`;
+  }).join('');
+  const pil = `<div class="an-c wide" data-bewijs><div class="an-k">Bewijs per pijler van de marktrang <span>${nf(B.n || 0, 0)} bedrijven · t/m ${esc(mndJaar(B.last))}</span></div>
+    <table class="an-t bw-t bw-p"><tr><th>pijler</th><th>gewicht</th><th title="Het beste vijfde deel min het slechtste vijfde deel, ${R.h || 6} maanden later, binnen de sector">${R.h || 6} mnd later<small>beste − slechtste vijfde</small></th>
+      <th class="hide-s">maanden beter</th><th title="Hielp de pijler in maanden dat de beurs steeg (▲) en in maanden dat de beurs daalde (▼)?">beurs ▲ · ▼</th><th>live<small>${lv ? esc(lv.t) : 'nog geen'}</small></th></tr>${rows}</table>
+    <div class="an-note"><b>Teruggerekend</b> met de maandkoersen en jaarcijfers: per maand de rangorde binnen de sector zoals die toen was, en wat het beste vijfde
+      deel daarna deed t.o.v. het slechtste (in euro, met dividend). Verwachtingen van analisten en de oordelen over moat en CEO zijn niet terug te halen, dus dit is een
+      benadering; de scorecard is niet terug te rekenen. <b>Live</b> = de echte stand van alle bedrijven, sinds oktober 2026 elke maand vastgelegd en daarna gevolgd.
+      Een pijler telt pas <b>zwaarder (×${nf(R.omhoog || 1.25, 2)})</b> als hij over een half jaar duidelijk hielp én ook in maanden dat de beurs daalde; lichter
+      (×${nf(R.omlaag || 0.75, 2)}) alleen als hij in beide tegenwerkte. Samen blijft het 100%, dus de andere schuiven dan iets mee. Zo loopt de marktrang niet achter de
+      laatste beweging aan. ▲ · ▼ = hielp in maanden dat de beurs steeg · daalde.</div></div>`;
+  // per groep: wat deden de vastgelegde standen sindsdien, t.o.v. het gemiddelde van alle bedrijven van die stand
+  const cols = keys.filter(k => live[k].nu).slice(-2);
+  if (!cols.length) return pil;
+  const gRows = (B.groepen || []).map(([k, naam]) => {
+    const cells = cols.map(c => { const g = (live[c].nu.groepen || {})[k], gem = live[c].nu.gem;
+      return g ? `<td class="${cls(g[1] - gem)}">${pt(g[1] - gem)}<small>${nf(g[0], 0)} bedrijven · ${pct(g[1])}</small></td>` : '<td>—</td>'; }).join('');
+    return cells.includes('small') ? `<tr><td>${esc(naam)}</td>${cells}</tr>` : '';
+  }).join('');
+  const grp = `<div class="an-c wide"><div class="an-k">Live per groep <span>t.o.v. alle bedrijven van die maandstand</span></div>
+    <table class="an-t bw-t"><tr><th>groep</th>${cols.map(c => `<th>stand ${esc(dagMnd(live[c].date))}<small>${nf(live[c].days, 0)} dagen · alle ${pct(live[c].nu.gem)}</small></th>`).join('')}</tr>${gRows}</table>
+    <div class="an-note">Elke maand wordt de stand van alle bedrijven vastgelegd. Hier zie je per groep wat die bedrijven sindsdien deden, in punten t.o.v. het gemiddelde
+      van alle bedrijven van die stand (in euro). Eén of twee maanden zeggen nog weinig: dit wordt pas bewijs als het maand na maand dezelfde kant op wijst.</div></div>`;
+  return pil + grp;
+}
+
 function trackHTML() {
   const log = DATA.log || [], coh = DATA.cohorts || [], gaplog = DATA.gaplog || [];
   const koop = `<div class="an-c"><div class="an-k">Koopmomenten <span>${log.length} vastgelegd</span></div>
@@ -348,7 +418,7 @@ function trackHTML() {
     ${gaplog.length ? followTable(gaplog) : '<div class="an-note" style="margin-top:0">Vanaf de volgende Top 250-run wordt elke nieuwe kans vastgelegd.</div>'}
     <div class="an-note">Elke nieuwe Find the gap-kans (scorecard 90+ én een gap: cijfers omhoog, aandeel omlaag), gemeten vanaf die dag tegen
       de S&amp;P 500 in dezelfde valuta. Werkt de combinatie, dan verslaat deze groep de S&amp;P 500 vaker dan de scorecard-groep 75–100.</div></div>`;
-  return koop + gap + sc;
+  return bewijsHTML() + koop + gap + sc;
 }
 
 function render() {
@@ -368,7 +438,7 @@ function render() {
     : `<div class="empty">${OWN_SET ? 'Geen van je eigen posities is nu een koopmoment om bij te kopen.' : 'Nu geen koopmomenten met deze instellingen.'}
        ${!showAll && nNear ? `<br>${nNear} aandeel/aandelen staan bijna in de zone: kies "+ bijna".` : ''}${min === 100 ? '<br>Of verlaag de drempel naar scorecard 90+.' : ''}</div>`;
   $('track').innerHTML = trackHTML();
-  $('trackSub').textContent = 'koopmomenten, Find the gap en scorecard tegen de S&P 500';
+  $('trackSub').textContent = 'bewijs per pijler, en koopmomenten, Find the gap en scorecard tegen de S&P 500';
 }
 
 function bindSeg(id, key) {
@@ -388,6 +458,7 @@ async function load() {
     $('updated').textContent = 'geen data';
     return;
   }
+  try { const b = await fetch('bewijs.json', { cache: 'no-cache' }); BEWIJS = b.ok ? await b.json() : null; } catch (e) { BEWIJS = null; }
   const d = new Date(DATA.updated);
   $('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   render();

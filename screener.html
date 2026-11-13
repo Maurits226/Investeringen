@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WHmH3/Ck5XmAakVqEyUxaTq+oaR+/J18uV4g5rK1byE='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-o8e6d3g7axCCeQvCfivmT1TGBeLdCooteof05CF43r8='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -392,10 +392,12 @@
       </div>
       <div>
         <h4>Marktrang · vijf pijlers</h4>
-        <b>Scorecard 30%</b> (de 125 punten uit de gids) · <b>Kwaliteit 20%</b> (brutowinst/bezit, rendement op kapitaal,
-        vrije kasstroom, kasconversie, verwatering + moat/CEO/recessie) · <b>Groei 20%</b> (omzet, winst, verwachting volgend jaar)
-        · <b>Waardering 15%</b> (verwachte K/W, PEG, kasstroomrendement, EV/EBITDA) · <b>Momentum 15%</b> (12 maanden,
+        <b>Scorecard <span data-w="F">30</span>%</b> (de 125 punten uit de gids) · <b>Kwaliteit <span data-w="Q">20</span>%</b> (brutowinst/bezit, rendement op kapitaal,
+        vrije kasstroom, kasconversie, verwatering + moat/CEO/recessie) · <b>Groei <span data-w="G">20</span>%</b> (omzet, winst, verwachting volgend jaar)
+        · <b>Waardering <span data-w="V">15</span>%</b> (verwachte K/W, PEG, kasstroomrendement, EV/EBITDA) · <b>Momentum <span data-w="M">15</span>%</b> (12 maanden,
         afstand tot de top, boven 200-daags gemiddelde, bijstellingen door analisten).
+        De gewichten <b>volgen het bewijs</b>: een pijler telt zwaarder als hij aantoonbaar hielp, ook in maanden dat de beurs daalde
+        (vast: 30 · 20 · 20 · 15 · 15). De onderbouwing staat bij Koopmoment onder <i>Werkt het?</i>
       </div>
       <div>
         <h4>Eerlijk vergelijken</h4>
@@ -641,6 +643,7 @@ function render() {
   const min = +$('minSel').value, minCard = +$('cardSel').value, q = $('searchInp').value.trim().toLowerCase();
 
   // Kop
+  document.querySelectorAll('.howto [data-w]').forEach(e => { const w = (DATA.weights || {})[e.dataset.w]; if (w != null) e.textContent = Math.round(w * 100); });
   const d = new Date(DATA.updated);
   $('updated').textContent = 'data van ' + d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const chip = $('scanChip');
@@ -839,7 +842,9 @@ function detail(it) {
     if (k === 'revisions') return (v > 0 ? '+' : '') + nf(v, 0);
     return METRIC_NL[k][1] === 'x' ? nf(v, 1) + '×' : (v > 0 && ['rev_cagr3', 'rev_yoy', 'eps_g', 'fwd_g', 'chg12', 'dilution'].includes(k) ? '+' : '') + nf(v, 1) + '%';
   };
-  const pillars = ['F', 'Q', 'G', 'V', 'M'].map(k => `<div class="pil"><div>${PIL[k][0]}<small>${PIL[k][1]} · ${Math.round((W[k] || 0) * 100)}%</small></div>
+  const W0 = DATA.weights_base || {};
+  const wTxt = k => { const a = Math.round((W[k] || 0) * 100), b = Math.round((W0[k] || 0) * 100); return `${a}%${W0[k] != null && a !== b ? ` (was ${b}%)` : ''}`; };
+  const pillars = ['F', 'Q', 'G', 'V', 'M'].map(k => `<div class="pil"><div>${PIL[k][0]}<small>${PIL[k][1]} · ${wTxt(k)}</small></div>
       <div class="pil-bar"><i style="width:${pil[k] || 0}%;background:${PIL_COLOR(pil[k])}"></i></div><div class="pil-val">${pil[k] == null ? '—' : Math.round(pil[k])}</div></div>`).join('');
   const metrics = ['Q', 'G', 'V', 'M'].map(pl => METRIC_PIL[pl].filter(k => mv[k] != null).map(k =>
       `<span title="${PIL[pl][0]} · percentiel binnen de sector: ${mp[k] == null ? '—' : Math.round(mp[k])}">${METRIC_NL[k][0]} <b>${mval(k, mv[k])}${mp[k] != null ? ` <em style="color:${PIL_COLOR(mp[k])};font-style:normal">P${Math.round(mp[k])}</em>` : ''}</b></span>`).join('')).join('');

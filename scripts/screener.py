@@ -46,6 +46,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bewijs as BW  # noqa: E402  (bewijs per pijler en de gewichten van de marktrang die dat volgen)
+
 # ── Instellingen ─────────────────────────────────────────────────────────
 TOP_N = 1000                # in screener.json, op volgorde van de scorecard; de pagina toont scorecard 75+ (max. 1000)
 CARD_SELECT = 75            # vanaf deze scorecard staat een bedrijf in de kansenlijst (75-100 watchlist, 100+ once-in-a-lifetime)
@@ -62,6 +65,7 @@ OK_FIN_CUR = {"USD", "EUR"}
 FX_FIN = {"TWD", "JPY", "GBP", "CHF", "DKK", "SEK", "NOK", "CAD", "AUD", "HKD", "CNY", "KRW", "INR", "SGD", "BRL", "MXN",
           "ZAR", "ILS"}
 # Score 2.0 (marktrang): vijf pijlers. F = scorecard van de gids (absoluut), de andere vier zijn percentielen binnen de sector.
+# Dit zijn de vaste gewichten; de gewichten waarmee gerekend wordt volgen het bewijs (bewijs.py, zie evidence()).
 PILLAR_W = {"F": 0.30, "Q": 0.20, "G": 0.20, "V": 0.15, "M": 0.15}
 MIN_PEERS = 15               # minder bedrijven in een sector? Dan vergelijken met de hele markt
 METRICS = {                  # kenmerk: (pijler, hoger = beter)
@@ -108,6 +112,8 @@ CACHE = os.path.join(ROOT, "screener_cache.json")
 UNIVERSE = os.path.join(ROOT, "screener_universe.txt")
 QUALITY = os.path.join(ROOT, "kwaliteit.json")
 KOOP_OUT = os.path.join(ROOT, "koopmoment.json")
+BEWIJS_OUT = os.path.join(ROOT, "bewijs.json")       # bewijs per pijler en de gewichten (voor de pagina's)
+BEWIJS_LOG = os.path.join(ROOT, "bewijs_log.json")   # de vastgelegde maandstanden en de teruggerekende maanden (niet voor de pagina's)
 DET_DIR = os.path.join(ROOT, "screener_det")   # details per kans, verdeeld over DET_N bestanden (shard_of)
 DET_N = 16
 THESE_OUT = os.path.join(ROOT, "these.json")
@@ -2378,6 +2384,64 @@ def update_these(prev, refs, today):
     return {"v": 1, "updated": iso(), "stocks": dict(sorted(stocks.items()))}
 
 
+# ── Bewijs per pijler: gewichten van de marktrang die het bewijs volgen ───
+def _load(path):
+    try:
+        return json.load(open(path, encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def evidence(cache, ref_pm, prices, fx, today, log=None, prev=None):
+    """Het bewijs per pijler en de gewichten van de marktrang voor deze run.
+    Terugrekenen (bewijs.py) kost een paar seconden en verandert pas als er een maand bij komt of er meer bedrijven
+    maandkoersen hebben: de uitkomst staat daarom in bewijs_log.json en wordt hergebruikt zolang de sleutel gelijk is.
+    Geeft (gewichten, bewijs voor bewijs.json, log voor bewijs_log.json)."""
+    log = dict(log or {})
+    S = BW.aandelen(cache)
+    last = max(BW.reeks((ref_pm or {}).get("fx")) or [0])
+    key = [BW.VERSION, last, len(S) // 50]            # per 50 bedrijven: niet elke run opnieuw tijdens het vullen
+    terug = log.get("terug") or {}
+    if terug.get("key") != key:
+        R = BW.terugrekenen(cache, ref_pm)
+        terug = {"key": key, "n": R["n"], "last": R["last"],
+                 "res": {f"{p}|{h}": {str(m): [None if v is None else round(v, 4) for v in row] for m, row in d.items()}
+                         for (p, h), d in R["res"].items()},
+                 "sp": {str(m): v for m, v in (R.get("sp") or {}).items()}}
+        log["terug"] = terug
+    R = {"res": {(k.split("|")[0], int(k.split("|")[1])): {int(m): tuple(v) for m, v in d.items()} for k, d in (terug.get("res") or {}).items()},
+         "sp": {int(m): v for m, v in (terug.get("sp") or {}).items()}}
+
+    def px_now(sym):
+        return (prices.get(sym) or {}).get("price") or (cache.get(sym) or {}).get("price")
+    live = BW.live_bijwerken(log.get("standen") or [], (prev or {}).get("live"), px_now, fx, today)
+    sam = BW.samenvatting(R, BW.live_reeks(live))
+    was = {p["k"]: p.get("steun", 0) for p in (prev or {}).get("pijlers") or []}
+    weights, st = BW.gewichten(PILLAR_W, sam, was)
+    c = {k: i for i, k in enumerate(BW.COLS)}
+    out = {"v": BW.VERSION, "updated": iso(), "n": terug.get("n"), "last": BW.ym(terug["last"]) if terug.get("last") else None,
+           "regels": {"h": BW.H_MAIN, "min_maanden": BW.MIN_MONTHS, "min_kant": BW.MIN_SIDE, "t": BW.T_ON,
+                      "omhoog": BW.MULT_UP, "omlaag": BW.MULT_DOWN},
+           "pijlers": [{"k": p, "naam": naam, "basis": PILLAR_W[p], "gewicht": weights[p], "steun": st[p],
+                        "oordeel": BW.oordeel(p, sam.get(p) or {}, st[p]),
+                        **{f"h{h}": (sam.get(p) or {}).get(h) for h in BW.HS},
+                        "op": (sam.get(p) or {}).get("op"), "neer": (sam.get(p) or {}).get("neer")} for p, naam in BW.PIJLERS],
+           "groepen": [[k, naam] for k, naam, _ in BW.groepen([])],
+           "live": live}
+    return weights, out, log
+
+
+def evidence_stand(log, items, today, fx):
+    """Eén keer per maand (de eerste run) de stand van alle bedrijven vastleggen; hooguit BW.KEEP standen bewaren."""
+    month = today.strftime("%Y-%m")
+    standen = list(log.get("standen") or [])
+    if fx and items and not any(c["month"] == month for c in standen):
+        standen.append(BW.stand(items, month, today.isoformat(), fx))
+        log = dict(log, standen=standen[-BW.KEEP:])
+        return log, True
+    return log, False
+
+
 def main():
     t0 = time.time()
     y = Yahoo()
@@ -2513,6 +2577,17 @@ def main():
     with open(ETF_OUT, "w", encoding="utf-8") as f:
         json.dump(etf_data, f, ensure_ascii=False, separators=(",", ":"))
 
+    # 3b. Bewijs per pijler: gewichten van de marktrang voor deze run (mag de Top 250 nooit laten vastlopen)
+    weights, bewijs, blog, blog0 = dict(PILLAR_W), None, {}, None
+    try:
+        blog0 = _load(BEWIJS_LOG)
+        weights, bewijs, blog = evidence(cache, (sp5 or {}).get("pm") or raw_ref, prices, fx, now().date(), blog0, _load(BEWIJS_OUT))
+        print("Marktrang, gewichten: " + " · ".join(f"{k} {weights[k] * 100:.1f}%" for k in PILLAR_W)
+              + f" (bewijs uit {bewijs['n']} bedrijven t/m {bewijs['last']})")
+    except Exception as e:  # noqa: BLE001
+        print(f"  bewijs niet bijgewerkt, vaste gewichten: {e}")
+        weights, bewijs, blog = dict(PILLAR_W), None, blog0 or {}
+
     # 4. Scoren
     items = []
     for sym in ready:
@@ -2554,8 +2629,8 @@ def main():
         pil = {"F": cs / 1.25 if cs is not None else it["formule"],
                "Q": 0.5 * fin_q + 0.5 * qual_pct if fin_q is not None else qual_pct,
                "G": mean(by["G"]), "V": mean(by["V"]), "M": mean(mom)}
-        wsum = sum(PILLAR_W[k] for k, v in pil.items() if v is not None)
-        it["composite"] = round(sum(PILLAR_W[k] * v for k, v in pil.items() if v is not None) / wsum, 2) if wsum else 0
+        wsum = sum(weights[k] for k, v in pil.items() if v is not None)
+        it["composite"] = round(sum(weights[k] * v for k, v in pil.items() if v is not None) / wsum, 2) if wsum else 0
         it["pillars"] = {k: (round(v, 1) if v is not None else None) for k, v in pil.items()}
         it["val"] = valuation_check(it)
     # 12 stappen (de juiste multiple vergelijkt met de sector: mediane verwachte K/W en koers/omzet)
@@ -2638,7 +2713,8 @@ def main():
         "failed": failed,
         "scored": len(items),
         "pending": pending,
-        "weights": PILLAR_W,
+        "weights": weights,                          # waarmee de marktrang nu rekent (volgt het bewijs, bewijs.json)
+        "weights_base": PILLAR_W,
         "card_select": CARD_SELECT,
         "gap_card": GAP_CARD,
         "sp5": {k: rnd(sp5[k] * 100, 1) for k in ("VS", "EU")} if sp5 else None,
@@ -2652,6 +2728,18 @@ def main():
     write_details(top, out["updated"])
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    try:                                             # bewijs: maandstand vastleggen en wegschrijven; mag nooit laten vastlopen
+        blog, nieuw = evidence_stand(blog, items + refs, now().date(), fx)
+        if nieuw:
+            print(f"Bewijs: maandstand {blog['standen'][-1]['month']} vastgelegd ({len(blog['standen'][-1]['rows'])} bedrijven)")
+        if bewijs:
+            with open(BEWIJS_OUT, "w", encoding="utf-8") as f:
+                json.dump(bewijs, f, ensure_ascii=False, separators=(",", ":"))
+        if blog and blog != blog0:
+            with open(BEWIJS_LOG, "w", encoding="utf-8") as f:
+                json.dump(blog, f, ensure_ascii=False, separators=(",", ":"))
+    except Exception as e:  # noqa: BLE001
+        print(f"  bewijs niet weggeschreven: {e}")
     try:                                             # these-bewaking eigen aandelen; mag de Top 250 nooit laten vastlopen
         try:
             these_prev = json.load(open(THESE_OUT, encoding="utf-8"))

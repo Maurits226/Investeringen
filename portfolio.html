@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-YaWN14QqcPdDO4wdy8nfwVGUtqc8uGmUOdxftKYITmI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-E7Amda8ar2qNTMxmB8jG6MfxbRwKwrlC2om2N86MN2Y='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -938,7 +938,7 @@ function renderCheck() {
       ${ST.last ? `<div class="pc-row"><span>Herhaling ${esc(dm(ST.last.from))} – ${esc(dm(ST.last.to))} <small style="color:var(--muted)">(Nasdaq ${pc0(ST.last.pct)})</small></span><small${hard(ST.last)}>${res(ST.last)}</small></div>` : ''}
       ${top.length ? `<div class="pc-note">Grootste klappen bij Nasdaq −20%: ${top.map(x => `${esc(x.name)} ${pc0(x.pct)}`).join(', ')}.</div>` : ''}
       <div class="pc-note">Uit hoe sterk elke positie het afgelopen jaar meebewoog met de Nasdaq-100 en de chipindex${ST.equal ? '; zonder aantallen telt elke positie even zwaar' : ''}${mis > 0 ? `; ${mis} ${mis === 1 ? 'positie' : 'posities'} zonder meting ${mis === 1 ? 'telt' : 'tellen'} mee als het gemiddelde` : ''}.
-        Zonder wisselkoerseffect. In een echte crash bewegen aandelen vaak sterker samen: zie het als schatting, niet als ondergrens.</div></div>`);
+        Zonder wisselkoerseffect. In een echte crash bewegen aandelen vaak sterker samen: reken erop dat het dan meer kan zijn.</div></div>`);
   }
 
   // 1. ETF-doorkijk

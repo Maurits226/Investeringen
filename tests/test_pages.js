@@ -60,6 +60,12 @@ const marktSoon = () => {
     .some(e => { const d = Math.round((Date.parse(e.date + 'T00:00:00Z') - base) / 864e5); return d >= 0 && d <= 14; });
 };
 
+// Nieuwe onderdelen die van data afhangen: het bodemsignaal (bodem.json) en de stresstest (stress per positie in
+// signals.json, komt met de eerstvolgende run van de Patroonradar)
+const readJSON = f => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { return null; } };
+const hasBodem = !!(readJSON('bodem.json') || {}).dip;
+const hasStress = SEED.some(([t]) => ((readJSON('signals.json') || {}).items || []).some(i => i.symbol === t && i.stress && typeof i.stress.ndx === 'number'));
+
 const PAGES = ['index.html', 'vandaag.html', 'portfolio.html', 'beoordeling.html', 'beoordeling.html?set=top',
   'signals.html', 'signals.html?set=top250', 'archief.html', 'archief.html?set=top250', 'screener.html',
   'koopmoment.html', 'koopmoment.html?set=own', 'opzoeken.html'];
@@ -117,6 +123,19 @@ const WIDTHS = [390, 1280];
       // belangrijkste interactie per pagina
       try {
         if (pg === 'screener.html' && !(await page.$('.stat[data-q="gap"]'))) errs.push('tegel Find the gap ontbreekt');
+        if (pg === 'screener.html' && await page.$('.stock')) {   // standaardvolgorde: groepen met een kopje, zeer duur onderaan
+          const order = await page.evaluate(() => [...document.querySelectorAll('#cards > .grp-h, #cards > .stock')].slice(0, 40)
+            .map(e => e.classList.contains('grp-h') ? 'H:' + [...e.classList].find(c => c.startsWith('g-')) : /zeer duur/.test(e.querySelector('.tags') ? e.querySelector('.tags').textContent : '') ? 'duur' : 'kaart'));
+          if (!order[0] || !order[0].startsWith('H:')) errs.push('Kansenlijst: geen kopje boven de eerste groep in de standaardvolgorde');
+          const d = order.indexOf('duur'), h = order.indexOf('H:g-duur');
+          if (d >= 0 && (h < 0 || d < h)) errs.push('Kansenlijst: een zeer duur aandeel staat niet in de groep onderaan');
+          await page.selectOption('#sortSel', 'score');
+          await page.waitForTimeout(300);
+          if (await page.$('#cards > .grp-h')) errs.push('Kansenlijst: groepskopjes horen alleen bij de standaardvolgorde');
+          await page.selectOption('#sortSel', 'kans');
+          await page.waitForTimeout(300);
+        }
+        if (pg === 'signals.html' && hasBodem && !(await page.$('.bd .bd-verdict'))) errs.push('Patroonradar: bodemsignaal ontbreekt');
         if (pg === 'screener.html' && await page.$('.stock')) {
           await page.click('.stock .toggle');
           await page.waitForSelector('.stock.open .detail', { timeout: 8000 });
@@ -137,10 +156,12 @@ const WIDTHS = [390, 1280];
         if (seeded && pg === 'portfolio.html') {           // risico: eerste kaart van de portefeuillecheck; een gekochte trede staat als gekocht
           await page.waitForSelector('#pcGrid .pc', { state: 'attached', timeout: 8000 });   // portefeuillecheck staat dicht
           if (!/Risico/.test(await page.textContent('#pcGrid .pc'))) errs.push('Investeringen: risicokaart ontbreekt in de portefeuillecheck');
+          if (hasStress && !(await page.$('#pcGrid [data-stress]'))) errs.push('Investeringen: stresstest ontbreekt in de portefeuillecheck');
           if (!(await page.$('.ladder .st.done'))) errs.push('Investeringen: vastgelegde trede niet als gekocht getoond');
         }
         if (seeded && pg === 'vandaag.html') {             // slechte maand in de kop, kooptrap bij Kopen
           if (!/slechte maand/.test(await page.textContent('#hero'))) errs.push('Vandaag: slechte maand ontbreekt in de kop');
+          if (hasStress && !(await page.$('#hero [data-stress]'))) errs.push('Vandaag: stresstest ontbreekt in de kop');
           if (await page.$('.g-kopen') && !(await page.$('.g-kopen .steps.buy'))) errs.push('Vandaag: Kopen zonder kooptrap');
         }
         if (admin && !seeded && pg === 'portfolio.html') { // positie toevoegen: zoeken op naam vult de ticker in

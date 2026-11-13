@@ -539,7 +539,7 @@ const Shared = (() => {
   // noteringen telt de dag erna mee). Samengesteld gerekend: een positie die 2x meebeweegt verliest bij −20% geen 40%
   // maar 36% (0,8²), en nooit meer dan alles. Posities zonder meting bewegen mee als het gemiddelde van de rest.
   // 'last' = wat je posities deden tijdens de laatste correctie van de Nasdaq-100 (stress.corr), toegepast op nu.
-  // Geen wisselkoerseffect, en in een echte crash bewegen aandelen vaak sterker samen: een schatting, geen ondergrens.
+  // Geen wisselkoerseffect, en in een echte crash bewegen aandelen vaak sterker samen: een schatting, het kan dan meer zijn.
   const STRESS = [['ndx', -10], ['ndx', -20], ['ndx', -30], ['sox', -30]];
   const shockPct = (beta, pct) => (Math.pow(1 + pct / 100, beta) - 1) * 100;
   // held: [{ id, name, q, qty, rate, st }] zoals riskView, met st = stress van die positie (of niets)

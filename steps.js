@@ -108,6 +108,8 @@ const Steps = (() => {
     if (!s12) return 'nog niet beoordeeld';
     if (s12.survivor) return 'overleeft alle stappen';
     if (s12.fail === 12 && s12.nfail === 1) return 'overleeft stap 1-11 · alleen (nog) te duur (stap 12)';
+    // geen afvaller en toch geen survivor: bank of verzekeraar (balans en waardering zijn daar niet uit de cijfers te beoordelen)
+    if (s12.fail == null) return 'geen afvaller · balans en waardering zelf beoordelen (bank of verzekeraar)';
     const f = s12.list.find(s => s.n === s12.fail);
     return `valt af bij stap ${+s12.fail}: ${(NAMES[s12.fail] || '').toLowerCase()}${f && f.note ? ' · ' + f.note.replace(/^[^:]+:\s*/, '') : ''}`;
   }

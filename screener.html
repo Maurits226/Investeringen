@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-F+bflgKoZpAV5+4RhXUzTHOUlfX8g+O5om5S3SiVd1I='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WHmH3/Ck5XmAakVqEyUxaTq+oaR+/J18uV4g5rK1byE='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -134,7 +134,13 @@
   .tag.sc-top { color: var(--up); border-color: rgba(62,207,142,.5); }
   .tag.sc-watch { color: var(--warn); border-color: rgba(245,181,68,.45); }
   .tag.sc-low { color: var(--down); border-color: rgba(240,89,95,.4); }
-  .tag.v-hot { color: var(--down); border-color: rgba(240,89,95,.45); }
+  .tag.v-hot { color: var(--down); border-color: rgba(240,89,95,.45); background: rgba(240,89,95,.08); }
+  /* kopje boven elke groep in de standaardvolgorde */
+  .grp-h { --c: var(--muted); display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 18px 2px 8px; padding-left: 10px; border-left: 3px solid var(--c); }
+  .grp-h:first-child { margin-top: 2px; }
+  .grp-h b { font-size: 14px; color: var(--text); } .grp-h .n { font-family: var(--mono); font-size: 12px; color: var(--c); font-weight: 600; }
+  .grp-h .w { font-size: 12px; color: var(--muted); }
+  .grp-h.g-zone { --c: var(--up); } .grp-h.g-bijna { --c: var(--warn); } .grp-h.g-duur { --c: var(--down); }
   .tag.v-cheap { color: var(--up); border-color: rgba(62,207,142,.45); }
   .tag.gap { color: var(--up); border-color: rgba(62,207,142,.55); background: rgba(62,207,142,.08); }
   /* Find the gap: cijfers omhoog, aandeel omlaag (bovenaan de details, over de hele breedte) */
@@ -378,6 +384,13 @@
         Je ziet wie op de <b>scorecard 75 of hoger</b> scoort (max. 1000), zonder je eigen posities; die kun je als referentie aanzetten.
       </div>
       <div>
+        <h4>Volgorde van de lijst</h4>
+        Eerst wat nu <b>in de koopzone</b> staat (sterk bedrijf, 10–25% onder de top, trend intact, niet duur), dan wat
+        daar <b>bijna</b> is, dan de overige kansen; wat <b>zeer duur</b> is t.o.v. de sector staat onderaan. Binnen elke
+        groep de hoogste <b>kwaliteit</b> eerst. De scorecard bepaalt wie op de lijst staat (75 of hoger), niet de volgorde:
+        een hoge score zegt 'goed bedrijf', niet 'goed moment'. Liever de oude volgorde? Kies bij Sorteer voor Scorecard 125.
+      </div>
+      <div>
         <h4>Marktrang · vijf pijlers</h4>
         <b>Scorecard 30%</b> (de 125 punten uit de gids) · <b>Kwaliteit 20%</b> (brutowinst/bezit, rendement op kapitaal,
         vrije kasstroom, kasconversie, verwatering + moat/CEO/recessie) · <b>Groei 20%</b> (omzet, winst, verwachting volgend jaar)
@@ -426,6 +439,7 @@
     <div class="tb-group">
       <span class="tb-label">Sorteer</span>
       <select id="sortSel">
+        <option value="kans" data-short="Koopmoment">Koopmoment en kwaliteit (standaard)</option>
         <option value="score" data-short="Scorecard 125">Scorecard 125 (hoog → laag)</option>
         <option value="gap" data-short="Gap">Find the gap (hoge score + grootste gap eerst)</option>
         <option value="rank" data-short="Marktrang">Marktrang (hoog → laag)</option>
@@ -529,8 +543,20 @@ const money = (it, v) => v == null ? '—' : isUSD(it) ? usd(v * toNative(it)) :
 const bn = (it, v) => v == null ? '—' : (isUSD(it) ? '$ ' : '€ ') + nf(v * toNative(it), v * toNative(it) >= 100 ? 0 : 1) + ' mld';
 const expOf = it => (it.exp && it.exp.pct != null) ? it.exp.pct : -1e9;
 const cardOf = it => (it.card && it.card.s != null) ? it.card.s : -1;
-// Standaardvolgorde: scorecard hoog → laag, dan marktrang, dan verwacht rendement, dan naam
-const byDefault = (a, b) => cardOf(b) - cardOf(a) || b.score - a.score || expOf(b) - expOf(a) || a.name.localeCompare(b.name, 'nl');
+// Scorecard hoog → laag, dan marktrang, dan verwacht rendement, dan naam (was de standaard, nu een keuze in de lijst)
+const byCard = (a, b) => cardOf(b) - cardOf(a) || b.score - a.score || expOf(b) - expOf(a) || a.name.localeCompare(b.name, 'nl');
+// Standaardvolgorde: eerst wat nu een koopmoment is, dan wat er bijna een is, dan de overige kansen, en onderaan wat zeer
+// duur is t.o.v. de sector. Binnen elke groep de hoogste kwaliteit eerst. De scorecard bepaalt wie op de lijst staat
+// (75 of hoger), niet meer de volgorde: een hoge scorecard zegt 'goed bedrijf', niet 'goed moment'.
+const GROUPS = [
+  ['zone', 'In de koopzone', 'sterk bedrijf, 10–25% onder de top, trend intact, niet duur'],
+  ['bijna', 'Bijna een koopmoment', 'nog net niet diep genoeg onder de top'],
+  ['rest', 'Overige kansen', 'geen koopmoment nu; hoogste kwaliteit eerst'],
+  ['duur', 'Zeer duur', 'ruim boven wat in de sector gewoon is; daarom onderaan']
+];
+const groupOf = it => it.koop && it.koop.status === 'zone' ? 0 : it.koop && it.koop.status === 'bijna' ? 1 : it.val && it.val.lvl === 'zeer duur' ? 3 : 2;
+const qOf = it => (it.pillars || {}).Q ?? -1;
+const byDefault = (a, b) => groupOf(a) - groupOf(b) || qOf(b) - qOf(a) || byCard(a, b);
 const pct = (v, d = 1) => v == null ? '—' : (v > 0 ? '+' : '') + nf(v, d) + '%';
 const cls = v => v == null ? '' : v > 0 ? 'c-up' : v < 0 ? 'c-down' : '';
 // Kleuren van de scorecard (zoals in de video): groen 100+, geel 75-100, rood onder 75
@@ -665,19 +691,26 @@ function render() {
     (!q || [it.name, it.sym, it.eu, it.industry].some(x => (x || '').toLowerCase().includes(q))));
 
   const sorters = {
-    score: byDefault,
-    Q: (a, b) => ((b.pillars || {}).Q ?? -1) - ((a.pillars || {}).Q ?? -1) || byDefault(a, b),
-    G: (a, b) => ((b.pillars || {}).G ?? -1) - ((a.pillars || {}).G ?? -1) || byDefault(a, b),
-    V: (a, b) => ((b.pillars || {}).V ?? -1) - ((a.pillars || {}).V ?? -1) || byDefault(a, b),
-    M: (a, b) => ((b.pillars || {}).M ?? -1) - ((a.pillars || {}).M ?? -1) || byDefault(a, b),
-    exp: (a, b) => expOf(b) - expOf(a) || byDefault(a, b),
-    gap: (a, b) => gapTier(b) - gapTier(a) || ((b.gap || {}).pct || 0) - ((a.gap || {}).pct || 0) || byDefault(a, b),
-    rank: (a, b) => b.score - a.score || byDefault(a, b),
-    steps: (a, b) => s12rank(b) - s12rank(a) || byDefault(a, b),
+    kans: byDefault,
+    score: byCard,
+    Q: (a, b) => ((b.pillars || {}).Q ?? -1) - ((a.pillars || {}).Q ?? -1) || byCard(a, b),
+    G: (a, b) => ((b.pillars || {}).G ?? -1) - ((a.pillars || {}).G ?? -1) || byCard(a, b),
+    V: (a, b) => ((b.pillars || {}).V ?? -1) - ((a.pillars || {}).V ?? -1) || byCard(a, b),
+    M: (a, b) => ((b.pillars || {}).M ?? -1) - ((a.pillars || {}).M ?? -1) || byCard(a, b),
+    exp: (a, b) => expOf(b) - expOf(a) || byCard(a, b),
+    gap: (a, b) => gapTier(b) - gapTier(a) || ((b.gap || {}).pct || 0) - ((a.gap || {}).pct || 0) || byCard(a, b),
+    rank: (a, b) => b.score - a.score || byCard(a, b),
+    steps: (a, b) => s12rank(b) - s12rank(a) || byCard(a, b),
     name: (a, b) => a.name.localeCompare(b.name, 'nl')
   };
   // de gap-tegel aan en nog de standaardvolgorde: grootste gap bovenaan
-  list.sort(sorters[quick === 'gap' && sortBy === 'score' ? 'gap' : sortBy] || sorters.score);
+  const order = quick === 'gap' && sortBy === 'kans' ? 'gap' : sorters[sortBy] ? sortBy : 'kans';
+  list.sort(sorters[order]);
+  // standaardvolgorde: een kopje boven elke groep (koopzone, bijna, overige kansen, zeer duur)
+  const nGroup = [0, 0, 0, 0];
+  if (order === 'kans') list.forEach(it => nGroup[groupOf(it)]++);
+  const row = (it, i) => (order === 'kans' && (i === 0 || groupOf(list[i - 1]) !== groupOf(it))
+    ? `<div class="grp-h g-${GROUPS[groupOf(it)][0]}"><b>${GROUPS[groupOf(it)][1]}</b><span class="n">${nGroup[groupOf(it)]}</span><span class="w">${GROUPS[groupOf(it)][2]}</span></div>` : '') + card(it);
 
   const nRef = list.filter(x => x.ref).length, nList = list.length - nRef;
   $('tbCount').textContent = (nList === all.length ? `${all.length} stocks` : `${nList} van ${all.length} getoond`) + (nRef ? ` + ${nRef} eigen` : '');
@@ -691,10 +724,10 @@ function render() {
   }
   // Tot 1000 kaarten: de eerste meteen, de rest in porties erachteraan, zodat de lijst (en het scherm) direct reageert
   const FIRST = 40, STEP = 150;
-  box.innerHTML = list.slice(0, FIRST).map(card).join('');
+  box.innerHTML = list.slice(0, FIRST).map(row).join('');
   const more = i => {
     if (gen !== renderGen || i >= list.length) return;      // intussen opnieuw gefilterd: deze ronde stopt
-    box.insertAdjacentHTML('beforeend', list.slice(i, i + STEP).map(card).join(''));
+    box.insertAdjacentHTML('beforeend', list.slice(i, i + STEP).map((it, k) => row(it, i + k)).join(''));
     setTimeout(() => more(i + STEP), 0);
   };
   setTimeout(() => more(FIRST), 0);
@@ -755,7 +788,7 @@ function card(it) {
     it.s12 && it.s12.survivor ? '<span class="tag sc-top" title="Overleeft alle 12 stappen van de gids">survivor</span>' : '',
     it.card && it.card.lvl === 'top' ? '<span class="tag sc-top" title="Scorecard 100+ van 125">uitzonderlijk</span>' : '',
     it.koop ? `<span class="tag ${it.koop.status === 'zone' ? 'v-cheap' : 'warn'}" title="${it.koop.status === 'zone' ? 'Koopmoment' : 'Bijna een koopmoment'}: ${nf(it.koop.dd, 0)}% onder de top · zie het tabblad Koopmoment">${it.koop.status === 'zone' ? 'koopmoment' : 'bijna koopmoment'}</span>` : '',
-    it.val && VAL_TAG[it.val.lvl] ? `<span class="tag ${VAL_TAG[it.val.lvl]}" title="Waarderingscheck t.o.v. de sector (telt niet mee in de punten)">${esc(it.val.lvl)}</span>` : '',
+    it.val && VAL_TAG[it.val.lvl] ? `<span class="tag ${VAL_TAG[it.val.lvl]}" title="${it.val.lvl === 'zeer duur' ? 'Zeer duur t.o.v. de sector: staat daarom onderaan de lijst. Telt niet mee in de punten van de scorecard.' : 'Waarderingscheck t.o.v. de sector (telt niet mee in de punten)'}">${it.val.lvl === 'zeer duur' ? '⚠ ' : ''}${esc(it.val.lvl)}</span>` : '',
     it.watch ? '<span class="tag watch">op watchlist</span>' : '',
     it.earn_days != null && it.earn_days <= 14 ? `<span class="tag earn" title="Kwartaalcijfers: koers kan hard bewegen">cijfers ${it.earn_days === 0 ? 'vandaag' : 'over ' + it.earn_days + ' d'}</span>` : '',
     it.rs ? `<span class="tag ${it.rs.pp >= 0 ? '' : ''}" title="Rendement 12 maanden t.o.v. referentie-ETF ${esc(it.rs.etf)} (in euro)">vs ${esc(it.rs.etf)} <span class="${cls(it.rs.pp)}">${it.rs.pp > 0 ? '+' : ''}${nf(it.rs.pp, 0)} pp</span></span>` : '',
@@ -773,7 +806,7 @@ function card(it) {
       <div class="blk"><div class="k">Koers</div><div class="v">${money(it, it.price)}</div>
         <div class="s ${cls(it.day)}">${it.day == null ? '&nbsp;' : pct(it.day, 2) + ' vandaag'}</div></div>
       <div class="blk"><div class="k">Verwacht 12 mnd</div><div class="v ${cls(e.pct)}">${pct(e.pct)}</div><div class="s">${expSrc}</div></div>
-      <div class="blk steps-blk"><div class="k">12 stappen${it.s12 ? (it.s12.survivor ? ' · <span class="c-up">survivor</span>' : ` · valt af bij ${it.s12.fail}`) : ''}</div>
+      <div class="blk steps-blk"><div class="k">12 stappen${it.s12 ? (it.s12.survivor ? ' · <span class="c-up">survivor</span>' : it.s12.fail == null ? ' · geen afvaller' : ` · valt af bij ${it.s12.fail}`) : ''}</div>
         <div class="steps">${it.s12 ? Steps.dots(it.s12) : '<span class="s">nog niet berekend</span>'}</div></div>
       <button class="toggle" aria-expanded="${open}" aria-label="${open ? 'Details sluiten' : 'Details tonen'}"><span class="tg-l">${open ? 'sluiten' : 'details'} </span>${open ? '▴' : '▾'}</button>
     </div>
@@ -869,7 +902,7 @@ function gapHTML(it) {
 }
 
 function resetAll() {
-  $('sortSel').value = 'score'; $('sectorSel').value = 'all'; $('regionSel').value = 'all'; $('refChk').checked = false;
+  $('sortSel').value = 'kans'; $('sectorSel').value = 'all'; $('regionSel').value = 'all'; $('refChk').checked = false;
   $('minSel').value = '0'; $('cardSel').value = '0'; $('searchInp').value = ''; quick = null;
   render();
 }

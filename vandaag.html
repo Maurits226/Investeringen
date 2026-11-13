@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-0hdxrCh+vby4jwBNkZcCAsvBFt2e+8EV6NzvaMnxEXQ='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-g6h3x+NOB9lRqJtcOsZijD/XLik0/gNyXjc7yMEKyzM='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -292,6 +292,12 @@ async function render() {
   const usd = ((sig && sig.world && sig.world.factors) || []).find(f => f.key === 'dollar');
   const RV = Shared.riskView(held.map(x => ({ id: x.p.id, name: short(x.q.name || x.p.ticker), q: x.q, qty: x.p.qty, rate: Shared.toEur(x.q, usd && usd.last) })));
   const nm = x => short(x.q.name || x.p.ticker);
+  // Stresstest (shared.js, zelfde cijfers als Investeringen): wat doet je portefeuille als de Nasdaq-100 20% zakt
+  const stressOf = {};
+  ((sig && sig.items) || []).forEach(i => { if (i.stress) stressOf[String(i.symbol).toUpperCase()] = i.stress; });
+  const ST = Shared.stressTest(held.map(x => ({ id: x.p.id, name: nm(x), q: x.q, qty: x.p.qty, rate: Shared.toEur(x.q, usd && usd.last),
+    st: stressOf[x.p.ticker.toUpperCase()] })), sig && sig.world && sig.world.correctie);
+  const n20 = ST && ST.scen.find(r => r.f === 'ndx' && r.pct === -20);
 
   // Portefeuille: vandaag en sinds aankoop groot, daaronder één blokje per positie in de kleur van de dag
   const heatC = d => d > 0 ? `rgba(62,207,142,${(0.25 + 0.75 * Math.min(1, d / 4)).toFixed(2)})` : d < 0 ? `rgba(240,89,95,${(0.25 + 0.75 * Math.min(1, -d / 4)).toFixed(2)})` : 'rgba(255,255,255,.12)';
@@ -300,7 +306,7 @@ async function render() {
       <div class="h-row"><div><div class="k">Vandaag</div><div class="big ${cls(dayPct)}">${pct(dayPct, 2)}</div></div>
         <div><div class="k">Sinds aankoop</div><div class="big sm ${cls(plPct)}">${pct(plPct)}</div></div></div>
       ${held.length ? `<div class="heat" role="img" aria-label="Per positie vandaag: ${upN} omhoog, ${downN} omlaag">${heat}</div>
-      <div class="h-foot"><span class="u"><b>${upN}</b> omhoog</span><span class="d"><b>${downN}</b> omlaag</span><span><b>${held.length}</b> posities</span>${RV ? `<span title="Zoveel kan je portefeuille zakken in een slechte maand (1 op 20), uit de beweeglijkheid en hoe sterk je posities samen bewegen">slechte maand <b>−${Math.round(RV.bad)}%</b>${RV.badEur != null ? ` <b>−${esc(eur0(RV.badEur))}</b>` : ''}</span>` : ''}</div>`
+      <div class="h-foot"><span class="u"><b>${upN}</b> omhoog</span><span class="d"><b>${downN}</b> omlaag</span><span><b>${held.length}</b> posities</span>${RV ? `<span title="Zoveel kan je portefeuille zakken in een slechte maand (1 op 20), uit de beweeglijkheid en hoe sterk je posities samen bewegen">slechte maand <b>−${Math.round(RV.bad)}%</b>${RV.badEur != null ? ` <b>−${esc(eur0(RV.badEur))}</b>` : ''}</span>` : ''}${n20 ? `<span data-stress title="Schatting: wat je portefeuille doet als de Nasdaq-100 20% zakt, uit hoe sterk elke positie het afgelopen jaar meebewoog. Meer bij Investeringen, Portefeuillecheck.">Nasdaq −20% <b>${n20.loss > 0 ? '+' : '−'}${Math.round(Math.abs(n20.loss))}%</b></span>` : ''}</div>`
         : '<div class="h-foot">Alleen-lezen: je resultaat zie je na inloggen als beheerder (knop Beheerder op Investeringen)</div>'}
     </section>`;
 

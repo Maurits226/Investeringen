@@ -81,7 +81,17 @@ check(B.oplopend([10, 20, 30], [5, 5, 5]) == [10, 20, 30], "oplopend: een reeks 
 # 5. Klasse, niveau en datum
 check([B.klasse_of(d) for d in (4.9, 5, 9.99, 10, 19.9, 20, 55)] == [None, "terugval", "terugval", "correctie", "correctie", "berenmarkt", "berenmarkt"], "klasse naar diepte")
 check([B.level_of(p) for p in (None, 49.9, 50, 69.9, 70, 95)] == ["onbekend", "geen", "maak", "maak", "bereikt", "bereikt"], "niveau naar kans")
-check(B.werkdag(date(2026, 11, 5), 15) == date(2026, 11, 26) and B.werkdag(date(2026, 11, 6), 1) == date(2026, 11, 9), "werkdagen tellen (weekend overslaan)")
+check(B.werkdag(date(2026, 11, 6), 1) == date(2026, 11, 9) and B.werkdag(date(2026, 11, 5), 14) == date(2026, 11, 25), "handelsdagen tellen (weekend overslaan)")
+check(B.werkdag(date(2026, 11, 5), 15) == date(2026, 11, 27), "handelsdagen tellen: Thanksgiving (26 november 2026) is geen handelsdag")
+# de beursvrije dagen volgens de kalender van NYSE/Nasdaq, nagekeken voor 2026 en 2027 (en de uitzonderingen in de regels)
+VRIJ = {2026: ["01-01", "01-19", "02-16", "04-03", "05-25", "06-19", "07-03", "09-07", "11-26", "12-25"],
+        2027: ["01-01", "01-18", "02-15", "03-26", "05-31", "06-18", "07-05", "09-06", "11-25", "12-24"],
+        2028: ["01-17", "02-21", "04-14", "05-29", "06-19", "07-04", "09-04", "11-23", "12-25"]}     # 1 januari 2028 is een zaterdag: geen vrije dag
+for jaar, dagen in VRIJ.items():
+    check(sorted(d.isoformat()[5:] for d in B.beursvrij(jaar)) == dagen, f"beursvrije dagen {jaar}: {sorted(d.isoformat()[5:] for d in B.beursvrij(jaar))}")
+check(all(d.weekday() < 5 for y in range(2024, 2040) for d in B.beursvrij(y)) and all(len(B.beursvrij(y)) in (9, 10) for y in range(2024, 2040)),
+      "beursvrije dagen vallen altijd doordeweeks, 9 of 10 per jaar")
+check(B.werkdag(date(2026, 12, 24), 6) == date(2027, 1, 5), "handelsdagen tellen over de jaarwisseling (kerst en nieuwjaar)")
 
 # 6. Termijnstructuur: twee dagen omgekeerd, daarna twee dagen normaal = weer normaal; één dag omgekeerd telt niet
 rat = [0.9] * 20 + [1.05, 1.1] + [0.95] * 20

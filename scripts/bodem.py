@@ -38,7 +38,7 @@ import tech as T  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "bodem.json")
 FRESH_MIN = 55               # niet vaker opnieuw rekenen dan eens per zoveel minuten
-VERSION = 1                  # nieuwe versie van dit script = meteen opnieuw rekenen
+VERSION = 2                  # nieuwe versie van dit script = meteen opnieuw rekenen
 BUDGET_S = 150               # na zoveel seconden ophalen de overige bronnen overslaan
 MIN_HIST = 2500              # termijnstructuur met minder dagen historie (±10 jaar): geen trefkans noemen
 MIN_N = 10                   # minder vergelijkbare dalen: geen percentage noemen
@@ -160,11 +160,46 @@ def quart(xs, q):
     return xs[a] + (xs[min(a + 1, len(xs) - 1)] - xs[a]) * (p - a)
 
 
+def _weekdag(y, m, wd, n):
+    """De n-de weekdag wd (0 = maandag) van maand m; n = -1 is de laatste."""
+    if n > 0:
+        d = date(y, m, 1)
+        return d + timedelta(days=(wd - d.weekday()) % 7 + 7 * (n - 1))
+    d = date(y + (m == 12), m % 12 + 1, 1) - timedelta(days=1)
+    return d - timedelta(days=(d.weekday() - wd) % 7)
+
+
+def _pasen(y):
+    """Eerste paasdag (gregoriaanse kalender)."""
+    a, b, c = y % 19, y // 100, y % 100
+    h = (19 * a + b - b // 4 - (b - (b + 8) // 25 + 1) // 3 + 15) % 30
+    el = (32 + 2 * (b % 4) + 2 * (c // 4) - h - c % 4) % 7
+    m = (a + 11 * h + 22 * el) // 451
+    month, day = divmod(h + el - 7 * m + 114, 31)
+    return date(y, month, day + 1)
+
+
+def beursvrij(y):
+    """De doordeweekse dagen waarop de Amerikaanse beurs in jaar y dicht is (vaste regels van NYSE en Nasdaq).
+    Een feestdag op zondag schuift naar maandag, op zaterdag naar vrijdag; alleen nieuwjaarsdag op zaterdag vervalt."""
+    def schuif(d):
+        return d - timedelta(days=1) if d.weekday() == 5 else d + timedelta(days=1) if d.weekday() == 6 else d
+    nieuwjaar = date(y, 1, 1)
+    return ({schuif(nieuwjaar)} if nieuwjaar.weekday() != 5 else set()) | {
+        _weekdag(y, 1, 0, 3), _weekdag(y, 2, 0, 3),              # Martin Luther King-dag, Presidents' Day
+        _pasen(y) - timedelta(days=2), _weekdag(y, 5, 0, -1),    # Goede Vrijdag, Memorial Day
+        schuif(date(y, 6, 19)), schuif(date(y, 7, 4)),           # Juneteenth, Independence Day
+        _weekdag(y, 9, 0, 1), _weekdag(y, 11, 3, 4),             # Labor Day, Thanksgiving
+        schuif(date(y, 12, 25))}                                 # Kerstmis
+
+
 def werkdag(d, k):
-    """De datum k werkdagen na d (weekenden overgeslagen; beursvrije dagen kennen we niet vooruit, dus 'rond' die datum)."""
+    """De datum k handelsdagen na d: weekenden en de vaste beursvrije dagen in de VS overgeslagen. Een onverwachte sluiting
+    kennen we niet vooruit; de pagina zegt daarom 'rond' die datum."""
+    vrij = {}
     while k > 0:
         d += timedelta(days=1)
-        if d.weekday() < 5:
+        if d.weekday() < 5 and d not in vrij.setdefault(d.year, beursvrij(d.year)):
             k -= 1
     return d
 

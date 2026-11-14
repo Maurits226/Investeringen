@@ -22,12 +22,17 @@ const OWNER2 = 'github_pat_EIGENAAR2nieuw567890abcdefghijklmnopqrstuvwxyz';   //
 const STRANGER = 'github_pat_VREEMDE01234567890abcdefghijklmnopqrstuvwxyz';   // geldige token van iemand anders
 const ID = 'Stocks|AMD.DE';
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
+// Een vaste positielijst (met AMD.DE erin) in plaats van de echte tickers.txt: die verandert als de beheerder een positie
+// toevoegt of weghaalt, en haalt hij AMD weg, dan zou deze test zonder reden falen (zie fixture_lijst.js)
+const { lijst: LIJST, metKoersen } = require('./fixture_lijst')(ROOT);
 const EDIT = '#add:not([hidden]), .remove, .edit-cost, .realise, .buy-step, .undo-buy, .sell-price, .undo-sell, .notes textarea, [data-follow], .rm';
 
 function serve() {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
+      if (rel === 'tickers.txt') { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end(LIJST); return; }
+      if (rel === 'data.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(metKoersen(['AMD.DE'])); return; }
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -62,7 +67,7 @@ async function fakeGitHub(ctx, base, gh) {
       return gh.state == null ? json(404, {}) : json(200, { sha: 'sha' + gh.puts, content: b64(gh.state) });
     }
     if (pathn === '/contents/tickers.txt' && req.method() === 'GET')
-      return json(200, { sha: 't', content: b64(fs.readFileSync(path.join(ROOT, 'tickers.txt'), 'utf8')) });
+      return json(200, { sha: 't', content: b64(LIJST) });
     if (req.method() === 'PUT') { if (!gh.writers.includes(tok)) return json(403, {}); gh.puts++; return json(200, { content: { sha: 'x' } }); }
     return json(404, {});
   });
@@ -177,7 +182,7 @@ async function fakeGitHub(ctx, base, gh) {
     check(!v.kijk && v.admin && ['#add', '.remove', '.edit-cost'].every(c => v.edits.includes(c)), `beheerder: knoppen ontbreken (${[...new Set(v.edits)].join(', ')})`);
     check(v.state && v.state[ID] && v.state[ID].cost === 180, 'beheerder: gegevens van GitHub niet geopend');
     s.answers.push('250', '30');
-    await s.page.click('.edit-cost');
+    await s.page.click(`.edit-cost[data-id="${ID}"]`);
     await s.page.waitForTimeout(1500);
     const stored = await open(s.gh.state, OWNER);
     check(s.gh.puts >= 1 && stored && stored[ID].cost === 250 && stored[ID].qty === 30, `beheerder: wijziging niet versleuteld op GitHub (${JSON.stringify(stored && stored[ID])})`);
@@ -227,7 +232,7 @@ async function fakeGitHub(ctx, base, gh) {
     const other = await lock({ [ID]: { cost: 999, qty: 9, sells: [], t: Date.now() } }, OWNER2);
     s.gh.state = other;
     s.answers.push('250', '30');
-    await s.page.click('.edit-cost');
+    await s.page.click(`.edit-cost[data-id="${ID}"]`);
     await s.page.waitForTimeout(1500);
     const v = await s.view();
     check(!s.gh.puts && s.gh.state === other, 'elders opnieuw versleuteld: toch overschreven met de oude token');

@@ -44,7 +44,9 @@ function serve(keys) {
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
       if (rel === 'tickers.txt' && keys === TEXT) {           // naam van een via het dashboard toegevoegde positie
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end(fs.readFileSync(file, 'utf8').replace(/^([^,#\n]+),\s*([^,#\n]+),(.*#\s*via dashboard\s*)$/gm, (m, t, n, rest) => `${t}, ${n}${PAY},${rest}`));
+        // plus één eigen regel: ook als de beheerder niets via het dashboard heeft toegevoegd, wordt deze weg getest
+        res.end(fs.readFileSync(file, 'utf8').replace(/^([^,#\n]+),\s*([^,#\n]+),(.*#\s*via dashboard\s*)$/gm, (m, t, n, rest) => `${t}, ${n}${PAY},${rest}`)
+          + `\nXSST, Testbedrijf${PAY}, Stocks  # via dashboard\n`);
         return;
       }
       if (path.extname(file) === '.json') {

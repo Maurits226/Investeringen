@@ -14,11 +14,16 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const TOKEN = 'github_pat_TEST1234567890abcdefghijklmnopqrstuvwxyz';
 const ID = 'Stocks|AMD.DE';
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
+// Een vaste positielijst (met AMD.DE erin) in plaats van de echte tickers.txt: die verandert als de beheerder een positie
+// toevoegt of weghaalt, en haalt hij AMD weg, dan zou deze test zonder reden falen (zie fixture_lijst.js)
+const { lijst: LIJST, metKoersen } = require('./fixture_lijst')(ROOT);
 
 function serve() {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
+      if (rel === 'tickers.txt') { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end(LIJST); return; }
+      if (rel === 'data.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(metKoersen(['AMD.DE'])); return; }
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -44,7 +49,7 @@ function fakeGitHub(ctx, base, start, lag) {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sha: 'oud', content: b64(gh.remote) }) });
     }
     if (u.startsWith('https://api.github.com/repos/Maurits226/Investeringen/contents/tickers.txt'))
-      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sha: 't', content: b64(fs.readFileSync(path.join(ROOT, 'tickers.txt'), 'utf8')) }) });
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sha: 't', content: b64(LIJST) }) });
     if (u.startsWith('https://api.github.com/user')) return r.fulfill({ status: 200, contentType: 'application/json', body: '{"login":"test"}' });
     return r.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   }).then(() => gh);
@@ -83,7 +88,7 @@ const stateOf = async page => (JSON.parse(await page.evaluate(() => localStorage
     await pf.waitForTimeout(2500);
     const answers = ['250', '30'];
     pf.on('dialog', d => d.accept(answers.shift()));
-    await pf.click('.edit-cost');
+    await pf.click(`.edit-cost[data-id="${ID}"]`);
     for (const [wait, when] of [[1000, 'na 1 s'], [5000, 'na 6 s']]) {
       await pf.waitForTimeout(wait);
       const st = await stateOf(pf);

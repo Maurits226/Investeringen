@@ -22,19 +22,20 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const OWNER = 'github_pat_EIGENAAR1234567890abcdefghijklmnopqrstuvwxyz';
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
 const REAL = fs.readFileSync(path.join(ROOT, 'tickers.txt'), 'utf8');
-// De startlijst uit portfolio.html (zoals een apparaat haar bewaart); BlackRock (UU2.DE) staat daar nog in, maar niet meer
-// in tickers.txt
-const DEFAULT = [...fs.readFileSync(path.join(ROOT, 'portfolio.html'), 'utf8').matchAll(/\{ ticker: '([^']+)',\s*section: (?:'([^']*)'|"([^"]*)")[^{}]*\}/g)]
-  .map(m => ({ ticker: m[1], section: m[2] || m[3], watch: m[2] === 'Watchlist', thresh: 20, cur: 'native' }));
+// De gedeelde lijst in deze test staat los van de echte tickers.txt (zie fixture_lijst.js): de startlijst uit portfolio.html
+// (zoals een apparaat haar bewaart; BlackRock, UU2.DE, staat daar nog in) zonder BlackRock, plus één positie via het dashboard
+const { start: DEFAULT, lijst: LIJST, metKoersen } = require('./fixture_lijst')(ROOT);
 const lines = txt => txt.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(l => l.split(/[\s,]/)[0].toUpperCase());
 
 // De website: de bestanden uit de repository; tickers.txt is de versie van de website (site.tickers)
-const site = { tickers: REAL };
+const site = { tickers: LIJST };
 function serve() {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
       if (rel === 'tickers.txt') { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end(site.tickers); return; }
+      // koersen van de posities waar deze test mee werkt, ook als de beheerder ze uit zijn echte lijst heeft gehaald
+      if (rel === 'data.json') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(metKoersen(['AMD.DE', 'MSF.DE', 'TL0.DE'])); return; }
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -43,7 +44,7 @@ function serve() {
     srv.listen(0, '127.0.0.1', () => resolve(srv));
   });
 }
-// GitHub: gh.tickers is de echte tickers.txt; gh.fail = schrijven naar tickers.txt mislukt
+// GitHub: gh.tickers is tickers.txt in de repository (hier de testlijst); gh.fail = schrijven naar tickers.txt mislukt
 async function fakeGitHub(ctx, base, gh) {
   await ctx.route('**/*', async r => {
     const req = r.request(), u = req.url();
@@ -70,7 +71,7 @@ async function fakeGitHub(ctx, base, gh) {
   const browser = await chromium.launch();
   const problems = [], errs = [];
   const check = (ok, msg) => { if (!ok) problems.push(msg); };
-  const gh = { tickers: REAL, puts: 0, fail: false };
+  const gh = { tickers: LIJST, puts: 0, fail: false };
 
   // Een apparaat: eigen opslag. saved = de lijst die er al staat (null = nieuw apparaat), token = beheerder of niet
   async function device({ token, saved }) {
@@ -95,17 +96,22 @@ async function fakeGitHub(ctx, base, gh) {
   const local = pg => pg.evaluate(() => (JSON.parse(localStorage.getItem('portfolio_positions') || '[]')).map(p => p.ticker.toUpperCase()));
   const scored = pg => pg.evaluate(() => [...document.querySelectorAll('.b-card')].map(e => e.id.replace(/^c-Stocks\|/, '')));
   const full = () => DEFAULT.map(p => ({ ...p }));
-  const DASH = REAL.split('\n').filter(l => /#\s*via dashboard\s*$/.test(l)).length;      // via het dashboard toegevoegd
-  const hasDefault = ['MSF.DE', 'TL0.DE', 'UU2.DE'].every(t => DEFAULT.some(p => p.ticker === t)) && DEFAULT.length >= 20;
+  const VERWACHT = new Set(lines(LIJST)).size;      // de startlijst zonder BlackRock plus de positie via het dashboard
+  const hasDefault = ['AMD.DE', 'MSF.DE', 'TL0.DE', 'UU2.DE'].every(t => DEFAULT.some(p => p.ticker === t)) && DEFAULT.length >= 20
+    && !DEFAULT.some(p => p.ticker === 'SNDK');
   check(hasDefault, `startlijst niet te lezen uit portfolio.html (${DEFAULT.length} posities)`);
-  check(!lines(REAL).includes('UU2.DE') && lines(REAL).includes('MSF.DE'), 'tickers.txt: BlackRock (UU2.DE) hoort er niet meer in, Microsoft (MSF.DE) wel');
+  // de echte tickers.txt: alleen de vorm (welke posities erin staan bepaalt de beheerder): kop met #, één geldige ticker per regel
+  const echt = REAL.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  check(REAL.trim().startsWith('#') && echt.every(l => /^[A-Z0-9^][A-Z0-9.\-=^]{0,14}(\s*,.*)?(\s+#.*)?$/i.test(l)) && new Set(lines(REAL)).size === lines(REAL).length,
+    `tickers.txt: elke regel moet één ticker zijn (eventueel met naam en rubriek), zonder dubbele: ${echt.filter(l => !/^[A-Z0-9^][A-Z0-9.\-=^]{0,14}(\s*,.*)?(\s+#.*)?$/i.test(l)).slice(0, 3).join(' | ')}`);
 
   // 1 + 2. Beheerder op een apparaat dat BlackRock nog had: weg na het openen. Daarna Microsoft verwijderen.
   const A = await device({ token: OWNER, saved: full() });
   {
     const pf = await open(A, 'portfolio.html');
     let l = await local(pf);
-    check(!l.includes('UU2.DE') && l.includes('MSF.DE') && l.length === DEFAULT.length - 1 + DASH, `1. BlackRock staat niet meer in tickers.txt en moet hier verdwijnen (${l.length} posities, UU2.DE: ${l.includes('UU2.DE')})`);
+    check(!l.includes('UU2.DE') && l.includes('MSF.DE') && l.includes('SNDK') && l.length === VERWACHT,
+      `1. BlackRock staat niet meer in tickers.txt en moet hier verdwijnen, de positie via het dashboard komt erbij (${l.length} van ${VERWACHT} posities, UU2.DE: ${l.includes('UU2.DE')})`);
     check(gh.puts === 0, '1. bij alleen gelijklopen mag er niets naar GitHub geschreven worden');
     await pf.click('.remove[data-id="Stocks|MSF.DE"]');
     await pf.waitForTimeout(1500);

@@ -39,16 +39,28 @@ const EDIT_CONTROLS = '#add:not([hidden]), .remove, .edit-cost, .realise, .buy-s
   + '[data-follow], [data-close], [data-del], .notes textarea, [data-qcheck], input[type=checkbox][data-step], .rm, #q:not([hidden])';
 
 // Een paar posities met aankoopprijs en aantal (en een gekochte trede), om de kooptrap, het risico en Vandaag met echte
-// posities te zien; de andere ronde draait zonder (zoals een nieuw apparaat zonder Sync)
-const SEED = [['AMD.DE', 180, 20], ['MTE.DE', 300, 10], ['NVD.DE', 120, 40], ['MSF.DE', 400, 8], ['QDVE.DE', 30, 100, "ETF's"], ['LLY.DE', null, 0, 'Watchlist']];
-function seed(list) {
+// posities te zien; de andere ronde draait zonder (zoals een nieuw apparaat zonder Sync). De posities komen uit de lijst
+// van de beheerder zelf (tickers.txt), voor zover er een koers van is: haalt hij een positie weg of komt er een bij, dan
+// blijft deze test werken. Vier aandelen, één uit een andere rubriek en één van de watchlist; aankoopprijs = 60% van de koers.
+const readJSON = f => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { return null; } };
+const QUOTES = (readJSON('data.json') || {}).quotes || {};
+const px = t => +(QUOTES[t] || {}).price || 0;
+const LIST = require('./fixture_lijst')(ROOT).echt().filter(p => p.watch || px(p.ticker) > 0);
+const cost = t => Math.max(1, Math.round(px(t) * 0.6));
+const STOCKS = LIST.filter(p => p.section === 'Stocks' && !p.watch).slice(0, 4);
+const SEED = [...STOCKS.map((p, i) => [p.ticker, cost(p.ticker), [20, 10, 40, 8][i]]),
+  ...LIST.filter(p => p.section !== 'Stocks' && !p.watch).slice(0, 1).map(p => [p.ticker, cost(p.ticker), 100, p.section]),
+  ...LIST.filter(p => p.watch).slice(0, 1).map(p => [p.ticker, null, 0, 'Watchlist'])];
+const TREDE = STOCKS[1] ? { ticker: STOCKS[1].ticker, price: px(STOCKS[1].ticker) } : null;   // deze positie heeft een gekochte trede
+const SEED_OK = STOCKS.length >= 2;      // minder dan twee aandelen met een koers: risico en kooptrap zijn dan niet te tonen
+function seed({ list, trede }) {
   if (sessionStorage.getItem('seeded')) return;
   sessionStorage.setItem('seeded', '1');
   localStorage.setItem('portfolio_positions', JSON.stringify(list.map(([t, c, n, sec]) => ({ ticker: t, section: sec || 'Stocks', thresh: 20, cur: 'native', watch: sec === 'Watchlist' }))));
   localStorage.setItem('portfolio_version', '999');
   const st = {};
   list.forEach(([t, c, n, sec]) => { if (c) st[(sec || 'Stocks') + '|' + t] = { cost: c, qty: n, sells: [] }; });
-  st['Stocks|MTE.DE'].buys = [{ level: 1, date: '20-10-2026', price: 780, top: 1e9 }];
+  if (trede && st['Stocks|' + trede.ticker]) st['Stocks|' + trede.ticker].buys = [{ level: 1, date: '20-10-2026', price: trede.price, top: 1e9 }];
   localStorage.setItem('portfolio_state', JSON.stringify(st));
 }
 // Wat via het dashboard in tickers.txt staat, hoort op elk apparaat in de lijst (ook zonder of met een oude lokale lijst)
@@ -62,7 +74,6 @@ const marktSoon = () => {
 
 // Nieuwe onderdelen die van data afhangen: het bodemsignaal (bodem.json) en de stresstest (stress per positie in
 // signals.json, komt met de eerstvolgende run van de Patroonradar)
-const readJSON = f => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')); } catch (e) { return null; } };
 const hasBodem = !!(readJSON('bodem.json') || {}).dip;
 const hasBewijs = ((readJSON('bewijs.json') || {}).pijlers || []).length === 5;
 const hasStress = SEED.some(([t]) => ((readJSON('signals.json') || {}).items || []).some(i => i.symbol === t && i.stress && typeof i.stress.ndx === 'number'));
@@ -86,7 +97,7 @@ const WIDTHS = [390, 1280];
     {
       const ctx = await browser.newContext({ viewport: { width: w, height: 900 }, hasTouch: w < 1000, isMobile: w < 1000 });
       if (admin) await ctx.addInitScript(login, TOKEN);
-      if (seeded) await ctx.addInitScript(seed, SEED);
+      if (seeded) await ctx.addInitScript(seed, { list: SEED, trede: TREDE });
       const page = await ctx.newPage();
       const errs = [];
       const api = [];                                    // verkeer naar de GitHub-API (een bezoeker hoort er geen te hebben)
@@ -158,13 +169,13 @@ const WIDTHS = [390, 1280];
           const loose = await page.$$eval('.position.alert', els => els.filter(e => !/KOOP TREDE [123]\/3/.test(e.textContent) || !e.querySelector('.ladder')).length);
           if (loose) errs.push(`Investeringen: ${loose} koopsignaal zonder kooptrap`);
         }
-        if (seeded && pg === 'portfolio.html') {           // risico: eerste kaart van de portefeuillecheck; een gekochte trede staat als gekocht
+        if (seeded && SEED_OK && pg === 'portfolio.html') { // risico: eerste kaart van de portefeuillecheck; een gekochte trede staat als gekocht
           await page.waitForSelector('#pcGrid .pc', { state: 'attached', timeout: 8000 });   // portefeuillecheck staat dicht
           if (!/Risico/.test(await page.textContent('#pcGrid .pc'))) errs.push('Investeringen: risicokaart ontbreekt in de portefeuillecheck');
           if (hasStress && !(await page.$('#pcGrid [data-stress]'))) errs.push('Investeringen: stresstest ontbreekt in de portefeuillecheck');
           if (!(await page.$('.ladder .st.done'))) errs.push('Investeringen: vastgelegde trede niet als gekocht getoond');
         }
-        if (seeded && pg === 'vandaag.html') {             // slechte maand in de kop, kooptrap bij Kopen
+        if (seeded && SEED_OK && pg === 'vandaag.html') {  // slechte maand in de kop, kooptrap bij Kopen
           if (!/slechte maand/.test(await page.textContent('#hero'))) errs.push('Vandaag: slechte maand ontbreekt in de kop');
           if (hasStress && !(await page.$('#hero [data-stress]'))) errs.push('Vandaag: stresstest ontbreekt in de kop');
           if (await page.$('.g-kopen') && !(await page.$('.g-kopen .steps.buy'))) errs.push('Vandaag: Kopen zonder kooptrap');
@@ -227,7 +238,7 @@ const WIDTHS = [390, 1280];
         } else {
           if (hasShared && await page.evaluate(() => document.documentElement.classList.contains('kijk') || !Shared.isAdmin())) errs.push('beheerder: pagina staat in de kijkmodus');
           if (pg === 'portfolio.html' && !['#add', '.remove'].every(c => edits.includes(c))) errs.push('beheerder: + Positie of verwijder ontbreekt (' + [...new Set(edits)].join(', ') + ')');
-          if (pg === 'portfolio.html' && seeded && !edits.includes('.edit-cost')) errs.push('beheerder: Aankoop aanpassen ontbreekt');
+          if (pg === 'portfolio.html' && seeded && SEED_OK && !edits.includes('.edit-cost')) errs.push('beheerder: Aankoop aanpassen ontbreekt');
           if (pg === 'beoordeling.html' && await page.$('.b-body') && !edits.includes('.notes')) {
             if (!(await page.$('.notes textarea'))) errs.push('beheerder: notities ontbreken op Beoordeling');
           }
@@ -245,5 +256,5 @@ const WIDTHS = [390, 1280];
     console.log(`PAGINA'S: ${problems.length} van ${n} met problemen\n  ` + problems.join('\n  '));
     process.exit(1);
   }
-  console.log(`PAGINA'S: alle ${n} weergaven zonder fouten`);
+  console.log(`PAGINA'S: alle ${n} weergaven zonder fouten` + (SEED_OK ? '' : ' (minder dan twee aandelen met een koers in tickers.txt: risico en kooptrap niet getoetst)'));
 })().catch(e => { console.error(e); process.exit(1); });

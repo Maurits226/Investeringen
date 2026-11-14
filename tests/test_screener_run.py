@@ -73,6 +73,13 @@ with tempfile.TemporaryDirectory() as tmp:
     for name in ("screener_cache.json", "koopmoment.json", "these.json", "etf_holdings.json", "bewijs.json", "bewijs_log.json"):
         if os.path.exists(os.path.join(ROOT, name)):
             shutil.copy(os.path.join(ROOT, name), os.path.join(tmp, name))
+    # de maandstand van deze maand moet de run zelf vastleggen (eens per maand, alle gescoorde bedrijven): haal hem uit de kopie
+    maand, lp = S.now().date().strftime("%Y-%m"), os.path.join(tmp, "bewijs_log.json")
+    if os.path.exists(lp):
+        lg0 = json.load(open(lp, encoding="utf-8"))
+        lg0["standen"] = [c for c in lg0.get("standen") or [] if c.get("month") != maand]
+        with open(lp, "w", encoding="utf-8") as f:
+            json.dump(lg0, f, ensure_ascii=False, separators=(",", ":"))
     try:
         out1 = run(tmp)
     except SystemExit as e:
@@ -91,6 +98,10 @@ with tempfile.TemporaryDirectory() as tmp:
         check({p["k"]: p["gewicht"] for p in bw["pijlers"]} == W, "bewijs.json en screener.json noemen niet dezelfde gewichten")
         check(scr["scored"] >= 1500 and len(scr["items"]) >= 500 and all(0 <= it["score"] <= 100 for it in scr["items"]), f"te weinig bedrijven gescoord ({scr.get('scored')})")
         check(lg.get("terug", {}).get("key") and len(lg.get("standen") or []) >= 1, "bewijs_log.json: geen teruggerekende maanden of geen maandstand")
+        nieuw = next((c for c in lg.get("standen") or [] if c.get("month") == maand), None)
+        check(nieuw is not None and len(nieuw["rows"]) >= 1500 and all(len(r) == len(S.BW.COLS) for r in nieuw["rows"]) and "Bewijs: maandstand" in out1,
+              f"de run legde de maandstand van {maand} niet vast met alle gescoorde bedrijven ({len((nieuw or {}).get('rows') or [])} rijen)")
+        check(len(json.dumps(nieuw, separators=(",", ":"))) < 400_000, "een maandstand wordt te groot (compact houden: één korte rij per bedrijf)")
         check(len(koop.get("candidates") or []) >= 0 and "log" in koop, "koopmoment.json niet geschreven")
         check(len(os.listdir(os.path.join(tmp, "screener_det"))) == S.DET_N, "detailbestanden niet geschreven")
         # tweede run: de teruggerekende maanden worden hergebruikt en er komt geen tweede maandstand bij

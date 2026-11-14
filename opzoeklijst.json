@@ -3,6 +3,15 @@
  "days": 30,
  "items": [
   {
+   "sym": "MOG-B",
+   "alt": [
+    "MO7A.DE",
+    "MOG-A"
+   ],
+   "name": "Moog Inc.",
+   "at": "2026-11-14T23:11:51Z"
+  },
+  {
    "sym": "SHEL",
    "alt": [
     "SHELL.AS",

@@ -372,7 +372,7 @@ const TechWarn = (() => {
         ${b.level.k === 'bereikt' ? '<div class="bd-when">Meestal bleek een dal dat zo lang standhield het dal van de dip. Geen garantie: breekt het alsnog, dan begint de telling opnieuw.</div>' : ''}
       </div>
       ${pad}${term}${opts.details === false ? '' : bodemDetails(b, opts.open)}
-      <div class="tw-basis">Nasdaq-100 nu ${onder(d.dd)} onder zijn 52-weekse top (${esc(nf(d.close, 0))}). Data t/m ${esc(dag(b.asof))}${oud}. Hulpmiddel, geen beleggingsadvies.</div>
+      <div class="tw-basis">Nasdaq-100 nu op ${esc(nf(d.close, 0))}, ${onder(d.dd)} onder zijn 52-weekse top. Data t/m ${esc(dag(b.asof))}${oud}. Hulpmiddel, geen beleggingsadvies.</div>
     </div>`;
   }
 

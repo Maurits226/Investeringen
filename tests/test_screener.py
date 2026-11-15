@@ -86,12 +86,14 @@ for it in items:
         check(s4["s"] in ("pass", "manual") and (s4["s"] == "pass") == bool(s4.get("wat")), f"{it['sym']}: stap 4 hoort gehaald te zijn als er een zin over het bedrijf is")
         check(s5["s"] in ("pass", "check", "manual") and (s5["s"] != "manual" or all(x[1] is None for x in s5["c"])), f"{it['sym']}: stap 5 klopt niet ({s5['s']})")
         kw = it.get("kw")
-        check(kw is None or (kw["lvl"] in S.KW_LVL and len(kw["p"]) >= 2 and all(len(x) == 3 and x[1] in (True, False, None) for x in kw["p"])),
+        check(kw is None or (kw["lvl"] in S.KW_LVL and len(kw["c"]) >= 2 and all(len(x) == 3 and x[1] in (True, False, None) for x in kw["c"])),
               f"{it['sym']}: kwartaalbeoordeling heeft niet de juiste vorm")
         if fin:   # bank of verzekeraar: cash vs. schuld en vrije kasstroom tellen niet, DCF n.v.t.
             s3 = next(x for x in s12["list"] if x["n"] == 3)
             check("meer schuld dan cash" not in (s3.get("note") or ""), f"{it['sym']}: bank valt af op schuld > cash")
-            check(next(x for x in s12["list"] if x["n"] == 12)["s"] != "fail", f"{it['sym']}: DCF-afvaller bij een bank")
+            s12b = next(x for x in s12["list"] if x["n"] == 12)      # geen DCF: K/W t.o.v. de sector en PEG; afvaller alleen als beide te duur zijn
+            check(not any(v is not None for v in (s12b.get("dcf") or {}).values()), f"{it['sym']}: DCF bij een bank")
+            check(s12b["s"] != "fail" or (len(s12b["c"]) == 2 and all(x[1] is False for x in s12b["c"])), f"{it['sym']}: bank valt af op de waardering zonder dat K/W en PEG allebei te duur zijn")
         hard = any(x["s"] == "fail" and x["n"] in S.HARD_STEPS for x in s12["list"])
         check(not (hard and it["koop"]), f"{it['sym']}: koopmoment terwijl een harde stap faalt")
 # Find the gap: alleen als de cijfers omhoog gaan en het aandeel omlaag, en de gap groot genoeg is
@@ -160,6 +162,58 @@ if hasattr(S, "write_details") and hasattr(S, "shard_of"):
         check(len(e["hist"]) == 2, "these: nieuwe week moet een foto toevoegen")
         check(e.get("last_earn") == r0[0]["earnings"], "these: gepasseerde cijferdatum moet naar last_earn")
         json.dumps(t3, allow_nan=False)
+        # kwartaalbeoordelingen in these.json: één regel per kwartaal; de eerste krijgt de publicatiedatum, het oordeel mag
+        # 14 dagen meebewegen en staat daarna vast; een nieuw kwartaal komt erbij
+        sym0 = r0[0]["sym"]
+        r1 = json.loads(json.dumps(r0)); r1[0]["kw"] = {"k": "2026-09-30", "lvl": "goed", "c": []}
+        k1 = S.update_these(t3, r1, d0 + timedelta(days=8))
+        kw1 = k1["stocks"][sym0].get("kw") or []
+        check(len(kw1) == 1 and kw1[0]["lvl"] == "goed" and kw1[0]["d"] == r0[0]["earnings"], f"these: eerste kwartaaloordeel hoort op de publicatiedag ({kw1})")
+        r1[0]["kw"]["lvl"] = "zwak"
+        k2 = S.update_these(k1, r1, d0 + timedelta(days=12))
+        check(k2["stocks"][sym0]["kw"][-1]["lvl"] == "zwak" and len(k2["stocks"][sym0]["kw"]) == 1, "these: binnen 14 dagen mag het kwartaaloordeel bijgesteld worden")
+        r1[0]["kw"]["lvl"] = "sterk"
+        k3 = S.update_these(k2, r1, d0 + timedelta(days=40))
+        check(k3["stocks"][sym0]["kw"][-1]["lvl"] == "zwak", "these: na 14 dagen staat het kwartaaloordeel vast")
+        r1[0]["kw"] = {"k": "2026-12-31", "lvl": "gemengd", "c": []}
+        k4 = S.update_these(k3, r1, d0 + timedelta(days=100))
+        kw4 = k4["stocks"][sym0]["kw"]
+        check([x["k"] for x in kw4] == ["2026-09-30", "2026-12-31"] and kw4[-1]["d"] == (d0 + timedelta(days=100)).isoformat(),
+              f"these: een nieuw kwartaal komt erbij met de dag van beoordelen ({kw4})")
+        k5 = S.update_these(k4, [dict(x, kw=None) for x in r1], d0 + timedelta(days=101))
+        check(k5["stocks"][sym0]["kw"] == kw4, "these: zonder nieuwe beoordeling blijft de historie staan")
+
+# Kwartaalcijfers automatisch beoordelen (quarter_review): vier punten, oordeel uit het aantal goede en slechte
+if hasattr(S, "quarter_review"):
+    def q(rev, fcf=None, eps=None, up=None, dn=None):
+        ds = ["2025-09-30", "2025-12-31", "2026-03-31", "2026-06-30", "2026-09-30"]
+        ts = {"quarterlyTotalRevenue": [[d, v] for d, v in zip(ds, rev)]}
+        if fcf:
+            ts["quarterlyFreeCashFlow"] = [[d, v] for d, v in zip(ds, fcf)]
+        return {"ts": ts, "eps_hist": [[eps[0], eps[1]]] if eps else None, "rev_up": up, "rev_down": dn}
+    sterk = S.quarter_review(q([100, 105, 110, 115, 120], [10, 10, 11, 12, 12], (1.10, 1.00), 8, 1))
+    check(sterk and sterk["lvl"] == "sterk" and sterk["k"] == "2026-09-30" and all(x[1] is True for x in sterk["c"]),
+          f"kwartaal: alles goed hoort 'sterk' te zijn ({sterk})")
+    zwak = S.quarter_review(q([100, 100, 100, 100, 95], [10, 9, 8, 7, -1], (0.80, 1.00), 1, 9))
+    check(zwak and zwak["lvl"] == "zwak" and sum(1 for x in zwak["c"] if x[1] is False) == 4, f"kwartaal: alles slecht hoort 'zwak' te zijn ({zwak})")
+    gem = S.quarter_review(q([100, 105, 110, 115, 120], [10, 10, 11, 12, 12], (0.90, 1.00), 8, 1))
+    check(gem and gem["lvl"] == "gemengd", f"kwartaal: één slecht punt hoort 'gemengd' te zijn ({gem})")
+    check(S.quarter_review(q([100, 105, 110, 115, 120])) is None, "kwartaal: met één punt geen oordeel")
+    bank = S.quarter_review(q([100, 105, 110, 115, 120], [10, 9, 8, 7, -50], (1.10, 1.00)), fin=True)
+    check(bank and not any("kasstroom" in x[0] for x in bank["c"]), "kwartaal: bij een bank telt de vrije kasstroom niet")
+    # een jaar eerder moet ook echt een jaar eerder zijn (gat in de reeks: geen vergelijking)
+    gat = q([100, 105, 110, 115, 120]); gat["ts"]["quarterlyTotalRevenue"][0][0] = "2025-03-31"
+    gat["eps_hist"] = [[1.0, 1.0]]; gat["rev_up"], gat["rev_down"] = 3, 1
+    gr = S.quarter_review(gat)
+    check(gr and not any("Omzet" in x[0] for x in gr["c"]), "kwartaal: omzet alleen vergelijken met precies een jaar eerder")
+    # verversen na de cijfers: alleen tot een week na de publicatie, hooguit eens per dag
+    from datetime import date as _d, datetime as _dt, timedelta as _td, timezone as _tz
+    t0 = _d.today()
+    stamp = lambda days: (_dt.now(_tz.utc) - _td(days=days)).isoformat(timespec="seconds")  # noqa: E731
+    check(S.earnings_passed({"earnings": (t0 - _td(days=1)).isoformat(), "f": stamp(3)}, t0), "verversen: cijfers van gisteren, laatst opgehaald 3 dagen geleden")
+    check(not S.earnings_passed({"earnings": (t0 - _td(days=1)).isoformat(), "f": stamp(0.2)}, t0), "verversen: vandaag al opgehaald")
+    check(not S.earnings_passed({"earnings": (t0 - _td(days=9)).isoformat(), "f": stamp(10)}, t0), "verversen: cijfers langer dan een week geleden")
+    check(not S.earnings_passed({"earnings": (t0 + _td(days=3)).isoformat(), "f": stamp(3)}, t0), "verversen: cijfers nog niet gepubliceerd")
 
 # Zoekindex (zoek.json) voor 'positie toevoegen': elke regel [naam, ticker, euro-notering, beurs, sector, marktwaarde]
 if hasattr(S, "write_search_index"):

@@ -13,7 +13,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PAY = `"'><i data-xss="1"></i>`;
 const TEXT = new Set(['name', 'title', 'publisher', 'about', 'sector', 'industry', 'country', 'exch', 'us_exch', 'exchange', 'exchangeFull',
   'etf_name', 'label', 'err', 'noot', 'note', 'detail', 'plus', 'warn', 'why', 'text', 'uitleg', 'c', 'm', 'patterns', 'skip', 'topic',
-  'wijziging', 'rule', 'mult', 'oordeel', 'rem', 'naam', 'groepen']);
+  'wijziging', 'rule', 'mult', 'oordeel', 'rem', 'naam', 'groepen', 'wat', 'info']);
 const ENUM = new Set(['dir', 'direction', 'outcome', 'status', 's', 'kind', 'lvl', 'regime', 'val', 'state', 'rating', 'branch', 'region',
   'end_reason', 'trend', 'set', 'k', 'key', 'pre', 'at10', 'on']);
 const LINK = new Set(['link', 'url', 'href']);
@@ -80,7 +80,8 @@ function serve(keys) {
           { ticker: 'NVD.DE', section: 'Watchlist', label: 'NV' + p, thresh: 20, watch: true, cur: 'native' }]));
         localStorage.setItem('portfolio_version', '999');
         localStorage.setItem('portfolio_state', JSON.stringify({ 'Stocks|AMD.DE': { cost: 100, qty: 1,
-          sells: [{ level: 1, pct: 10, date: '1-6-2026' + p, price: 150 }], review: { note: 'notitie' + p, updated: '2026-10-01' } } }));
+          sells: [{ level: 1, pct: 10, date: '1-6-2026' + p, price: 150 }],
+          review: { note: 'notitie' + p, why: 'waarom' + p, exit: 'exit' + p, updated: '2026-10-01' } } }));   // why/exit: eerdere notities, nog getoond
       }, PAY);
       const page = await ctx.newPage();
       page.on('dialog', d => d.dismiss());

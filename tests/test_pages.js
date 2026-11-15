@@ -160,6 +160,14 @@ const WIDTHS = [390, 1280];
           await page.click('.b-card .b-head');
           await page.waitForSelector('.b-body', { timeout: 8000 });
         }
+        if (pg.startsWith('beoordeling.html')) {          // niets om in te vullen: geen tekstvak, vinkje of kwartaalknop
+          const fill = await page.$$eval('textarea, input[type=checkbox], [data-qcheck]', els => els.length);
+          if (fill) errs.push(`Beoordeling: ${fill} invulveld(en) of vinkje(s); alles hoort automatisch beoordeeld te zijn`);
+        }
+        if (pg === 'beoordeling.html' && await page.$('.b-body .s12-chead')) {   // eigen aandeel met scorecard: these en kwartaal automatisch
+          if (!(await page.$('.b-body .auto p'))) errs.push('Beoordeling: automatisch opgestelde these ontbreekt');
+          if (!/Laatste kwartaalcijfers/.test(await page.textContent('.b-body'))) errs.push('Beoordeling: kwartaalbeoordeling ontbreekt');
+        }
         if (pg === 'portfolio.html') {                     // posities van een ander apparaat (tickers.txt) staan er ook
           const cards = await page.$$eval('.position .p-company', els => els.map(e => e.textContent));
           const missing = viaDashboard().filter(t => !cards.some(c => c.includes(`(${t})`)));
@@ -239,9 +247,6 @@ const WIDTHS = [390, 1280];
           if (hasShared && await page.evaluate(() => document.documentElement.classList.contains('kijk') || !Shared.isAdmin())) errs.push('beheerder: pagina staat in de kijkmodus');
           if (pg === 'portfolio.html' && !['#add', '.remove'].every(c => edits.includes(c))) errs.push('beheerder: + Positie of verwijder ontbreekt (' + [...new Set(edits)].join(', ') + ')');
           if (pg === 'portfolio.html' && seeded && SEED_OK && !edits.includes('.edit-cost')) errs.push('beheerder: Aankoop aanpassen ontbreekt');
-          if (pg === 'beoordeling.html' && await page.$('.b-body') && !edits.includes('.notes')) {
-            if (!(await page.$('.notes textarea'))) errs.push('beheerder: notities ontbreken op Beoordeling');
-          }
         }
       } catch (e) { errs.push('interactie: ' + e.message.split('\n')[0]); }
       await page.waitForTimeout(300);

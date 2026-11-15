@@ -118,5 +118,9 @@
  {
   "datum": "2026-11-14",
   "wijziging": "Marktrang: de gewichten van de pijlers volgen het bewijs. Teruggerekend op 5 jaar maandkoersen en de jaarcijfers (alleen wat toen bekend was) en live gevolgd via maandstanden; een pijler telt x1,25 als hij over een half jaar duidelijk hielp en ook in dalende maanden, x0,75 als hij in beide tegenwerkte. Eerste uitkomst: momentum 15% naar 18%, de rest schuift iets mee. Onderbouwing bij Koopmoment, Werkt het?"
+ },
+ {
+  "datum": "2026-11-15",
+  "wijziging": "Niets meer zelf invullen: het oordeel op de scorecard (moat, CEO, recessie, trend, cultuur, talent), het bedrijf in één zin (stap 4), het marktpotentieel (stap 5) en de kapitaalbuffer van banken (stap 8) komen voor alle eigen posities en de watchlist uit een oordeel van Claude in kwaliteit.json; de kwartaalcijfers worden elke run automatisch beoordeeld (omzet t.o.v. een jaar eerder, winst t.o.v. de verwachting, vrije kasstroom, bijstellingen) en een eigen positie wordt na nieuwe cijfers meteen opnieuw opgehaald; alleen een zwak kwartaal geeft een melding. Banken: geen afvaller meer op de waardering zonder DCF (K/W t.o.v. de sector en PEG)"
  }
 ]

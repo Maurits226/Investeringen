@@ -128,9 +128,15 @@ const Steps = (() => {
     const s = it && it.s12, c = it && it.card;
     if (!s || !c || c.s == null) return { cls: 'v-na', label: 'Niet te beoordelen', text: 'Te weinig cijfers voor de scorecard en de 12 stappen.' };
     const val = s.list.find(x => x.n === 12) || {};
-    if (s.survivor && val.s === 'pass') return { cls: 'v-good', label: 'Survivor · koopwaardig', text: 'Overleeft alle 12 stappen en zelfs de bear-case DCF ligt boven de koers. Volgens de gids: koop langzaam (vast bedrag, vaste data) en schrijf je exit op vóór je koopt.' };
-    if (s.survivor) return { cls: 'v-good', label: 'Survivor', text: 'Overleeft alle 12 stappen; de waardering is redelijk maar niet ruim (bear-case DCF onder de koers). Koop langzaam en schrijf je exit vooraf op.' };
-    if (s.nfail === 1 && s.fail === 12) return { cls: 'v-mid', label: 'Bijna · te duur', text: 'Overleeft stap 1-11, maar de koers ligt boven de basis-DCF. Wacht op een betere prijs (zie Koopmoment); de kwaliteit is er al.' };
+    // bank of verzekeraar: geen DCF, de waardering is K/W t.o.v. de sector en PEG (screener.py, stap 12)
+    const noDcf = !val.dcf || !Object.values(val.dcf).some(v => v != null);
+    if (s.survivor && val.s === 'pass') return { cls: 'v-good', label: 'Survivor · koopwaardig', text: (noDcf
+      ? 'Overleeft alle 12 stappen en de K/W ligt niet boven die van de sector.' : 'Overleeft alle 12 stappen en zelfs de bear-case DCF ligt boven de koers.')
+      + ' Volgens de gids: koop langzaam, met een vast bedrag op vaste data.' };
+    if (s.survivor) return { cls: 'v-good', label: 'Survivor', text: noDcf
+      ? 'Overleeft alle 12 stappen; de waardering (K/W t.o.v. de sector en PEG) is niet duidelijk gunstig. Koop langzaam, met een vast bedrag op vaste data.'
+      : 'Overleeft alle 12 stappen; de waardering is redelijk maar niet ruim (bear-case DCF onder de koers). Koop langzaam, met een vast bedrag op vaste data.' };
+    if (s.nfail === 1 && s.fail === 12) return { cls: 'v-mid', label: 'Bijna · te duur', text: `Overleeft stap 1-11, maar ${noDcf ? 'de K/W en de PEG zijn allebei te hoog' : 'de koers ligt boven de basis-DCF'}. Wacht op een betere prijs (zie Koopmoment); de kwaliteit is er al.` };
     if (!s.nfail) return { cls: 'v-mid', label: 'Geen afvaller · balans open', text: 'Geen stap valt af, maar bij banken, brokers en verzekeraars is de balans (stap 8) niet uit de cijfers te halen en er is voor dit bedrijf geen oordeel over de kapitaalbuffer. Daarom geen survivor.' };
     const f = s.list.find(x => x.n === s.fail), why = f && f.note ? `: ${f.note.replace(/^[^:]+:\s*/, '')}` : '';
     const where = `stap ${failNames([s.fail])}${why}${s.nfail > 1 ? `; in totaal ${s.nfail} afvallers` : ''}`;
@@ -176,10 +182,10 @@ const Steps = (() => {
     const mark = ok => ok === true ? '<b class="ok">✓</b>' : ok === false ? '<b class="no">✕</b>' : '<b class="na">·</b>';
     const d = kwDate(kw.k);
     return `<div class="s12-kw"><span class="s12-st ${KW[kw.lvl][1]}">${KW[kw.lvl][0]}</span>${d ? `<small>kwartaal t/m ${esc(d)}</small>` : ''}</div>
-      <ul class="s12-list s12-kwl">${(kw.p || []).map(([t, ok, v]) => `<li>${mark(ok)}<span>${esc(t)}</span>${v != null ? `<em>${esc(nl(v))}</em>` : ''}</li>`).join('')}</ul>`;
+      <ul class="s12-list s12-kwl">${(kw.c || []).map(([t, ok, v]) => `<li>${mark(ok)}<span>${esc(t)}</span>${v != null ? `<em>${esc(nl(v))}</em>` : ''}</li>`).join('')}</ul>`;
   }
   // De slechte punten van een kwartaalbeoordeling in één regel (voor meldingen)
-  const quarterBad = kw => ((kw && kw.p) || []).filter(x => x[1] === false).map(x => String(x[0]).replace(/ t\.o\.v\..*$| \(30 dagen\)$| van het kwartaal$/, '').toLowerCase());
+  const quarterBad = kw => ((kw && kw.c) || []).filter(x => x[1] === false).map(x => String(x[0]).replace(/ t\.o\.v\..*$| \(30 dagen\)$| van het kwartaal$/, '').toLowerCase());
 
   let cssDone = false;
   function css() {

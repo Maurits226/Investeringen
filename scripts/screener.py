@@ -1720,11 +1720,12 @@ def twelve_steps(it, med):
     step(4, "pass" if wat else "manual", [chk("Het bedrijf in één zin (oordeel)", True)] if wat else [], about=c.get("about"),
          **({"wat": wat} if wat else {}))
 
-    # 5. Marktpotentieel: het oordeel over de marktomvang als dat er is, anders wat de groei erover zegt (een bedrijf dat
-    # 10%+ groeit of waarvoor analisten dat verwachten, heeft die ruimte kennelijk). Kan twijfel geven, nooit een afvaller.
+    # 5. Marktpotentieel: het oordeel over de marktomvang als dat er is (7+ groot genoeg, 4-6 twijfel, onder 4 te klein:
+    # afvaller), anders wat de groei erover zegt (een bedrijf dat 10%+ groeit of waarvoor analisten dat verwachten, heeft
+    # die ruimte kennelijk); zonder oordeel nooit een afvaller.
     markt = cur.get("markt") if isinstance(cur.get("markt"), (int, float)) and not isinstance(cur.get("markt"), bool) else None
     g3, fwd5 = d["rev_cagr"], (it.get("m") or {}).get("fwd_g")
-    c5 = ([chk("Markt groot genoeg voor de groei (oordeel)", markt >= 7,
+    c5 = ([chk("Markt groot genoeg voor de groei (oordeel)", True if markt >= 7 else None if markt >= 4 else False,
                "groot" if markt >= 8 else "ruim" if markt >= 7 else "beperkt" if markt >= 4 else "klein")] if markt is not None else []) + [
         chk("Omzet groeide 10% of meer per jaar", None if g3 is None else g3 >= 10, f"{g3:+.0f}%" if g3 is not None else None),
         chk("Analisten verwachten 10% of meer groei", None if fwd5 is None else fwd5 >= 10, f"{fwd5:+.0f}%" if fwd5 is not None else None),
@@ -1732,7 +1733,8 @@ def twelve_steps(it, med):
     if markt is None and g3 is None and fwd5 is None:
         st5 = "manual"                                   # geen oordeel en geen groeicijfers: niets over te zeggen
     else:
-        st5 = "pass" if (markt >= 7 if markt is not None else any(x is not None and x >= 10 for x in (g3, fwd5))) else "check"
+        st5 = ("fail" if markt is not None and markt < 4 else
+               "pass" if (markt >= 7 if markt is not None else any(x is not None and x >= 10 for x in (g3, fwd5))) else "check")
     mn = cur.get("markt_noot")
     step(5, st5, c5, **({"info": mn.strip()[:300]} if isinstance(mn, str) and mn.strip() else {}))
 
@@ -1867,7 +1869,8 @@ def twelve_steps(it, med):
         c12 = [chk("Verwachte K/W niet boven de sector", pe_ok, f"{pe:.1f} · sector {medpe:.1f}" if pe_ok is not None else None),
                chk("PEG onder 2", None if not peg else peg <= 2, f"{peg:.1f} · {peg_lbl}" if peg else None)]
         known = [x[1] for x in c12 if x[1] is not None]
-        st12 = "pass" if known and all(known) else "check"      # nooit een afvaller: zonder DCF is 'te duur' hier niet hard te maken
+        # gehaald als wat bekend is goed is; afvaller alleen als K/W én PEG allebei bekend en te duur zijn
+        st12 = "pass" if known and all(known) else "fail" if len(known) == 2 and not any(known) else "check"
     elif vals["base"] is None:
         st12 = "check"
     elif price and vals["bear"] >= price:
@@ -2026,7 +2029,8 @@ def quarter_review(c, fin=False):
         eerder goed; negatief of meer dan gehalveerd slecht
       * bijstellingen van de winstverwachting in de laatste 30 dagen: vaker omhoog dan omlaag goed, andersom slecht
     Oordeel: 2+ slecht = zwak, 1 slecht = gemengd, 3+ goed = sterk, anders goed. Minder dan twee punten bekend: geen oordeel.
-    Geeft {"k": einddatum van het kwartaal (of None), "lvl": ..., "p": [[tekst, goed/slecht/None, waarde], ...]} of None."""
+    Geeft {"k": einddatum van het kwartaal (of None), "lvl": ..., "c": [[tekst, goed/slecht/None, waarde], ...]} of None
+    (c in dezelfde vorm als de punten van de 12 stappen)."""
     ts = c.get("ts") or {}
     pts = []
 
@@ -2034,10 +2038,12 @@ def quarter_review(c, fin=False):
         return [(d_, v) for d_, v in (ts.get(key) or []) if v is not None and _day(d_)]
 
     def jaar_eerder(r):
-        """De waarde van hetzelfde kwartaal een jaar eerder (vier kwartalen terug, 11 tot 13 maanden)."""
-        if len(r) < 5:
+        """De waarde van hetzelfde kwartaal een jaar eerder: het kwartaal dat 11 tot 13 maanden vóór het laatste eindigde
+        (op datum gezocht: Yahoo slaat soms een kwartaal over)."""
+        if len(r) < 2:
             return None
-        return r[-5][1] if 330 <= (_day(r[-1][0]) - _day(r[-5][0])).days <= 400 else None
+        d1 = _day(r[-1][0])
+        return next((v for d_, v in reversed(r[:-1]) if 330 <= (d1 - _day(d_)).days <= 400), None)
     rq = rows("quarterlyTotalRevenue")
     k = rq[-1][0][:10] if rq else None
     r0 = jaar_eerder(rq)
@@ -2065,7 +2071,7 @@ def quarter_review(c, fin=False):
     if len(pts) < 2:
         return None
     bad, good = sum(1 for x in pts if x[1] is False), sum(1 for x in pts if x[1] is True)
-    return {"k": k, "lvl": "zwak" if bad >= 2 else "gemengd" if bad == 1 else "sterk" if good >= 3 else "goed", "p": pts}
+    return {"k": k, "lvl": "zwak" if bad >= 2 else "gemengd" if bad == 1 else "sterk" if good >= 3 else "goed", "c": pts}
 
 
 def earnings_passed(c, today):

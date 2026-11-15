@@ -184,11 +184,6 @@ const Steps = (() => {
     return `<div class="s12-kw"><span class="s12-st ${KW[kw.lvl][1]}">${KW[kw.lvl][0]}</span>${d ? `<small>kwartaal t/m ${esc(d)}</small>` : ''}</div>
       <ul class="s12-list s12-kwl">${(kw.c || []).map(([t, ok, v]) => `<li>${mark(ok)}<span>${esc(t)}</span>${v != null ? `<em>${esc(nl(v))}</em>` : ''}</li>`).join('')}</ul>`;
   }
-  // De slechte punten van een kwartaalbeoordeling in één regel (voor meldingen)
-  const BAD = [[/^Omzet/, 'omzet lager dan een jaar eerder'], [/^Winst/, 'winst onder de verwachting'],
-    [/^Vrije kasstroom/, 'vrije kasstroom negatief of sterk gedaald'], [/^Analisten/, 'analisten stellen de verwachting omlaag bij']];
-  const quarterBad = kw => ((kw && kw.c) || []).filter(x => x[1] === false)
-    .map(x => (BAD.find(([re]) => re.test(String(x[0]))) || [null, String(x[0]).toLowerCase()])[1]);
 
   let cssDone = false;
   function css() {
@@ -265,5 +260,5 @@ const Steps = (() => {
     document.head.appendChild(st);
   }
 
-  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, KW, ring, esc, dots, failText, verdict, buyVerdict, cardTable, panel, quarter, quarterBad, kwDate, css };
+  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, KW, ring, esc, dots, failText, verdict, buyVerdict, cardTable, panel, quarter, kwDate, css };
 })();

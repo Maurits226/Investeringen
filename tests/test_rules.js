@@ -244,6 +244,33 @@ check(S.mergeDashboard(fixed, null).list === fixed, 'tickers.txt niet te lezen: 
   ctx.fetch = async () => ({ ok: true, text: async () => '<!DOCTYPE html><html><body>AMD.DE Service Unavailable</body></html>' });
   check(await S.dashboardTickers() === null, 'een foutpagina in plaats van tickers.txt is geen lijst');
 
+  // These-meldingen (Vandaag en Beoordeling): niets af te vinken. Een nieuwe afvaller en een zwak kwartaal blijven 45 dagen
+  // staan; twee zwakke kwartalen op rij is rood; de oude meldingen 'kwartaalcijfers lezen' en 'kwartaalcheck' bestaan niet meer
+  {
+    const ref = { name: 'Test', card: { s: 100 }, s12: { list: [{ n: 3, s: 'fail' }, { n: 7, s: 'pass' }] },
+      kw: { k: '2026-09-30', lvl: 'zwak', c: [['Omzet t.o.v. hetzelfde kwartaal vorig jaar', true, '+8%'], ['Winst per aandeel t.o.v. de verwachting', false, '-6%'],
+        ['Vrije kasstroom van het kwartaal', false, '-1.0 mld USD']] } };
+    const hist = [{ d: '2026-10-05', s: 100, f: [] }, { d: '2026-10-12', s: 100, f: [] }, { d: '2026-10-19', s: 100, f: [3] }, { d: '2026-10-26', s: 100, f: [3] }];
+    const entry = { hist, last_earn: '2026-10-20', kw: [{ k: '2026-09-30', d: '2026-10-20', lvl: 'zwak' }] };
+    let al = S.theseAlerts(ref, entry, {}, '2026-10-28');
+    check(al.some(a => a.kind === 'newfail' && a.step === 3) && !al.some(a => a.kind === 'earn' || a.kind === 'due'),
+      `nieuwe afvaller gemeld, geen 'kwartaalcijfers lezen' of 'kwartaalcheck' meer (${JSON.stringify(al.map(a => a.kind))})`);
+    const k = al.find(a => a.kind === 'kw');
+    check(k && k.sev === 2 && /winst onder de verwachting/.test(k.text) && /vrije kasstroom/.test(k.text) && !/omzet/.test(k.text),
+      `zwak kwartaal gemeld met de slechte punten in gewone woorden (${k && k.text})`);
+    al = S.theseAlerts(ref, entry, {}, '2026-12-10');
+    check(!al.some(a => a.kind === 'newfail' || a.kind === 'kw'), `na 45 dagen verdwijnen beide meldingen vanzelf (${JSON.stringify(al.map(a => a.kind))})`);
+    // de automatische kwartaalbeoordeling van dezelfde dag zet een nieuwe afvaller niet uit
+    const sameDay = { hist: [{ d: '2026-10-05', s: 100, f: [] }, { d: '2026-10-28', s: 100, f: [3] }], kw: [{ k: '2026-09-30', d: '2026-10-28', lvl: 'goed' }] };
+    check(S.theseAlerts(Object.assign({}, ref, { kw: null }), sameDay, {}, '2026-10-28').some(a => a.kind === 'newfail'), 'nieuwe afvaller op de dag van de kwartaalbeoordeling blijft gemeld');
+    // twee zwakke kwartalen op rij: rood
+    const twee = Object.assign({}, entry, { kw: [{ k: '2026-06-30', d: '2026-07-20', lvl: 'zwak' }, { k: '2026-09-30', d: '2026-10-20', lvl: 'zwak' }] });
+    const k2 = S.theseAlerts(ref, twee, {}, '2026-10-28').find(a => a.kind === 'kw');
+    check(k2 && k2.sev === 3 && /^Tweede zwakke kwartaal op rij/.test(k2.text), `twee zwakke kwartalen op rij is rood (${k2 && k2.text})`);
+    // een kwartaalcheck die je vroeger zelf afvinkte, telt nog
+    check(!S.theseAlerts(ref, entry, { checked: '2026-10-27' }, '2026-10-28').some(a => a.kind === 'newfail'), 'een oude, zelf afgevinkte check zet de melding van daarvoor uit');
+  }
+
   console.log(fails.length ? `REGELS: ${fails.length} fout(en)` : 'REGELS: alles in orde');
   process.exit(fails.length ? 1 : 0);
 })();

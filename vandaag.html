@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-g6h3x+NOB9lRqJtcOsZijD/XLik0/gNyXjc7yMEKyzM='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-IYA4GT30IGAgkO/HOpVWWtTjFVQqKEISeLWQcMi1D4M='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -365,31 +365,22 @@ async function render() {
   const noPrice = held.filter(x => (x.p.sells || []).some(v => v && !(v.price > 0)));
   if (noPrice.length) todo.push({ g: 'Winst nemen', kind: 'chips', title: 'Verkoopkoers invullen', items: noPrice.map(nm),
     pill: 'invullen', pillCls: 'amber', go: 'investeringen', prio: 3 });
-  // 3. Beoordeling (12 stappen): these-alarm en these herzien per aandeel; nieuwe kwartaalcijfers en de kwartaalcheck
-  //    elk samen in één regel (these.json, zelfde regels als Beoordeling via shared.js)
+  // 3. Beoordeling (12 stappen): these-alarm en these herzien per aandeel (these.json, zelfde regels als Beoordeling via
+  //    shared.js). Kwartaalcijfers worden automatisch beoordeeld: alleen een zwak kwartaal komt hier als melding.
   const stocks = pos.filter(p => !p.watch && p.section === 'Stocks');
-  const earned = [], due = [];
   const today = new Date().toISOString().slice(0, 10);
   stocks.forEach(p => {
     const it = idx.find(p.ticker), v = Steps.verdict(it), name = short((it && it.name) || p.label || p.ticker);
     const al = Shared.theseAlerts(it, (these && it && these.stocks[it.sym]) || null, p.review, today);
-    const alarm = al.filter(a => a.kind === 'drop' || a.kind === 'newfail');
+    const alarm = al.filter(a => a.kind === 'drop' || a.kind === 'newfail' || a.kind === 'kw');
     if (alarm.length) todo.push({ g: 'Beoordelen', title: name, sub: alarm.map(a => a.text).join(' · '),
-      pill: 'these-alarm', pillCls: alarm[0].sev >= 3 ? 'red' : 'amber', go: 'beoordeling', prio: 0 });
+      pill: alarm.every(a => a.kind === 'kw') ? 'zwak kwartaal' : 'these-alarm', pillCls: alarm[0].sev >= 3 ? 'red' : 'amber', go: 'beoordeling', prio: 0 });
     if (v.cls === 'v-bad') {                     // de reden uit het oordeel (Beoordeling), kort: scorecard onder 75 of de harde afvaller
       const why = v.text.split('. ')[0], sc = /^Scorecard ([\d,.]+): onder 75/.exec(why);
       todo.push({ g: 'Beoordelen', title: name, sub: sc ? `scorecard ${sc[1]} van 125 · onder 75` : why.replace(/^Valt/, 'valt'),
         pill: 'herzien', pillCls: 'red', go: 'beoordeling', prio: 2 });
     }
-    const earn = al.find(a => a.kind === 'earn');
-    if (earn) earned.push({ name, since: earn.since });
-    if (al.some(a => a.kind === 'due')) due.push(name);
   });
-  if (earned.length) {
-    earned.sort((a, b) => String(b.since).localeCompare(String(a.since)));
-    todo.push({ g: 'Beoordelen', kind: 'chips', title: 'Kwartaalcijfers lezen', items: earned.map(e => e.name), pill: `${earned.length}`, pillCls: 'grey', go: 'beoordeling', prio: 1 });
-  }
-  if (due.length) todo.push({ g: 'Beoordelen', kind: 'chips', title: 'Kwartaalcheck', items: due, pill: `${due.length}`, pillCls: 'grey', go: 'beoordeling', prio: 3 });
   // 4. Nieuwe radaradviezen (afgelopen handelsdag)
   const cut = newCutoff();
   ((sig && sig.history) || []).filter(e => e.dir === 'up' && !e.end && !e.bootstrap && e.start && new Date(e.start) >= cut).forEach(e => {

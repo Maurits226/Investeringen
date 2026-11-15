@@ -76,8 +76,18 @@ for it in items:
         check(all(x["s"] in STATUS for x in s12["list"]), f"{it['sym']}: onbekende stapstatus")
         fails_ = [x["n"] for x in s12["list"] if x["s"] == "fail"]
         fin = bool(getattr(S, "FIN_BALANCE", None) and S.FIN_BALANCE.search(it.get("industry") or ""))
-        check(s12["survivor"] == (not fails_ and not fin) and s12["nfail"] == len(fails_) and s12["fail"] == (fails_[0] if fails_ else None),
+        # bank of verzekeraar: alleen een survivor als er een oordeel over de kapitaalbuffer is (stap 8 niet meer open)
+        s8 = next(x for x in s12["list"] if x["n"] == 8)
+        check(bool(s12.get("open8")) == (fin and s8["s"] == "manual"), f"{it['sym']}: open8 hoort alleen bij een bank zonder oordeel over de balans")
+        check(s12["survivor"] == (not fails_ and not s12.get("open8")) and s12["nfail"] == len(fails_) and s12["fail"] == (fails_[0] if fails_ else None),
               f"{it['sym']}: survivor/fail klopt niet met de stappen")
+        # stap 4 en 5: nooit een afvaller; 'manual' (geen oordeel) alleen als er echt niets over te zeggen is
+        s4, s5 = (next(x for x in s12["list"] if x["n"] == n) for n in (4, 5))
+        check(s4["s"] in ("pass", "manual") and (s4["s"] == "pass") == bool(s4.get("wat")), f"{it['sym']}: stap 4 hoort gehaald te zijn als er een zin over het bedrijf is")
+        check(s5["s"] in ("pass", "check", "manual") and (s5["s"] != "manual" or all(x[1] is None for x in s5["c"])), f"{it['sym']}: stap 5 klopt niet ({s5['s']})")
+        kw = it.get("kw")
+        check(kw is None or (kw["lvl"] in S.KW_LVL and len(kw["p"]) >= 2 and all(len(x) == 3 and x[1] in (True, False, None) for x in kw["p"])),
+              f"{it['sym']}: kwartaalbeoordeling heeft niet de juiste vorm")
         if fin:   # bank of verzekeraar: cash vs. schuld en vrije kasstroom tellen niet, DCF n.v.t.
             s3 = next(x for x in s12["list"] if x["n"] == 3)
             check("meer schuld dan cash" not in (s3.get("note") or ""), f"{it['sym']}: bank valt af op schuld > cash")

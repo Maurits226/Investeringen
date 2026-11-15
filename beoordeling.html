@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-1j2gFEbiZJGQmrgTImyq18TKDpo1hNprucn5At0xx8M='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-UUPDcyExscDE9PSvKmX9B/1saKSBaXotc/mFBjJLwww='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -88,13 +88,12 @@
   .d-k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .d-k span { text-transform: none; letter-spacing: 0; font-family: var(--mono); }
   .advice { font-size: 13px; line-height: 1.55; margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid var(--line); }
-  .notes { display: grid; gap: 10px; margin: 14px 0; }
-  .notes label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); display: block; margin-bottom: 4px; }
-  .notes textarea { width: 100%; min-height: 64px; resize: vertical; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-                    color: var(--text); font: inherit; font-size: 13px; padding: 9px 10px; line-height: 1.45; }
-  .notes textarea:focus { outline: none; border-color: var(--gold); }
-  .qcheck { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
-  .qcheck .due { color: var(--warn); }
+  /* automatisch opgestelde these en de kwartaalbeoordeling: lopende tekst, niets om in te vullen */
+  .auto { display: grid; gap: 12px; margin: 16px 0; }
+  .auto .d-k { margin-bottom: 4px; }
+  .auto p { margin: 0; font-size: 13px; line-height: 1.55; color: #c8cbcf; }
+  .auto .eigen { border-left: 2px solid var(--line); padding-left: 10px; white-space: pre-wrap; }
+  .qcheck { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
   .empty { padding: 26px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; font-size: 13px; line-height: 1.6; }
   .section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 26px 0 10px; }
   .etf { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
@@ -135,7 +134,6 @@
   @media (pointer: coarse), (max-width: 900px) {
     .seg button { min-height: 40px; padding: 8px 14px; white-space: nowrap; }
     .toggle { min-height: 40px; }
-    .notes textarea { font-size: 16px; }
   }
   @media (max-width: 560px) {
     body { padding: 18px 12px calc(40px + env(safe-area-inset-bottom)); }
@@ -178,14 +176,16 @@
     <div class="howto-body">
       <div><h4>Survivor</h4>
         Elke stap werkt als <b>Survivor</b>: zakt een bedrijf voor één stap, dan valt het af, hoe mooi het verhaal ook klinkt.
-        Wat uit de cijfers te halen is, rekent het dashboard elke run na; de rest (bedrijf in één zin, marktomvang, CEO-checklijst, bear case) vink je hier zelf af.</div>
+        Wat uit de cijfers te halen is, rekent het dashboard elke run na. De rest (het bedrijf in één zin, marktomvang, moat, CEO, de kapitaalbuffer van een bank)
+        komt uit een <b>oordeel van Claude (AI)</b> per bedrijf; je hoeft zelf niets in te vullen of af te vinken.</div>
       <div><h4>Je oordeel per aandeel</h4>
         De 12 stappen zijn gemaakt om te <b>kopen</b>; voor wat je al hebt telt of je these breekt.
         <b class="v-good">Behouden</b>: scorecard 75+ en geen afvaller. <b class="v-mid">Kritisch bekijken</b>: zou als nieuwe aankoop afvallen (bijv. stap 3, de pre-screen).
         <b class="v-bad">These herzien</b>: scorecard onder 75, een zwakke balans (stap 8) of meerdere rode vlaggen tegelijk (stap 11). Alleen duur (stap 12) is nooit een reden om te verkopen.</div>
       <div><h4>Na de 12 stappen</h4>
         <b>Koop langzaam</b> (vast bedrag, vaste datum). <b>Schrijf je exit op vóór je koopt</b>: waarom je het bezit en wat je zou doen verkopen.
-        Breekt de these langzaam, verkoop dan geleidelijk over ±18 maanden; fraude betekent direct eruit. <b>Check elk kwartaal</b> en herhaal de scorecard jaarlijks.</div>
+        Breekt de these langzaam, verkoop dan geleidelijk over ±18 maanden; fraude betekent direct eruit. De <b>kwartaalcijfers worden automatisch beoordeeld</b> (omzet, winst tegenover de verwachting, kasstroom, bijstellingen) en de scorecard elke run opnieuw;
+        je krijgt alleen een melding bij een zwak kwartaal of als de these verandert.</div>
     </div>
   </details>
 
@@ -209,7 +209,8 @@
 <script src="steps.js"></script>
 <script>
 const OWN = new URLSearchParams(location.search).get('set') !== 'top';   // standaard: je eigen aandelen
-// Notities, vinkjes en de kwartaalcheck: alleen voor de beheerder (met je token); bezoekers zien de beoordeling alleen-lezen
+// Niets om in te vullen: het oordeel, de these en de kwartaalbeoordeling komen uit de run. Alleen een notitie die de
+// beheerder vroeger zelf schreef wordt nog getoond (uit zijn eigen gegevens), en dan alleen aan hem.
 const EDIT = () => OWN && Shared.isAdmin();
 const $ = id => document.getElementById(id);
 const esc = Steps.esc;
@@ -217,7 +218,7 @@ const SECTOR_NL = Steps.SECTOR_NL;          // sectornamen in het Nederlands (st
 const today = () => new Date().toISOString().slice(0, 10);
 let rows = [], extraRows = [], DATA = null, sortBy = 'verdict', filter = null;
 const openSet = new Set();
-// Geen cijfers (bv. andere valuta)? Dan alle 12 stappen als zelf-te-beoordelen lijst
+// Geen cijfers (bv. andere valuta)? Dan alle 12 stappen zonder oordeel
 const BLANK = { list: Array.from({ length: 12 }, (_, i) => ({ n: i + 1, s: 'manual', c: [] })), fail: null, nfail: 0, survivor: false, auto_ok: 0 };
 Steps.css();
 
@@ -238,15 +239,20 @@ function sorted(list) {
 
 // These-bewaking (these.json via shared.js, dezelfde regels als Vandaag): scorecard-daling, nieuwe afvaller, nieuwe kwartaalcijfers
 const alertsOf = r => OWN ? Shared.theseAlerts(r.it, r.th, r.review, today()) : [];
-// Kwartaalcheck: na nieuwe kwartaalcijfers als de datum bekend is, anders elke 100 dagen
-function quarterInfo(r) {
-  const rv = r.review || {}, a = alertsOf(r).find(x => x.kind === 'earn' || x.kind === 'due');
-  let txt = 'nog nooit gecheckt';
-  if (rv.checked) {
-    const days = Math.max(0, Math.floor((Date.now() - new Date(rv.checked).getTime()) / 86400000));   // vandaag gecheckt = 0 d
-    txt = `gecheckt ${new Date(rv.checked).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })} (${days} d geleden)`;
-  }
-  return { due: !!a, txt: a && a.kind === 'earn' ? a.text : txt };
+// Laatste kwartaal: het automatische oordeel uit de run (it.kw): sterk, goed, gemengd of zwak
+const kwOf = r => (r.it && r.it.kw && Steps.KW[r.it.kw.lvl]) ? r.it.kw : null;
+// Waarom dit in de portefeuille past en wat de these zou breken: opgesteld uit het oordeel en de scorecard
+function theseAuto(r, it) {
+  const c = it.card || {}, crit = (c.crit || []).filter(x => !x.nodata);
+  const nm = k => (Steps.CARD[k] || [k])[0].replace('*', '').toLowerCase();
+  const top = crit.filter(x => x.p === 10).map(x => nm(x.k)), weak = crit.filter(x => x.p === 0).map(x => nm(x.k));
+  const note = it.q && it.q.note ? String(it.q.note).replace(/[.\s]+$/, '') + '. ' : '';
+  const why = note + (top.length ? `Sterk op de scorecard: ${top.join(', ')}.` : 'Geen onderdeel van de scorecard scoort het maximum.')
+    + (weak.length ? ` Zwak: ${weak.join(', ')}.` : '');
+  const fails = ((it.s12 && it.s12.list) || []).filter(x => x.s === 'fail' && x.n !== 12).map(x => x.n);
+  const exit = `Een scorecard onder 75 (nu ${c.s == null ? '—' : String(c.s).replace('.', ',')}), een nieuwe afvaller in stap 1 tot en met 11`
+    + (fails.length ? ` (valt nu al af bij stap ${fails.join(', ')})` : '') + ', of twee zwakke kwartalen op rij. Dit wordt elke run bewaakt; verandert er iets, dan staat het op Vandaag.';
+  return { why, exit };
 }
 // Scorecard van de laatste 13 weken als mini-lijn (x op datum, y van laag naar hoog)
 function spark(pts, cls) {
@@ -299,13 +305,13 @@ function gapPill(it) {
 function rowHTML(r) {
   const it = r.it, c = it && it.card, open = openSet.has(r.key);
   const lvl = c && c.s != null ? (Steps.LEVEL[c.lvl] || Steps.LEVEL.low) : null;
-  const q = OWN ? quarterInfo(r) : null;
+  const q = OWN ? kwOf(r) : null;
   const al = alertsOf(r), tr = OWN && r.th ? Shared.theseTrend(it, r.th, today()) : null;
   const sp = tr && !tr.short && tr.pts.length >= 2 ? spark(tr.pts, tr.delta > 0 ? 'c-up' : tr.delta < 0 ? 'c-down' : '') : '';
   const tick = (it && it.region === 'VS') ? it.sym : r.ticker;
   const head = `<div class="b-head" data-key="${esc(r.key)}">
       <div class="b-name"><div class="b-title" title="${esc(r.name)}">${esc(r.name)}</div>
-        <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.due && !al.some(a => a.kind === 'earn') ? '&nbsp;· <span style="color:var(--warn)">kwartaalcheck</span>' : ''}</div>
+        <div class="b-sub">${esc(tick)}${it && it.sector ? '&nbsp;· ' + esc(SECTOR_NL[it.sector] || it.sector) : ''}${it && Number.isInteger(it.earn_days) && it.earn_days <= 14 ? `&nbsp;· <span style="color:var(--accent)">cijfers over ${it.earn_days} d</span>` : ''}${OWN && q && q.lvl === 'zwak' ? '&nbsp;· <span style="color:var(--down)">zwak kwartaal</span>' : OWN && q && q.lvl === 'gemengd' ? '&nbsp;· <span style="color:var(--warn)">gemengd kwartaal</span>' : ''}</div>
         <span class="b-verdict ${r.v.cls}">${esc(r.v.label)}</span>${gapPill(it)}</div>
       <div class="b-score" title="${c && c.s != null ? `Scorecard ${c.s} van 125 · ${esc(lvl[0])}` : 'Nog geen scorecard'}">${Steps.ring(c && c.s, 52)}<small>${c && c.s != null ? 'van 125' : 'geen data'}</small>${sp}</div>
       <div class="b-steps">${it && it.s12 ? Steps.dots(it.s12) : ''}<div class="why">${esc(it ? Steps.failText(it.s12) : r.missing || 'nog niet gescand')}</div></div>
@@ -318,40 +324,30 @@ function rowHTML(r) {
   return `<div class="b-card vc-${r.v.cls.slice(2)}" id="c-${esc(r.key)}">${head}${bodyHTML(r, full, q)}</div>`;
 }
 
-// Opengeklapte kaart: oordeel, scorecard, notities en de 12 stappen (it = het volledige item)
+// Opengeklapte kaart: oordeel, scorecard, de these, de kwartaalbeoordeling en de 12 stappen (it = het volledige item)
 function bodyHTML(r, it, q) {
   const c = it && it.card;
   const rv = r.review || {};
+  const ta = OWN && it && c && c.s != null ? theseAuto(r, it) : null;
+  const eigen = EDIT() ? [rv.why, rv.exit].filter(x => x && String(x).trim()) : [];
   const body = `<div class="b-body">
       <div>
         <div class="advice"><b class="${r.v.cls}">${esc(r.v.label)}.</b> ${esc(r.v.text)}</div>
         <div class="d-k">Scorecard <span>stap 6</span></div>
         ${it ? Steps.cardTable(c) : `<div class="empty">${esc(r.missing || 'Nog niet gescand.')}</div>`}
-        ${EDIT() ? `<div class="notes">
-          <div><label for="why-${esc(r.key)}">Waarom ik dit bezit</label><textarea id="why-${esc(r.key)}" data-field="why" maxlength="2000" placeholder="Bijv. marktleider in AI-chips, groeit 30%+ met hoge marges">${esc(rv.why || '')}</textarea></div>
-          <div><label for="exit-${esc(r.key)}">Wat me zou laten verkopen</label><textarea id="exit-${esc(r.key)}" data-field="exit" maxlength="2000" placeholder="Bijv. marge zakt onder 40%, CEO vertrekt, fraude">${esc(rv.exit || '')}</textarea></div>
-        </div>
-        <div class="qcheck"><span class="${q.due ? 'due' : ''}">${esc(q.txt)}</span><button class="toggle" data-qcheck="1">✓ Kwartaal gecheckt</button></div>
-        ${it && it.earnings ? `<div class="qcheck" style="margin-top:8px">Volgende kwartaalcijfers: <b style="color:var(--text)">${esc(new Date(it.earnings).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</b>${Number.isInteger(it.earn_days) ? ` (over ${it.earn_days} d)` : ''}. Lees daarna de cijfers en vink hierboven af.</div>` : ''}` : ''}
+        ${ta ? `<div class="auto">
+          <div><div class="d-k">Waarom dit erin past</div><p>${esc(ta.why)}</p></div>
+          <div><div class="d-k">Wat de these breekt</div><p>${esc(ta.exit)}</p></div>
+          ${eigen.length ? `<div><div class="d-k">Je eerdere notitie</div><p class="eigen">${esc(eigen.join('\n'))}</p></div>` : ''}
+        </div>` : ''}
+        ${OWN && it ? `<div class="d-k">Laatste kwartaalcijfers <span>automatisch beoordeeld</span></div>
+        ${Steps.quarter(it.kw)}
+        ${it.earnings ? `<div class="qcheck">Volgende kwartaalcijfers: <b style="color:var(--text)">${esc(new Date(it.earnings).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }))}</b>${Number.isInteger(it.earn_days) ? ` (over ${it.earn_days} d)` : ''}. Ze worden daarna vanzelf beoordeeld.</div>` : ''}` : ''}
       </div>
-      <div><div class="d-k">De 12 stappen <span>${it && it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : 'zelf beoordelen'}</span></div>
-        ${Steps.panel(it ? it.s12 : BLANK, { ticks: rv.ticks || {}, tickable: EDIT() })}</div>
+      <div><div class="d-k">De 12 stappen <span>${it && it.s12 ? `${it.s12.auto_ok} gehaald · ${it.s12.nfail} afvaller${it.s12.nfail === 1 ? '' : 's'}` : 'geen cijfers'}</span></div>
+        ${Steps.panel(it ? it.s12 : BLANK)}</div>
     </div>`;
   return body;
-}
-
-async function save(r, change) {
-  if (!EDIT()) return;
-  $('sync').textContent = '☁ opslaan…';
-  const res = await Shared.saveState(st => {
-    st[r.key] = st[r.key] || {};
-    const rv = Object.assign({}, st[r.key].review || {});
-    change(rv);
-    rv.updated = new Date().toISOString();
-    st[r.key].review = rv;
-    r.review = rv;
-  });
-  $('sync').textContent = res === 'synced' ? '☁ opgeslagen en gesynchroniseerd' : res === 'local' ? '☁ opgeslagen op dit apparaat' : '⚠ sync mislukt, lokaal bewaard';
 }
 
 function bind(el, r) {
@@ -361,24 +357,14 @@ function bind(el, r) {
   };
   const rb = el.querySelector('[data-retry]');
   if (rb) rb.onclick = () => { detFail.delete(r.key); redraw(r); };
-  el.querySelectorAll('input[type=checkbox][data-step]').forEach(cb => cb.onchange = () => save(r, rv => {
-    const t = Object.assign({}, rv.ticks || {}), n = cb.dataset.step, i = +cb.dataset.i;
-    const set = new Set(t[n] || []);
-    cb.checked ? set.add(i) : set.delete(i);
-    t[n] = [...set].sort((a, b) => a - b);
-    rv.ticks = t;
-  }));
-  el.querySelectorAll('textarea[data-field]').forEach(ta => ta.onchange = () => save(r, rv => { rv[ta.dataset.field] = ta.value.slice(0, 2000); }));
-  const qb = el.querySelector('[data-qcheck]');
-  if (qb) qb.onclick = async () => { await save(r, rv => { rv.checked = today(); }); redraw(r); render(true); };
 }
 
 function render(summaryOnly) {
   const cnt = k => rows.filter(r => r.v.cls === k).length;
-  const due = OWN ? rows.filter(r => quarterInfo(r).due).length : 0;
+  const due = OWN ? rows.filter(r => (kwOf(r) || {}).lvl === 'zwak').length : 0;
   const tiles = OWN
     ? [['v-good', 'Behouden', cnt('v-good'), 'scorecard 75+, geen afvaller'], ['v-mid', 'Kritisch bekijken', cnt('v-mid'), 'zou als aankoop afvallen'],
-       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlaggen'], ['due', 'Kwartaalcheck', due, 'na nieuwe cijfers of 100 d']]
+       ['v-bad', 'These herzien', cnt('v-bad'), 'onder 75, balans of rode vlaggen'], ['due', 'Zwak kwartaal', due, 'laatste cijfers, automatisch beoordeeld']]
     : [['survivor', 'Survivors', rows.length, 'overleven alle stappen'], ['v-good', 'Ook goedkoop', rows.filter(r => r.it.s12.list[11].s === 'pass').length, 'bear-case DCF boven de koers'],
        ['near', 'Bijna', extraRows.length, 'alleen te duur (stap 12)'], ['top', '100+', rows.filter(r => r.it.card.s >= 100).length, 'uitzonderlijke scorecard']];
   $('summary').innerHTML = tiles.map(([k, l, v, s]) => `<button class="stat ${filter === k ? 'active' : ''}" data-f="${k}"><div class="label">${l}</div>
@@ -387,7 +373,7 @@ function render(summaryOnly) {
   if (summaryOnly) return;
   let list = rows;
   if (filter && filter.startsWith('v-')) list = OWN ? rows.filter(r => r.v.cls === filter) : rows.filter(r => r.it.s12.list[11].s === 'pass');
-  else if (filter === 'due') list = rows.filter(r => quarterInfo(r).due);
+  else if (filter === 'due') list = rows.filter(r => (kwOf(r) || {}).lvl === 'zwak');
   else if (filter === 'near') list = extraRows;
   else if (filter === 'top') list = rows.filter(r => r.it.card.s >= 100);
   const box = $('list');
@@ -424,7 +410,7 @@ async function load() {
     const skip = (scr.own_skip || {})[t] || (us && (scr.own_skip || {})[us]);
     return { key: p.id.replace(/[^A-Za-z0-9]/g, '_'), id: p.id, name: (it && it.name) || qn || p.label || p.ticker, ticker: p.ticker, it, review: p.review,
              th: (these && it && these.stocks[it.sym]) || null,   // weekhistorie uit these.json (scorecard, afvallers, cijfers)
-             v: Steps.verdict(it), missing: it ? null : skip ? `niet te scoren (${skip}): beoordeel dit aandeel zelf met de 12 stappen`
+             v: Steps.verdict(it), missing: it ? null : skip ? `niet te scoren (${skip}): de cijfers zijn niet naar euro of dollar om te rekenen`
                : 'nog niet gescand: komt mee in de volgende runs van de Top 250' };
   });
   rows.forEach(r => { r.key = r.id; });   // sleutel = positie-id (zelfde als op Investeringen)
@@ -436,8 +422,8 @@ async function load() {
 $('sortSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
   sortBy = b.dataset.v; $('sortSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render();
 });
-// Opnieuw inlezen pas als je niet aan het typen bent en alle opslagen klaar zijn (anders zie je even een oude versie)
-Shared.onRefresh(() => { if (!document.querySelector('textarea:focus')) Shared.whenSaved().then(() => { if (!document.querySelector('textarea:focus')) load(); }); });
+// Opnieuw inlezen zodra alle opslagen klaar zijn (anders zie je even een oude versie)
+Shared.onRefresh(() => Shared.whenSaved().then(load));
 load();
 </script>
 </body>

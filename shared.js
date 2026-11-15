@@ -326,14 +326,20 @@ const Shared = (() => {
   }
   // Meldingen voor één eigen aandeel. ref = item uit screener.json (refs), entry = these.stocks[ref.sym], review = je beoordeling.
   // Geeft [{kind, sev, text, title, since, ...}]: kind 'drop' (scorecard 10+ lager dan het hoogste punt in 13 weken),
-  // 'newfail' (valt nu af bij een stap die 7+ dagen geleden nog niet faalde; stap 12 telt niet), 'earn' (nieuwe kwartaalcijfers
-  // na je laatste check) of 'due' (geen cijferdatum bekend: 100 dagen niet gecheckt). sev 3 rood, 2 oranje, 1 let op, 0 routine.
+  // 'newfail' (valt nu af bij een stap die 7+ dagen geleden nog niet faalde; stap 12 telt niet) of 'kw' (de laatste
+  // kwartaalcijfers zijn automatisch als zwak beoordeeld). sev 3 rood, 2 oranje. Je hoeft zelf niets te lezen of af te
+  // vinken: de Top 250-run beoordeelt elk nieuw kwartaal (these.json, kw) en dat telt als de kwartaalcheck.
   // text past in de kaart van het aandeel; title noemt de naam (voor lijsten zoals Vandaag).
   function theseAlerts(ref, entry, review, today) {
     const out = [], t = todayOf(today), tn = dayNum(t);
     const name = (ref && ref.name) || (entry && entry.name) || '';
     const hist = theseHist(entry), tr = theseTrend(ref, entry, t);
-    const checked = review && ISO_D.test(review.checked || '') ? review.checked.slice(0, 10) : null;
+    // De kwartaalcheck is de laatste automatische kwartaalbeoordeling (d = de dag waarop dat kwartaal is beoordeeld);
+    // een check die je vroeger zelf afvinkte telt nog mee.
+    const kws = ((entry && Array.isArray(entry.kw)) ? entry.kw : []).filter(x => x && ISO_D.test(x.d || '') && x.lvl);
+    const lastKw = kws[kws.length - 1] || null;
+    const checked = [review && ISO_D.test(review.checked || '') ? review.checked.slice(0, 10) : null, lastKw ? lastKw.d.slice(0, 10) : null]
+      .filter(Boolean).sort().pop() || null;
     if (tr && !tr.short) {
       const win = tr.pts.slice(0, -1);
       if (tr.cur != null && tr.max != null && tr.max - tr.cur >= 10) {
@@ -343,8 +349,8 @@ const Shared = (() => {
           title: `Scorecard ${name} ${ptsTxt(tr.max)} → ${ptsTxt(tr.cur)} (sinds ${dayTxt(at.d, t)})` });
       }
     }
-    // Nieuwe afvaller: een stap (niet 12, waardering) die eerder gehaald werd en nu faalt. De melding blijft staan tot je
-    // na het begin ervan een kwartaalcheck afvinkt: een these die breekt, mag niet na een week vanzelf verdwijnen.
+    // Nieuwe afvaller: een stap (niet 12, waardering) die eerder gehaald werd en nu faalt. De melding blijft staan tot er
+    // na het begin ervan een nieuw kwartaal is beoordeeld: een these die breekt, mag niet na een week vanzelf verdwijnen.
     // Faalde de stap al vanaf de eerste weekfoto, dan is hij niet 'nieuw' (dat staat al in het oordeel).
     const withF = hist.filter(h => Array.isArray(h.f));            // f kan null zijn (geen cijfers die week)
     const fails = ref ? ((ref.s12 && ref.s12.list) || []).filter(x => x.s === 'fail').map(x => +x.n) : ((withF[withF.length - 1] || {}).f || []);
@@ -357,13 +363,12 @@ const Shared = (() => {
       const txt = `valt nu af bij stap ${n} (${stepName(n)})`;
       out.push({ kind: 'newfail', sev: [8, 11].includes(n) ? 3 : 2, step: n, since, text: `${txt} · sinds ${dayTxt(since, t)}`, title: `${name} ${txt}` });
     });
-    const le = entry && ISO_D.test(entry.last_earn || '') && entry.last_earn.slice(0, 10) <= t ? entry.last_earn.slice(0, 10) : null;
-    if (le) {
-      if (!checked || checked < le) out.push({ kind: 'earn', sev: 1, since: le,
-        text: `Kwartaalcijfers gepubliceerd op ${dayTxt(le, t)} — nog niet gecheckt`, title: `Kwartaalcijfers ${name} (${dayTxt(le, t)}): kwartaalcheck` });
-    } else if (!checked || tn - dayNum(checked) > 100) {
-      out.push({ kind: 'due', sev: 0, since: checked, text: checked ? `kwartaalcheck: ${tn - dayNum(checked)} d geleden` : 'kwartaalcheck: nog nooit gedaan',
-        title: `Kwartaalcheck ${name}` });
+    // Laatste kwartaal zwak (2+ van de punten slecht): 45 dagen melden; twee zwakke kwartalen op rij is rood
+    if (lastKw && lastKw.lvl === 'zwak' && tn - dayNum(lastKw.d) <= 45 && tn >= dayNum(lastKw.d)) {
+      const twee = kws.length >= 2 && kws[kws.length - 2].lvl === 'zwak';
+      const bad = ref && ref.kw && (ref.kw.k || '') === (lastKw.k || '') && typeof Steps !== 'undefined' ? Steps.quarterBad(ref.kw) : [];
+      const txt = (twee ? 'Tweede zwakke kwartaal op rij' : 'Zwak kwartaal') + (bad.length ? ': ' + bad.join(', ') : '');
+      out.push({ kind: 'kw', sev: twee ? 3 : 2, since: lastKw.d.slice(0, 10), text: txt, title: `${name}: ${txt.charAt(0).toLowerCase() + txt.slice(1)}` });
     }
     return out.sort((a, b) => b.sev - a.sev);
   }

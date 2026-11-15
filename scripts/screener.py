@@ -1713,11 +1713,28 @@ def twelve_steps(it, med):
          [f"Pas {age:.0f} jaar op de beurs: is het bedrijf zelf minstens 10 jaar oud (oprichting)?"] if young else None,
          note=("Directe afvaller: " + ", ".join(kills)) if kills else None, misses=misses)
 
-    # 4. Definieer het bedrijf (zelf invullen)
-    step(4, "manual", [], about=c.get("about"))
+    # 4. Definieer het bedrijf: is er een oordeel (kwaliteit.json), dan staat daar het bedrijf in één zin en is de stap
+    # gehaald; anders alleen de beschrijving, zonder oordeel. Niemand hoeft hier zelf iets in te vullen.
+    cur = d.get("curated") or {}
+    wat = cur.get("wat").strip()[:400] if isinstance(cur.get("wat"), str) and cur.get("wat").strip() else None
+    step(4, "pass" if wat else "manual", [chk("Het bedrijf in één zin (oordeel)", True)] if wat else [], about=c.get("about"),
+         **({"wat": wat} if wat else {}))
 
-    # 5. Marktpotentieel (zelf checken)
-    step(5, "manual", [chk("Omzet nu", None, f"{(rev[-1] if rev else 0) / 1e9:.1f} mld" if rev else None)])
+    # 5. Marktpotentieel: het oordeel over de marktomvang als dat er is, anders wat de groei erover zegt (een bedrijf dat
+    # 10%+ groeit of waarvoor analisten dat verwachten, heeft die ruimte kennelijk). Kan twijfel geven, nooit een afvaller.
+    markt = cur.get("markt") if isinstance(cur.get("markt"), (int, float)) and not isinstance(cur.get("markt"), bool) else None
+    g3, fwd5 = d["rev_cagr"], (it.get("m") or {}).get("fwd_g")
+    c5 = ([chk("Markt groot genoeg voor de groei (oordeel)", markt >= 7,
+               "groot" if markt >= 8 else "ruim" if markt >= 7 else "beperkt" if markt >= 4 else "klein")] if markt is not None else []) + [
+        chk("Omzet groeide 10% of meer per jaar", None if g3 is None else g3 >= 10, f"{g3:+.0f}%" if g3 is not None else None),
+        chk("Analisten verwachten 10% of meer groei", None if fwd5 is None else fwd5 >= 10, f"{fwd5:+.0f}%" if fwd5 is not None else None),
+        chk("Omzet nu", None, f"{(rev[-1] if rev else 0) / 1e9:.1f} mld" if rev else None)]
+    if markt is None and g3 is None and fwd5 is None:
+        st5 = "manual"                                   # geen oordeel en geen groeicijfers: niets over te zeggen
+    else:
+        st5 = "pass" if (markt >= 7 if markt is not None else any(x is not None and x >= 10 for x in (g3, fwd5))) else "check"
+    mn = cur.get("markt_noot")
+    step(5, st5, c5, **({"info": mn.strip()[:300]} if isinstance(mn, str) and mn.strip() else {}))
 
     # 6. De scorecard
     s6 = card.get("s")
@@ -1751,9 +1768,19 @@ def twelve_steps(it, med):
           chk("Current ratio 1,0+", None if cr is None else cr >= 1.0, f"{cr:.2f}" if cr is not None else None),
           chk("Schuld / eigen vermogen onder 4", None if de is None else de < 4, "negatief eigen vermogen" if de == 99 else f"{de:.1f}" if de is not None else None)]
     f8 = sum(1 for x in c8 if x[1] is False)
-    if FIN_BALANCE.search(it.get("industry") or ""):
+    bal = cur.get("balans") if isinstance(cur.get("balans"), (int, float)) and not isinstance(cur.get("balans"), bool) else None
+    if fin and bal is not None:
+        # bank of verzekeraar met een oordeel over de kapitaalbuffer: dat oordeel telt, de gewone balansregels niet
+        bn = cur.get("balans_noot")
+        step(8, "pass" if bal >= 7 else "check" if bal >= 4 else "fail",
+             [chk("Kapitaalbuffer (oordeel)", bal >= 7, "sterk" if bal >= 8 else "ruim" if bal >= 7 else "matig" if bal >= 4 else "zwak")]
+             + [[t, None, v] for t, _, v in c8],
+             info=((bn.strip()[:300] + ". ") if isinstance(bn, str) and bn.strip() else "")
+             + "De gewone balansregels gelden niet bij banken, brokers en verzekeraars: schuld is hun grondstof.")
+    elif fin:
         step(8, "manual", [[t, None, v] for t, _, v in c8],
-             note="N.v.t. bij banken, brokers en verzekeraars: schuld is hun grondstof. Beoordeel zelf de kapitaalbuffer (CET1 / solvabiliteit).")
+             info="N.v.t. bij banken, brokers en verzekeraars: schuld is hun grondstof, en de kapitaalbuffer (CET1 / solvabiliteit) "
+                  "staat niet in de cijfers. Zonder oordeel over die buffer blijft deze stap open.")
     else:
         step(8, "fail" if f8 >= 2 or (de is not None and de >= 4) else "check" if f8 == 1 else "pass", c8,
              note="Vergelijk met de sector: een retailer lijkt altijd minder liquide door zijn voorraad." if cr is not None and cr < 1 else None)
@@ -1833,7 +1860,15 @@ def twelve_steps(it, med):
            chk("Basis (10%) boven de koers", None if vals["base"] is None or not price else vals["base"] >= price,
                f"{vals['base']:.2f}" if vals["base"] is not None else None),
            chk("PEG onder 2", None if not peg else peg <= 2, f"{peg:.1f} · {peg_lbl}" if peg else None)]
-    if vals["base"] is None:
+    if fin:
+        # geen DCF bij een bank of verzekeraar: verwachte K/W tegenover de sector, en de PEG
+        medpe = med.get(("pe", it.get("sector")))
+        pe_ok = None if not pe or pe >= 9999 or not medpe else pe <= medpe * 1.15
+        c12 = [chk("Verwachte K/W niet boven de sector", pe_ok, f"{pe:.1f} · sector {medpe:.1f}" if pe_ok is not None else None),
+               chk("PEG onder 2", None if not peg else peg <= 2, f"{peg:.1f} · {peg_lbl}" if peg else None)]
+        known = [x[1] for x in c12 if x[1] is not None]
+        st12 = "pass" if known and all(known) else "check"      # nooit een afvaller: zonder DCF is 'te duur' hier niet hard te maken
+    elif vals["base"] is None:
         st12 = "check"
     elif price and vals["bear"] >= price:
         st12 = "pass"
@@ -1842,16 +1877,17 @@ def twelve_steps(it, med):
     else:
         st12 = "fail"
     step(12, st12, c12,
-         note="DCF n.v.t. bij banken en verzekeraars: vergelijk zelf K/W en koers/boekwaarde met de sector." if fin else None,
+         **({"info": "DCF n.v.t. bij banken en verzekeraars: beoordeeld op de verwachte K/W tegenover de sector en op de PEG."} if fin else {}),
          dcf={k: rnd(v, 2) for k, v in vals.items()}, price=rnd(price, 2), g=rnd(g_used * 100 if g_used is not None else None, 1),
          margin=rnd(margin * 100 if margin is not None else None, 1), implied=rnd(impl * 100 if impl is not None else None, 1),
          actual=rnd(cagr * 100 if cagr is not None else None, 1), mult=mult)
 
     fails = [s_["n"] for s_ in steps if s_["s"] == "fail"]
-    # survivor = alle 12 stappen gehaald. Bij banken en verzekeraars zijn balans (8) en waardering (12) niet uit de cijfers
-    # te beoordelen, dus daar nooit automatisch een survivor (wel 'geen afvaller' voor het oordeel op Beoordeling)
+    # survivor = geen enkele stap valt af. Bij banken en verzekeraars is de balans (8) niet uit de cijfers te beoordelen:
+    # daar alleen een survivor als er een oordeel over de kapitaalbuffer is (kwaliteit.json), anders 'geen afvaller'
     it["s12"] = {"list": steps, "fail": fails[0] if fails else None, "nfail": len(fails),
-                 "survivor": not fails and not fin, "auto_ok": sum(1 for s_ in steps if s_["s"] == "pass")}
+                 "survivor": not fails and (not fin or bal is not None), "auto_ok": sum(1 for s_ in steps if s_["s"] == "pass"),
+                 **({"open8": True} if fin and bal is None else {})}
 
 
 def valuation_check(it):
@@ -1978,6 +2014,70 @@ def find_gap(it, fxchg=None):
             "ok": not warn, "warn": warn, "plus": plus}
 
 
+KW_LVL = ("sterk", "goed", "gemengd", "zwak")
+
+
+def quarter_review(c, fin=False):
+    """Automatisch oordeel over de laatste kwartaalcijfers, uit wat de cache al heeft (niemand hoeft ze te lezen en af te
+    vinken). Vier punten, elk goed (True), slecht (False) of neutraal (None):
+      * omzet t.o.v. hetzelfde kwartaal een jaar eerder: +5% of meer goed, krimp slecht
+      * winst per aandeel t.o.v. de verwachting van analisten: gehaald goed, meer dan 3% eronder slecht
+      * vrije kasstroom van het kwartaal (niet bij banken en verzekeraars): positief en niet meer dan 20% lager dan een jaar
+        eerder goed; negatief of meer dan gehalveerd slecht
+      * bijstellingen van de winstverwachting in de laatste 30 dagen: vaker omhoog dan omlaag goed, andersom slecht
+    Oordeel: 2+ slecht = zwak, 1 slecht = gemengd, 3+ goed = sterk, anders goed. Minder dan twee punten bekend: geen oordeel.
+    Geeft {"k": einddatum van het kwartaal (of None), "lvl": ..., "p": [[tekst, goed/slecht/None, waarde], ...]} of None."""
+    ts = c.get("ts") or {}
+    pts = []
+
+    def rows(key):
+        return [(d_, v) for d_, v in (ts.get(key) or []) if v is not None and _day(d_)]
+
+    def jaar_eerder(r):
+        """De waarde van hetzelfde kwartaal een jaar eerder (vier kwartalen terug, 11 tot 13 maanden)."""
+        if len(r) < 5:
+            return None
+        return r[-5][1] if 330 <= (_day(r[-1][0]) - _day(r[-5][0])).days <= 400 else None
+    rq = rows("quarterlyTotalRevenue")
+    k = rq[-1][0][:10] if rq else None
+    r0 = jaar_eerder(rq)
+    if r0 and r0 > 0 and rq[-1][1] is not None:
+        g = (rq[-1][1] / r0 - 1) * 100
+        pts.append(["Omzet t.o.v. hetzelfde kwartaal vorig jaar", True if g >= 5 else False if g < 0 else None,
+                    "meer dan +300%" if g > 300 else f"{g:+.0f}%"])
+    h = [x for x in (c.get("eps_hist") or []) if x and len(x) >= 2 and x[0] is not None and x[1] is not None]
+    if h and h[-1][1]:
+        a, e = h[-1][0], h[-1][1]
+        sp = (a - e) / abs(e) * 100
+        pts.append(["Winst per aandeel t.o.v. de verwachting", True if sp >= 0 else False if sp < -3 else None,
+                    f"{sp:+.0f}% ({a:.2f} tegen {e:.2f})"])
+    fq = rows("quarterlyFreeCashFlow")
+    if fq and not fin and (k is None or fq[-1][0][:10] == k):
+        f1, f0 = fq[-1][1], jaar_eerder(fq)
+        yoy = (f1 / f0 - 1) * 100 if f0 and f0 > 0 else None
+        ok = False if f1 < 0 or (yoy is not None and yoy < -50) else True if yoy is None or yoy >= -20 else None
+        jr = "" if yoy is None else " (meer dan +300% t.o.v. vorig jaar)" if yoy > 300 else f" ({yoy:+.0f}% t.o.v. vorig jaar)"
+        pts.append(["Vrije kasstroom van het kwartaal", ok, f"{f1 / 1e9:.1f} mld" + jr])
+    up, dn = c.get("rev_up"), c.get("rev_down")
+    if isinstance(up, (int, float)) and isinstance(dn, (int, float)) and up + dn > 0:
+        pts.append(["Analisten stellen de winstverwachting bij (30 dagen)", True if up > dn and up >= 2 else False if dn > up and dn >= 2 else None,
+                    f"{int(up)} omhoog · {int(dn)} omlaag"])
+    if len(pts) < 2:
+        return None
+    bad, good = sum(1 for x in pts if x[1] is False), sum(1 for x in pts if x[1] is True)
+    return {"k": k, "lvl": "zwak" if bad >= 2 else "gemengd" if bad == 1 else "sterk" if good >= 3 else "goed", "p": pts}
+
+
+def earnings_passed(c, today):
+    """Zijn er sinds de laatste keer ophalen kwartaalcijfers gepubliceerd? Dan de cijfers van dit bedrijf meteen verversen
+    (niet wachten op de wekelijkse beurt), hooguit eens per dag en tot een week na de publicatie: Yahoo heeft de nieuwe
+    cijfers niet altijd dezelfde dag. c["earnings"] is de eerstvolgende publicatiedatum zoals die bij het ophalen bekend was."""
+    e, f = _day((c or {}).get("earnings")), _day((c or {}).get("f"))
+    if not e or not f or e >= today:
+        return False
+    return (today - e).days <= 7 and age_h(c["f"]) > 20
+
+
 def s12_brief(s12, fail_notes=False):
     """De 12 stappen in het kort (status per stap), genoeg voor de vakjes op Koopmoment.
     fail_notes: de toelichting alleen bij stappen waarop het bedrijf afvalt (lichte lijst in screener.json)."""
@@ -1985,7 +2085,8 @@ def s12_brief(s12, fail_notes=False):
         return None
     return {"list": [{"n": x["n"], "s": x["s"], **({"note": x["note"]} if x.get("note") and (x["s"] == "fail" or not fail_notes) else {})}
                      for x in s12["list"]],
-            "fail": s12.get("fail"), "nfail": s12.get("nfail"), "survivor": s12.get("survivor"), "auto_ok": s12.get("auto_ok")}
+            "fail": s12.get("fail"), "nfail": s12.get("nfail"), "survivor": s12.get("survivor"), "auto_ok": s12.get("auto_ok"),
+            **({"open8": True} if s12.get("open8") else {})}
 
 
 def koop_rows(items):
@@ -2381,8 +2482,23 @@ def update_these(prev, refs, today):
             last, nxt = max(x for x in (last, nxt) if x), None
         new = _day(it.get("earnings"))
         nxt = new if new and new >= today else nxt
+        # kwartaalbeoordelingen: één regel per kwartaal (k = einddatum), d = de dag waarop dat kwartaal voor het eerst is
+        # beoordeeld. Het oordeel mag de eerste 14 dagen nog meebewegen (bijstellingen komen na), daarna staat het vast.
+        kws = [x for x in (old.get("kw") if isinstance(old.get("kw"), list) else []) if isinstance(x, dict) and x.get("lvl") in KW_LVL and _day(x.get("d"))]
+        kw = it.get("kw")
+        if kw and kw.get("lvl") in KW_LVL:
+            k = kw.get("k") or ""
+            if kws and (kws[-1].get("k") or "") == k:
+                if (today - _day(kws[-1]["d"])).days <= 14:
+                    kws[-1]["lvl"] = kw["lvl"]
+            else:
+                # het allereerste oordeel van een aandeel gaat over cijfers die al eerder uit waren: neem dan de dag van
+                # publicatie, zodat een these-alarm van daarna niet meteen als 'gecheckt' geldt
+                d0 = last if not kws and last and last <= today else today
+                kws.append({"k": k, "d": d0.isoformat(), "lvl": kw["lvl"]})
         stocks[sym] = {"name": it.get("name") or old.get("name") or sym, "hist": hist[-THESE_MAX:],
-                       "next_earn": nxt.isoformat() if nxt else None, "last_earn": last.isoformat() if last else None}
+                       "next_earn": nxt.isoformat() if nxt else None, "last_earn": last.isoformat() if last else None,
+                       **({"kw": kws[-6:]} if kws else {})}
     return {"v": 1, "updated": iso(), "stocks": dict(sorted(stocks.items()))}
 
 
@@ -2498,7 +2614,8 @@ def main():
     # opgezocht en nog nooit gelukt: elke run opnieuw proberen (niet pas na ERROR_RETRY_H uur)
     todo = [s for s in uni if needs_refresh(cache.get(s), uni[s]["region"])
             or (s in look_pick and not (cache.get(s) or {}).get("f"))
-            or ((s in look_pick or is_owned(s)) and convertible_skip(cache.get(s)))]
+            or ((s in look_pick or is_owned(s)) and convertible_skip(cache.get(s)))
+            or (is_owned(s) and earnings_passed(cache.get(s), now().date()))]     # eigen positie met nieuwe kwartaalcijfers
     # eerst wat je opzocht (daar wacht je op), dan je eigen posities (die beoordeel je zelf), dan de oudste
     todo.sort(key=lambda s: (0 if s in look_pick else 1 if is_owned(s) else 2, (cache.get(s) or {}).get("f") or ""))
     print(f"Te verversen: {len(todo)}")
@@ -2658,6 +2775,11 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"  {it['sym']:<10} gap mislukt: {e}")
             it["gap"] = None
+        try:                                         # laatste kwartaalcijfers automatisch beoordeeld (eigen posities: these.json)
+            it["kw"] = quarter_review(it["_card"]["c"], bool(FIN_BALANCE.search(it.get("industry") or ""))) if it.get("_card") else None
+        except Exception as e:  # noqa: BLE001
+            print(f"  {it['sym']:<10} kwartaalbeoordeling mislukt: {e}")
+            it["kw"] = None
         it.pop("_card", None)
         it["koop"] = koopmoment(it)
         if not it["own"] and it["sym"] not in look_keep and ((it.get("card") or {}).get("s") or 0) < CARD_SELECT:

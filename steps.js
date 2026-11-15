@@ -14,25 +14,10 @@ const Steps = (() => {
     'Bewijs dat je het begrijpt', 'Hoe groot is de prijs?', '13 categorieën, 0/5/10', 'Vier regels uit het jaarverslag',
     'Lees de balans als een bankier', 'Benoem de moat en test hem', 'Onder de indruk van de CEO, of eruit',
     'Probeer de these te slopen', 'Betaal niet te veel'];
-  // Wat je per stap zelf beoordeelt (vast; screener.json levert alleen de extra punten per bedrijf).
-  // Afvinken gaat op volgorde: eerst deze, dan de extra's. Voeg nieuwe punten daarom achteraan toe.
-  const MANUAL = {
-    1: ['Wind mee van regelgeving of overheid', 'Adoptie die je in de echte wereld ziet',
-        'Het verhaal van de markt vs. wat het bedrijf wordt (geen gat = geen edge)'],
-    3: ['Geen grote juridische of regelgevingskwestie'],
-    4: ['[Bedrijf] levert X dat Y helpt Z te bereiken, en rekent [verdienmodel]', 'Welke pijn lossen we op?',
-        'Wie heeft die pijn, en waarom?', 'Waarom kiest de klant ons en niet de concurrent?'],
-    5: ['Verkoopt aan een brede markt, geen niche', 'Marktomvang zelf gecheckt', 'Markt groot genoeg voor de groei waarop je inzet'],
-    7: ['Software: netto dollarretentie 120%+', "Lees bedrijfsresultaat, niet nettowinst (en mijd 'adjusted EBITDA')"],
-    9: ['Welke van de zes: netwerkeffect, technologie/patenten, overstapkosten, schaal, regelgeving, merk',
-        'Wordt de moat sterker of zwakker?', 'Kopieert een concurrent met 20 engineers dit binnen een jaar?'],
-    10: ['10+ jaar in de rol, liefst oprichter', 'Gedisciplineerde kapitaalallocatie', 'Eerlijke antwoorden, ook als het tegenzit',
-         'Een leider voor wie goede mensen willen werken', 'Resultaten, geen excuses'],
-    11: ['Schrijf 3-5 redenen op waarom je these fout is', 'Lees de bearish analyse (Seeking Alpha)',
-         'Fraude of boekhoudschandaal, zelfs een vermoeden? Accountantswissel?', 'Kun je met de bear case leven?'],
-    12: ['Zelfs de bear case moet aantrekkelijk zijn']
-  };
-  const STATUS = { pass: ['ok', 'gehaald'], fail: ['no', 'valt af'], check: ['chk', 'twijfel'], manual: ['man', 'zelf beoordelen'] };
+  // Niemand hoeft zelf iets af te vinken of in te vullen: elke stap wordt beoordeeld uit de cijfers of uit het oordeel in
+  // kwaliteit.json (het bedrijf in één zin, marktomvang, moat, CEO, kapitaalbuffer van een bank). Is er geen van beide,
+  // dan staat er 'geen oordeel' en telt de stap niet mee: hij laat een bedrijf nooit afvallen.
+  const STATUS = { pass: ['ok', 'gehaald'], fail: ['no', 'valt af'], check: ['chk', 'twijfel'], manual: ['man', 'geen oordeel'] };
 
   // Scorecard volgens de gids (stap 6): 0 · 5 · 10 punten
   const CARD = {
@@ -95,11 +80,11 @@ const Steps = (() => {
     return `<div class="s12-chead">${ring(card.s, 48)}<span class="s12-cnum"><small>van 125</small></span><span class="s12-lvl ${L[1]}">${L[0]}</span></div>
       <div class="s12-bar"><i style="left:${Math.min(100, card.s / 1.25).toFixed(1)}%"></i></div>
       ${rows}
-      <div class="s12-note">* Subjectief: oordeel uit kwaliteit.json of een strenge schatting uit de cijfers. 100-125 uitzonderlijk · 75-100 watchlist · onder 75 absoluut niet.
+      <div class="s12-note">* Subjectief. <b>Oordeel</b> = inschatting van Claude (AI) uit algemene kennis over het bedrijf (kwaliteit.json); <b>schatting</b> = streng berekend uit de cijfers. 100-125 uitzonderlijk · 75-100 watchlist · onder 75 absoluut niet.
         ${card.nodata && card.nodata.length ? `Geen data (telt neutraal): ${card.nodata.map(k => esc((CARD[k] || [k])[0])).join(', ')}.` : ''}</div>`;
   }
 
-  // 12 vakjes: groen gehaald, rood valt af, oranje twijfel, grijs zelf beoordelen
+  // 12 vakjes: groen gehaald, rood valt af, oranje twijfel, open = geen oordeel (niet uit de cijfers te halen)
   function dots(s12) {
     if (!s12) return '';
     return `<span class="s12-dots" role="img" aria-label="${esc(failText(s12))}">${s12.list.map(s => `<i class="${(STATUS[s.s] || STATUS.manual)[0]}" title="${+s.n}. ${esc(NAMES[s.n])}: ${(STATUS[s.s] || STATUS.manual)[1]}${s.note ? ' · ' + esc(s.note) : ''}"></i>`).join('')}</span>`;
@@ -108,8 +93,8 @@ const Steps = (() => {
     if (!s12) return 'nog niet beoordeeld';
     if (s12.survivor) return 'overleeft alle stappen';
     if (s12.fail === 12 && s12.nfail === 1) return 'overleeft stap 1-11 · alleen (nog) te duur (stap 12)';
-    // geen afvaller en toch geen survivor: bank of verzekeraar (balans en waardering zijn daar niet uit de cijfers te beoordelen)
-    if (s12.fail == null) return 'geen afvaller · balans en waardering zelf beoordelen (bank of verzekeraar)';
+    // geen afvaller en toch geen survivor: bank of verzekeraar zonder oordeel over de kapitaalbuffer (stap 8)
+    if (s12.fail == null) return 'geen afvaller · balans niet uit de cijfers te beoordelen (bank of verzekeraar)';
     const f = s12.list.find(s => s.n === s12.fail);
     return `valt af bij stap ${+s12.fail}: ${(NAMES[s12.fail] || '').toLowerCase()}${f && f.note ? ' · ' + f.note.replace(/^[^:]+:\s*/, '') : ''}`;
   }
@@ -132,10 +117,10 @@ const Steps = (() => {
     if (c.s < 75 || hard.length) return { cls: 'v-bad', label: 'These herzien',
       text: `${c.s < 75 ? `Scorecard ${sc(c.s)}: onder 75, volgens de gids 'absoluut niet'. ` : ''}${hard.length ? `Valt af bij stap ${failNames(hard)}${note(hard[0])}. ` : ''}Breekt de these langzaam, bouw dan geleidelijk af (de gids: over ±18 maanden). Bij fraude: direct eruit. Een koersdaling alleen is nooit een reden.` };
     if (soft.length) return { cls: 'v-mid', label: 'Kritisch bekijken',
-      text: `Als nieuwe aankoop zou het afvallen bij stap ${failNames(soft)}${note(soft[0])}. Dat breekt je these niet vanzelf: lees de kwartaalcijfers en kijk of er iets wezenlijks is veranderd.${c.s < 100 ? ` Scorecard ${sc(c.s)}: watchlist-niveau.` : ''}` };
+      text: `Als nieuwe aankoop zou het afvallen bij stap ${failNames(soft)}${note(soft[0])}. Dat breekt je these niet vanzelf: de kwartaalcijfers en de scorecard worden elke run opnieuw beoordeeld, en je krijgt een melding als er iets wezenlijks verandert.${c.s < 100 ? ` Scorecard ${sc(c.s)}: watchlist-niveau.` : ''}` };
     const val = s.list.find(x => x.n === 12);
     return { cls: 'v-good', label: 'Behouden',
-      text: `Scorecard ${sc(c.s)}${c.s >= 100 ? ' (uitzonderlijk)' : ' (watchlist-niveau)'} en geen afvaller in de bedrijfsstappen.${val && val.s === 'fail' ? ' Wel duur: bijkopen pas bij een betere prijs, maar dat is geen reden om te verkopen.' : ''} Check elk kwartaal, herhaal de scorecard jaarlijks.` };
+      text: `Scorecard ${sc(c.s)}${c.s >= 100 ? ' (uitzonderlijk)' : ' (watchlist-niveau)'} en geen afvaller in de bedrijfsstappen.${val && val.s === 'fail' ? ' Wel duur: bijkopen pas bij een betere prijs, maar dat is geen reden om te verkopen.' : ''} De kwartaalcijfers en de scorecard worden elke run opnieuw beoordeeld.` };
   }
 
   // Oordeel als nieuwe aankoop (Survivors, Stock opzoeken): de 12 stappen zijn een koopfilter, elke afvaller telt.
@@ -146,7 +131,7 @@ const Steps = (() => {
     if (s.survivor && val.s === 'pass') return { cls: 'v-good', label: 'Survivor · koopwaardig', text: 'Overleeft alle 12 stappen en zelfs de bear-case DCF ligt boven de koers. Volgens de gids: koop langzaam (vast bedrag, vaste data) en schrijf je exit op vóór je koopt.' };
     if (s.survivor) return { cls: 'v-good', label: 'Survivor', text: 'Overleeft alle 12 stappen; de waardering is redelijk maar niet ruim (bear-case DCF onder de koers). Koop langzaam en schrijf je exit vooraf op.' };
     if (s.nfail === 1 && s.fail === 12) return { cls: 'v-mid', label: 'Bijna · te duur', text: 'Overleeft stap 1-11, maar de koers ligt boven de basis-DCF. Wacht op een betere prijs (zie Koopmoment); de kwaliteit is er al.' };
-    if (!s.nfail) return { cls: 'v-mid', label: 'Geen afvaller · zelf beoordelen', text: 'Geen stap valt automatisch af, maar bij banken, brokers en verzekeraars zijn de balans (stap 8) en de waardering (stap 12) niet uit de cijfers te halen: beoordeel die zelf.' };
+    if (!s.nfail) return { cls: 'v-mid', label: 'Geen afvaller · balans open', text: 'Geen stap valt af, maar bij banken, brokers en verzekeraars is de balans (stap 8) niet uit de cijfers te halen en er is voor dit bedrijf geen oordeel over de kapitaalbuffer. Daarom geen survivor.' };
     const f = s.list.find(x => x.n === s.fail), why = f && f.note ? `: ${f.note.replace(/^[^:]+:\s*/, '')}` : '';
     const where = `stap ${failNames([s.fail])}${why}${s.nfail > 1 ? `; in totaal ${s.nfail} afvallers` : ''}`;
     return c.s < 75
@@ -154,27 +139,23 @@ const Steps = (() => {
       : { cls: 'v-bad', label: `Valt af bij stap ${+s.fail}`, text: `Eerste afvaller: ${where}. Volgens de gids: zakt een bedrijf voor één stap, dan valt het af, hoe mooi het verhaal ook klinkt.` };
   }
 
-  // Volledige 12 stappen. opts.ticks = {n: [index, ...]} en opts.tickable = true geven afvinkbare punten
+  // Volledige 12 stappen: alles beoordeeld uit de cijfers of het oordeel, niets om af te vinken. s.m = een aandachtspunt
+  // per bedrijf (bv. pas kort op de beurs), s.info = toelichting bij het oordeel, s.wat = het bedrijf in één zin (stap 4).
   function panel(s12, opts = {}) {
     if (!s12) return '<div class="s12-note">De 12 stappen worden berekend bij de volgende run van de Top 250.</div>';
-    const ticks = opts.ticks || {};
-    const mark = ok => ok === true ? '<b class="ok">✓</b>' : ok === false ? '<b class="no">✕</b>' : '<b class="na">?</b>';
+    const mark = ok => ok === true ? '<b class="ok">✓</b>' : ok === false ? '<b class="no">✕</b>' : '<b class="na">·</b>';
     return s12.list.map(s => {
       const st = STATUS[s.s] || STATUS.manual;
       const checks = (s.c || []).map(([t, ok, v]) => `<li>${mark(ok)}<span>${esc(t)}</span>${v != null ? `<em>${esc(nl(v))}</em>` : ''}</li>`).join('');
-      const man = (MANUAL[s.n] || []).concat(s.m || []).map((t, i) => {
-        const on = (ticks[s.n] || []).includes(i);
-        return opts.tickable
-          ? `<li class="man"><label><input type="checkbox" data-step="${+s.n}" data-i="${i}"${on ? ' checked' : ''}><span>${esc(t)}</span></label></li>`
-          : `<li class="man"><b class="na">○</b><span>${esc(t)}</span></li>`;
-      }).join('');
-      let extra = '';
-      if (s.n === 4 && s.about) extra = `<div class="s12-about">${esc(s.about)}…</div>`;
+      const man = (s.m || []).map(t => `<li class="man"><b class="na">·</b><span>${esc(t)}</span></li>`).join('');
+      let extra = s.info ? `<div class="s12-note">${esc(s.info)}</div>` : '';
+      if (s.n === 4 && s.wat) extra += `<div class="s12-wat">${esc(s.wat)}</div>`;
+      if (s.n === 4 && s.about) extra += `<div class="s12-about">${esc(s.about)}…</div>`;
       if (s.n === 9 && s.types) extra = `<div class="s12-note">Moat-types: ${esc(s.types)}</div>`;
-      if (s.n === 12 && s.dcf) {
+      if (s.n === 12 && s.dcf && Object.values(s.dcf).some(v => v != null)) {
         const p = s.price, d = s.dcf;
         const cell = (k, lbl) => `<div class="s12-dcf ${d[k] != null && p ? (d[k] >= p ? 'up' : 'down') : ''}"><small>${lbl}</small><b>${d[k] == null ? '—' : nf(d[k], 2)}</b></div>`;
-        extra = `<div class="s12-dcfrow">${cell('bull', 'bull 8%')}${cell('base', 'basis 10%')}${cell('bear', 'bear 12%')}<div class="s12-dcf"><small>koers</small><b>${nf(p, 2)}</b></div></div>
+        extra += `<div class="s12-dcfrow">${cell('bull', 'bull 8%')}${cell('base', 'basis 10%')}${cell('bear', 'bear 12%')}<div class="s12-dcf"><small>koers</small><b>${nf(p, 2)}</b></div></div>
           <div class="s12-note">DCF: omzetgroei ${s.g == null ? '—' : nf(s.g, 1) + '%'} per jaar (3-jaarsgroei ${s.actual == null ? '—' : nf(s.actual, 1) + '%'}, ingeperkt), vrije-kasstroommarge ${s.margin == null ? '—' : nf(s.margin, 1) + '%'}, eindgroei 4%.
             Omgekeerde DCF: de koers rekent op <b>${s.implied == null ? '—' : nf(s.implied, 1) + '%'}</b> groei per jaar${s.actual != null && s.implied != null ? (s.implied < s.actual ? ' — minder dan het bedrijf nu groeit: daar zit de kans.' : ' — meer dan het bedrijf nu groeit: geen marge.') : '.'}
             ${s.mult ? `Juiste multiple: ${esc(s.mult[0])} ${esc(nl(s.mult[1]))}${s.mult[2] ? ' (' + esc(nl(s.mult[2])) + ')' : ''}.` : ''}</div>`;
@@ -185,6 +166,20 @@ const Steps = (() => {
         ${checks || man ? `<ul class="s12-list">${checks}${man}</ul>` : ''}${extra}</details>`;
     }).join('');
   }
+
+  // Laatste kwartaalcijfers, automatisch beoordeeld door de Top 250-run (screener.py, quarter_review): het oordeel en de
+  // punten waarop het rust. Niemand hoeft de cijfers zelf te lezen of af te vinken.
+  const KW = { sterk: ['Sterk kwartaal', 'ok'], goed: ['Goed kwartaal', 'ok'], gemengd: ['Gemengd kwartaal', 'chk'], zwak: ['Zwak kwartaal', 'no'] };
+  const kwDate = k => /^\d{4}-\d\d-\d\d/.test(k || '') ? new Date(k.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : null;
+  function quarter(kw) {
+    if (!kw || !KW[kw.lvl]) return '<div class="s12-note">Nog geen kwartaalcijfers om te beoordelen (te weinig gegevens).</div>';
+    const mark = ok => ok === true ? '<b class="ok">✓</b>' : ok === false ? '<b class="no">✕</b>' : '<b class="na">·</b>';
+    const d = kwDate(kw.k);
+    return `<div class="s12-kw"><span class="s12-st ${KW[kw.lvl][1]}">${KW[kw.lvl][0]}</span>${d ? `<small>kwartaal t/m ${esc(d)}</small>` : ''}</div>
+      <ul class="s12-list s12-kwl">${(kw.p || []).map(([t, ok, v]) => `<li>${mark(ok)}<span>${esc(t)}</span>${v != null ? `<em>${esc(nl(v))}</em>` : ''}</li>`).join('')}</ul>`;
+  }
+  // De slechte punten van een kwartaalbeoordeling in één regel (voor meldingen)
+  const quarterBad = kw => ((kw && kw.p) || []).filter(x => x[1] === false).map(x => String(x[0]).replace(/ t\.o\.v\..*$| \(30 dagen\)$| van het kwartaal$/, '').toLowerCase());
 
   let cssDone = false;
   function css() {
@@ -238,6 +233,9 @@ const Steps = (() => {
       .s12-list li em { margin-left: auto; font-style: normal; font-family: var(--mono, monospace); font-size: 11.5px; color: var(--muted, #83888d); white-space: nowrap; padding-left: 8px; }
       .s12-list li.man { color: #c8cbcf; } .s12-list label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
       .s12-list input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--up, #3ecf8e); flex-shrink: 0; position: relative; top: 2px; }
+      .s12-wat { margin: 0 10px 8px 48px; font-size: 12.5px; color: var(--text, #e8e9ea); line-height: 1.5; }
+      .s12-kw { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 6px; } .s12-kw small { color: var(--muted, #8b9096); font-size: 11.5px; }
+      .s12-list.s12-kwl { margin-left: 0; }
       .s12-about { margin: 0 10px 10px 48px; font-size: 12px; color: #c8cbcf; line-height: 1.5; font-style: italic; }
       .s12-dcfrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 10px 0 48px; }
       .s12-dcf { border: 1px solid var(--line, #2a2c2f); border-radius: 8px; padding: 6px 8px; min-width: 0; }
@@ -246,7 +244,7 @@ const Steps = (() => {
       .s12-step .s12-note { margin: 8px 10px 10px 48px; }
       .v-good { color: var(--up, #3ecf8e); } .v-mid { color: var(--warn, #f5b544); } .v-bad { color: var(--down, #f0595f); } .v-na { color: var(--muted, #83888d); }
       @media (max-width: 560px) {
-        .s12-flag, .s12-list, .s12-about, .s12-dcfrow, .s12-step .s12-note { margin-left: 10px; }
+        .s12-flag, .s12-list, .s12-about, .s12-wat, .s12-dcfrow, .s12-step .s12-note { margin-left: 10px; }
         .s12-dcfrow { grid-template-columns: repeat(2, 1fr); }
         /* tekst blijft naast het vinkje; een lange waarde schuift rechts uitgelijnd naar de regel eronder */
         .s12-list li { flex-wrap: wrap; } .s12-list li > span { flex: 1 1 0; min-width: 60%; }
@@ -258,5 +256,5 @@ const Steps = (() => {
     document.head.appendChild(st);
   }
 
-  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, MANUAL, ring, esc, dots, failText, verdict, buyVerdict, cardTable, panel, css };
+  return { NAMES, SUB, CARD, LEVEL, SECTOR_NL, KW, ring, esc, dots, failText, verdict, buyVerdict, cardTable, panel, quarter, quarterBad, kwDate, css };
 })();

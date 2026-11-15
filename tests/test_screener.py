@@ -182,6 +182,20 @@ if hasattr(S, "write_details") and hasattr(S, "shard_of"):
               f"these: een nieuw kwartaal komt erbij met de dag van beoordelen ({kw4})")
         k5 = S.update_these(k4, [dict(x, kw=None) for x in r1], d0 + timedelta(days=101))
         check(k5["stocks"][sym0]["kw"] == kw4, "these: zonder nieuwe beoordeling blijft de historie staan")
+        # oordeel verandert (voor het eerst een oordeel in kwaliteit.json): eerdere weekstanden schuiven mee, zodat er
+        # geen these-alarm of schijnbare stijging ontstaat; daarna (zelfde oordeel) niet nog eens
+        base = {"name": "Test", "hist": [{"d": "2026-10-05", "s": 120, "f": [3]}, {"d": "2026-10-12", "s": 120, "f": [3]}, {"d": "2026-10-19", "s": 115, "f": [3]}]}
+        crit_o = [{"k": "moat", "p": 5, "raw": 5, "src": "oordeel"}, {"k": "omzet", "p": 10, "v": 20}]
+        rr = [{"sym": "TST", "name": "Test", "card": {"s": 100, "lvl": "top", "crit": crit_o}, "s12": {"list": [{"n": 3, "s": "fail"}]}}]
+        q1 = S.update_these({"stocks": {"TST": base}}, rr, date(2026, 10, 26))
+        h1 = q1["stocks"]["TST"]["hist"]
+        check([e["s"] for e in h1] == [105, 105, 100, 100] and q1["stocks"]["TST"]["qs"] == [["moat", 5]],
+              f"these: bij een nieuw oordeel moeten de eerdere weekstanden meeschuiven ({[e['s'] for e in h1]})")
+        rr[0]["card"]["s"] = 95                                   # daarna een echte daling in de cijfers: die blijft zichtbaar
+        q2 = S.update_these(q1, rr, date(2026, 11, 2))
+        check([e["s"] for e in q2["stocks"]["TST"]["hist"]] == [105, 105, 100, 100, 95], "these: zelfde oordeel, dan niets herrekenen")
+        q3 = S.update_these({"stocks": {"TST": dict(base, qs=[["moat", 5]])}}, rr, date(2026, 10, 26))
+        check([e["s"] for e in q3["stocks"]["TST"]["hist"]] == [120, 120, 115, 95], "these: oordeel ongewijzigd, dan een echte daling melden")
 
 # Kwartaalcijfers automatisch beoordelen (quarter_review): vier punten, oordeel uit het aantal goede en slechte
 if hasattr(S, "quarter_review"):

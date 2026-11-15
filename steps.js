@@ -185,7 +185,10 @@ const Steps = (() => {
       <ul class="s12-list s12-kwl">${(kw.c || []).map(([t, ok, v]) => `<li>${mark(ok)}<span>${esc(t)}</span>${v != null ? `<em>${esc(nl(v))}</em>` : ''}</li>`).join('')}</ul>`;
   }
   // De slechte punten van een kwartaalbeoordeling in één regel (voor meldingen)
-  const quarterBad = kw => ((kw && kw.c) || []).filter(x => x[1] === false).map(x => String(x[0]).replace(/ t\.o\.v\..*$| \(30 dagen\)$| van het kwartaal$/, '').toLowerCase());
+  const BAD = [[/^Omzet/, 'omzet lager dan een jaar eerder'], [/^Winst/, 'winst onder de verwachting'],
+    [/^Vrije kasstroom/, 'vrije kasstroom negatief of sterk gedaald'], [/^Analisten/, 'analisten stellen de verwachting omlaag bij']];
+  const quarterBad = kw => ((kw && kw.c) || []).filter(x => x[1] === false)
+    .map(x => (BAD.find(([re]) => re.test(String(x[0]))) || [null, String(x[0]).toLowerCase()])[1]);
 
   let cssDone = false;
   function css() {

@@ -2062,7 +2062,9 @@ def quarter_review(c, fin=False):
         f1, f0 = fq[-1][1], jaar_eerder(fq)
         yoy = (f1 / f0 - 1) * 100 if f0 and f0 > 0 else None
         ok = False if f1 < 0 or (yoy is not None and yoy < -50) else True if yoy is None or yoy >= -20 else None
-        jr = "" if yoy is None else " (meer dan +300% t.o.v. vorig jaar)" if yoy > 300 else f" ({yoy:+.0f}% t.o.v. vorig jaar)"
+        # een percentage alleen als beide kwartalen positief zijn; anders (van plus naar min, of andersom) het bedrag van toen
+        jr = ("" if f0 is None else f" (vorig jaar {f0 / 1e9:.1f} mld)" if yoy is None or f1 <= 0
+              else " (meer dan +300% t.o.v. vorig jaar)" if yoy > 300 else f" ({yoy:+.0f}% t.o.v. vorig jaar)")
         pts.append(["Vrije kasstroom van het kwartaal", ok, f"{f1 / 1e9:.1f} mld" + jr])
     up, dn = c.get("rev_up"), c.get("rev_down")
     if isinstance(up, (int, float)) and isinstance(dn, (int, float)) and up + dn > 0:
@@ -2461,7 +2463,10 @@ def update_these(prev, refs, today):
     """these.json: per eigen aandeel (refs) een wekelijkse momentopname van scorecard en afvalstappen, plus de
     kwartaalcijfers. Eén regel per ISO-week (elke run overschrijft die van deze week), hooguit THESE_MAX weken.
     Aandelen die niet meer in refs staan houden hun historie, maar krijgen niets nieuws.
-    Kwartaalcijfers: ligt een eerder bewaarde next_earn in het verleden, dan wordt dat last_earn."""
+    Kwartaalcijfers: ligt een eerder bewaarde next_earn in het verleden, dan wordt dat last_earn.
+    Verandert het oordeel (kwaliteit.json) over een aandeel, dan verschuift de scorecard zonder dat er aan het bedrijf iets
+    veranderde. De eerdere weekstanden worden dan herrekend met hetzelfde verschil, zodat de trend en de these-meldingen
+    alleen echte veranderingen in de cijfers laten zien (qs = welke oordelen er golden)."""
     stocks = (prev or {}).get("stocks") if isinstance(prev, dict) else None
     stocks = {k: v for k, v in (stocks or {}).items() if isinstance(v, dict)} if isinstance(stocks, dict) else {}
     week = today.isocalendar()[:2]
@@ -2482,6 +2487,15 @@ def update_these(prev, refs, today):
                 if k not in by_week or by_week[k]["d"] <= e["d"]:
                     by_week[k] = e
         hist = sorted(by_week.values(), key=lambda e: e["d"]) + [entry]
+        # oordeel veranderd (of voor het eerst een oordeel): eerdere weekstanden herrekenen met het verschil tussen de
+        # vorige run (nog met het oude oordeel) en nu
+        qs = sorted([x["k"], x.get("raw")] for x in (card.get("crit") or []) if isinstance(x, dict) and x.get("src") == "oordeel")
+        if old.get("qs", []) != qs and entry["s"] is not None:
+            olds = sorted((e for e in (old.get("hist") if isinstance(old.get("hist"), list) else [])
+                           if isinstance(e, dict) and _day(e.get("d")) and _day(e["d"]) <= today and e.get("s") is not None), key=lambda e: e["d"])
+            delta = entry["s"] - olds[-1]["s"] if olds else 0
+            if delta:
+                hist = [dict(e, s=max(0, min(125, round(e["s"] + delta, 1)))) if e.get("s") is not None else e for e in hist[:-1]] + [entry]
         # kwartaalcijfers: een bewaarde datum die voorbij is, is nu de laatst gepubliceerde
         last, nxt = _day(old.get("last_earn")), _day(old.get("next_earn"))
         if nxt and nxt < today:
@@ -2504,7 +2518,7 @@ def update_these(prev, refs, today):
                 kws.append({"k": k, "d": d0.isoformat(), "lvl": kw["lvl"]})
         stocks[sym] = {"name": it.get("name") or old.get("name") or sym, "hist": hist[-THESE_MAX:],
                        "next_earn": nxt.isoformat() if nxt else None, "last_earn": last.isoformat() if last else None,
-                       **({"kw": kws[-6:]} if kws else {})}
+                       **({"kw": kws[-6:]} if kws else {}), **({"qs": qs} if qs else {})}
     return {"v": 1, "updated": iso(), "stocks": dict(sorted(stocks.items()))}
 
 

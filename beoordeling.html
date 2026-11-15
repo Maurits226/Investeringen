@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-UUPDcyExscDE9PSvKmX9B/1saKSBaXotc/mFBjJLwww='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-KAJsZ3keE+BN47wqgEb/lJKcS0TD0VRVbixIdt6dKvw='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <style id="af">html{display:none}</style>
@@ -244,7 +244,8 @@ const kwOf = r => (r.it && r.it.kw && Steps.KW[r.it.kw.lvl]) ? r.it.kw : null;
 // Waarom dit in de portefeuille past en wat de these zou breken: opgesteld uit het oordeel en de scorecard
 function theseAuto(r, it) {
   const c = it.card || {}, crit = (c.crit || []).filter(x => !x.nodata);
-  const nm = k => (Steps.CARD[k] || [k])[0].replace('*', '').toLowerCase();
+  // eerste letter klein, behalve bij een afkorting (CEO) of een naam (S&P blijft S&P)
+  const nm = k => { const t = (Steps.CARD[k] || [k])[0].replace('*', ''); return /^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; };
   const top = crit.filter(x => x.p === 10).map(x => nm(x.k)), weak = crit.filter(x => x.p === 0).map(x => nm(x.k));
   const note = it.q && it.q.note ? String(it.q.note).replace(/[.\s]+$/, '') + '. ' : '';
   const why = note + (top.length ? `Sterk op de scorecard: ${top.join(', ')}.` : 'Geen onderdeel van de scorecard scoort het maximum.')

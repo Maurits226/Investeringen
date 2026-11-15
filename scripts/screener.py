@@ -2063,9 +2063,10 @@ def quarter_review(c, fin=False):
         yoy = (f1 / f0 - 1) * 100 if f0 and f0 > 0 else None
         ok = False if f1 < 0 or (yoy is not None and yoy < -50) else True if yoy is None or yoy >= -20 else None
         # een percentage alleen als beide kwartalen positief zijn; anders (van plus naar min, of andersom) het bedrag van toen
+        cur = c.get("fcur") or c.get("cur") or ""                 # valuta van de jaarcijfers (TSMC rapporteert in TWD)
         jr = ("" if f0 is None else f" (vorig jaar {f0 / 1e9:.1f} mld)" if yoy is None or f1 <= 0
               else " (meer dan +300% t.o.v. vorig jaar)" if yoy > 300 else f" ({yoy:+.0f}% t.o.v. vorig jaar)")
-        pts.append(["Vrije kasstroom van het kwartaal", ok, f"{f1 / 1e9:.1f} mld" + jr])
+        pts.append(["Vrije kasstroom van het kwartaal", ok, f"{f1 / 1e9:.1f} mld {cur}".rstrip() + jr])
     up, dn = c.get("rev_up"), c.get("rev_down")
     if isinstance(up, (int, float)) and isinstance(dn, (int, float)) and up + dn > 0:
         pts.append(["Analisten stellen de winstverwachting bij (30 dagen)", True if up > dn and up >= 2 else False if dn > up and dn >= 2 else None,
